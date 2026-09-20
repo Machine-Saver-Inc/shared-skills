@@ -143,8 +143,8 @@ what every other application on the machine does. `ms_appkit.widgets.action_bar`
 is the only place it is decided; a screen passes `back=`, `forward=` and
 `extras=` and never arranges a row itself. Two tests hold it: one proves the
 helper puts its arguments in the right places, one proves no screen passed them
-the wrong way round — the helper was right and a screen filled it backwards is
-exactly how this was reported.
+the wrong way round — a correct helper filled backwards by a screen is exactly
+how this was reported.
 
 Where a screen has no Back, the action that *leaves* it takes that place —
 **Discard** on a result screen, **Stop the run** on a failure screen.
@@ -180,6 +180,10 @@ Three, no more, from **one shared helper** so they cannot drift:
 | Results and outputs | `Documents/<App Name>/` |
 | Log file | `~/.<app-slug>/<app-slug>.log` |
 | Settings | `~/.<app-slug>/settings.json`, via `ms_appkit.settings` |
+
+A settings *file* rather than `QSettings`: it can be read over somebody's
+shoulder on a machine with no internet, copied to another machine, and pasted
+into a problem report. A registry key cannot.
 
 ### Always present
 
@@ -440,6 +444,10 @@ through: the **button helper** and the screen stack's `currentChanged`. Collapse
 a repeated press into one line with a count. The next report after this shipped
 showed exactly which two buttons led to the fault.
 
+**Name a screen before you add it to the stack.** Adding the first screen makes
+it current, which fires the signal that writes the trail; a name recorded
+afterwards arrives too late and the first line of every report reads *opened ?*.
+
 **The preview is editable, and what it says is what gets posted.**
 
 **Pitfalls:** redact home paths to `~` (the repo is public); a pre-filled issue
@@ -460,6 +468,9 @@ Keep the report builder Qt-free so its output can be asserted in tests.
 
 Matrix: `ubuntu-latest` and `windows-latest` × the supported Python range.
 
+0. **State `shell: bash` once, in the job's `defaults`.** Windows runners run
+   `run:` in PowerShell, where `grep`, heredocs and `|| true` do not exist —
+   every bash step fails at once, and the failure looks like the tests.
 1. **Qt runtime libraries on Linux** — a bare runner has no `libEGL`:
    `libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 libxcb-cursor0 libxcb-icccm4
    libxcb-keysyms1 libxcb-shape0 libxcb-xinerama0 libxkbcommon0`.
@@ -469,6 +480,10 @@ Matrix: `ubuntu-latest` and `windows-latest` × the supported Python range.
 4. Lint.
 5. Tests, `QT_QPA_PLATFORM=offscreen` set **in the workflow**.
 6. **Interface tests actually ran** — re-run and fail if they *skipped*.
+
+**Anything a workflow step runs must work on the oldest Python in the matrix.**
+A version-consistency check importing `tomllib` failed only the 3.10 jobs; it
+was comparing three version strings, and a regex was the right tool anyway.
 
 **Two collection traps, each turning every job red at once:** a POSIX-only
 import at module scope (`pty`, `fcntl`, `termios`) makes the module
@@ -703,6 +718,11 @@ violation until checked that way: one matched "CI" inside "recipe", one mistook
 bullets under a leading heading for the summary it required, and one let a base
 button role be satisfied by a sub-role it was supposed to be independent of.
 
+**Clear `__pycache__` before trusting a result after restoring a mutated file.**
+A `cp` restore inside the same second leaves a stale `.pyc` that Python keeps
+using, and the guard appears to pass against a violation no longer on disk but
+still being executed.
+
 ---
 
 ## What the repository enforces for you
@@ -717,8 +737,9 @@ remember:
 | Every button asks for a mark the library holds | two asked for `speed`, vendored as `gauge`, and rendered nothing |
 | The same label always carries the same mark | or the vocabulary stops being one |
 | Icons come from Lucide, with its licence shipped | hand-drawn ones shipped illegible |
-| Back is left, the forward action is right | it was the other way round |
+| Back is left and the forward action right — in the helper *and* at every call site | it was the other way round, and a correct helper can still be filled backwards |
 | The footer carries the version, the maker and the report button | the version was on one screen only |
+| Every screen has a name a report can use | the first line of every report read "opened ?" |
 | A styled control sets border and background with its radius | buttons rendered as bare text |
 | Each role has hover, pressed and disabled | a role styled only at rest has no pressed look |
 | Every icon is legible at its shipped size, in both tints | two shipped as an asterisk and a squiggle |
@@ -729,9 +750,8 @@ remember:
 | The version has a `CHANGELOG` entry | the body is written from it |
 | Every issue in the changelog has a test naming it | a regression should be recognised |
 | `--version` works from the command line | someone is on the phone to a machine with no internet |
-| CI: packaging inputs tracked, Qt libraries present, interface tests must not skip | each cost a release |
+| CI: bash declared, packaging inputs tracked, Qt libraries present, interface tests must not skip | each cost a release |
 | Release: the tag is on `main`; published assets verified | each was a manual step that got missed |
 
-Still yours: read a CI run to completion, never pipe pytest into `tail`, clear
-`__pycache__` before trusting a result after you have restored a mutated file,
-and look at the screenshots.
+Still yours: read a CI run to completion, never pipe pytest into `tail`, and
+look at the screenshots.
