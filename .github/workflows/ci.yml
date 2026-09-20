@@ -39,6 +39,9 @@ jobs:
       - name: Install the kit
         run: pip install -e "packages/ms-appkit[dev]"
 
+      - name: Lint
+        run: ruff check packages/ms-appkit/src packages/ms-appkit/tests packages/ms-appkit/template
+
       - name: The kit's own tests
         env:
           QT_QPA_PLATFORM: offscreen

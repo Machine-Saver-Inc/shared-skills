@@ -21,6 +21,8 @@ button that closes it. Reported against the Espec program as issue #9.
   installed the program and does not need the install steps; that was the other
   half of the release-page complaint. Qt-free, so what the window will show can
   be asserted without building one.
+- `housekeeping.lint_faults()` — runs `ruff` from the test suite, and complains
+  rather than passing quietly when it is not installed.
 - `housekeeping.notes_window_faults()` — four checks, each proved to fail
   against its own violation: the window fits the screen, it scrolls *with the
   bar left on*, the notes are rendered rather than shown as source, and the
@@ -34,6 +36,9 @@ button that closes it. Reported against the Espec program as issue #9.
 - A checked range is not a usable one — a scrollbar switched off still reports
   its range, and the first version of that guard passed against its own
   violation because of it.
+- §6 and §7: run the build's lint from the test suite, and wait for `main` to
+  go green *before* tagging. Both learned the same afternoon, from an import
+  in the wrong order that went out with a tag on it.
 
 ## 2026-09-19
 

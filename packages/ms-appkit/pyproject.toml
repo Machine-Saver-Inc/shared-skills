@@ -20,7 +20,7 @@ Homepage = "https://github.com/Machine-Saver-Inc/shared-skills"
 Source = "https://github.com/Machine-Saver-Inc/shared-skills/tree/main/packages/ms-appkit"
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

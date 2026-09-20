@@ -337,6 +337,17 @@ def test_an_unsigned_download_is_refused():
         assert not verify_against_checksums(path, "deadbeef  setup.exe")
 
 
+# --- the lint -------------------------------------------------------------
+
+
+def test_the_kit_passes_the_lint_the_build_runs():
+    """So `pytest` alone is enough to know a push will not turn CI red."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    assert not house.lint_faults(root / "src", root / "tests", root / "template")
+
+
 # --- what's new ------------------------------------------------------------
 
 

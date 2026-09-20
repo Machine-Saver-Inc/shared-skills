@@ -366,6 +366,38 @@ def misplaced_back_buttons(ui: Path) -> list[str]:
     return complaints
 
 
+# --- the lint the build runs -----------------------------------------------
+
+
+def lint_faults(*paths: Path) -> list[str]:
+    """Run the same lint the build runs, from the test suite.
+
+    A lint that lives only in CI is a lint you find out about after pushing.
+    This one ran `ruff` in the workflow and nowhere else, so an import left in
+    the wrong order sailed through a green local `pytest`, went out with a tag
+    on it, and turned all six CI jobs red a minute later.
+
+    Returns a complaint per finding. If `ruff` is not installed the caller gets
+    one complaint saying so, rather than a silent pass -- a check that quietly
+    does nothing is the thing this module exists to prevent.
+    """
+    import shutil
+    import subprocess
+
+    if shutil.which("ruff") is None:
+        return ["ruff is not installed, so the lint the build runs was skipped"]
+    try:
+        done = subprocess.run(
+            ["ruff", "check", *[str(p) for p in paths]],
+            capture_output=True, text=True, timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return [f"could not run ruff: {exc}"]
+    if done.returncode == 0:
+        return []
+    return [line for line in done.stdout.splitlines() if line.strip()][:40]
+
+
 # --- what the program shows about a release --------------------------------
 
 

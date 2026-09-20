@@ -499,7 +499,12 @@ Matrix: `ubuntu-latest` and `windows-latest` × the supported Python range.
 2. Install the package.
 3. **Packaging inputs are tracked by git** — fail if `git ls-files` does not know
    one.
-4. Lint.
+4. Lint — **and run the same lint from the test suite**, so `pytest` alone is
+   enough to know a push will not turn CI red. A lint that lives only in the
+   workflow is one you find out about after pushing: an import left in the
+   wrong order went out with a tag on it and turned all six jobs red a minute
+   later. `ms_appkit.housekeeping.lint_faults()` does this, and complains
+   rather than passing quietly when `ruff` is not installed.
 5. Tests, `QT_QPA_PLATFORM=offscreen` set **in the workflow**.
 6. **Interface tests actually ran** — re-run and fail if they *skipped*.
 
@@ -535,10 +540,16 @@ import fails, so use `importorskip("PySide6.QtWidgets")`.
   notice is a minor; a fix nobody would describe is a patch.
 - **`_version.py` is the only place a version is written.**
 - **A release is a tag push and nothing else.**
-- **Push `main`, confirm it landed, then tag.** Retry a timed-out push rather
-  than assuming it failed.
+- **Push `main`, wait for its CI to finish green, *then* tag.** Not "confirm
+  the push landed, then tag" — that is how a tag came to point at a commit
+  whose lint failed. The push landing and the build passing are different
+  facts, and only the second one is a reason to tag.
 - **Read a CI run to completion before calling it green.** Nothing can check
   this for you.
+- **A published release stands.** If a tag turns out to point at a commit with
+  a cosmetic fault, fix `main` and leave the release alone; deleting a release
+  somebody may already have is worse than the fault. Re-cut only what has not
+  been published.
 - **Never pipe a test run into `tail`** — the exit code becomes the pipe's.
 
 ### The release page serves two people who want opposite things
@@ -778,6 +789,7 @@ remember:
 | The version has a `CHANGELOG` entry | the body is written from it |
 | Every issue in the changelog has a test naming it | a regression should be recognised |
 | `--version` works from the command line | someone is on the phone to a machine with no internet |
+| The lint the build runs also runs in the test suite | a lint only CI ran went red after the tag was already pushed |
 | CI: bash declared, packaging inputs tracked, Qt libraries present, interface tests must not skip | each cost a release |
 | Release: the tag is on `main`; published assets verified | each was a manual step that got missed |
 
