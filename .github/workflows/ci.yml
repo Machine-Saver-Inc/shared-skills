@@ -8,6 +8,12 @@ on:
 jobs:
   test:
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # Windows runners default to PowerShell, where grep, heredocs and
+        # `|| true` do not exist. Every step below is a bash script, and
+        # leaving this out turned all three Windows jobs red at once.
+        shell: bash
     strategy:
       fail-fast: false
       matrix:
@@ -62,19 +68,25 @@ jobs:
         run: |
           grep -q "Skill version" skills/ms-desktop-app/SKILL.md
           python - <<'PY'
-          import re, pathlib, tomllib
-          skill = pathlib.Path("skills/ms-desktop-app/SKILL.md").read_text()
-          version = re.search(r"\*\*Skill version ([0-9.]+)\.\*\*", skill).group(1)
+          import re, pathlib
+          # No tomllib: it arrived in 3.11 and this matrix starts at 3.10.
+          def find(pattern, path):
+              found = re.search(pattern, pathlib.Path(path).read_text(), re.M)
+              assert found, f"{pattern} not found in {path}"
+              return found.group(1)
+
+          skill = find(r"^\*\*Skill version ([0-9.]+)\.\*\*",
+                       "skills/ms-desktop-app/SKILL.md")
+          kit = find(r'^version = "([0-9.]+)"',
+                     "packages/ms-appkit/pyproject.toml")
+          stamped = find(r'^__version__ = "([0-9.]+)"',
+                         "packages/ms-appkit/src/ms_appkit/_version.py")
+
           changelog = pathlib.Path("CHANGELOG.md").read_text()
-          assert f"ms-desktop-app {version}" in changelog, \
-              f"skill {version} has no CHANGELOG entry"
-          kit = tomllib.loads(
-              pathlib.Path("packages/ms-appkit/pyproject.toml").read_text()
-          )["project"]["version"]
+          assert f"ms-desktop-app {skill}" in changelog, \
+              f"skill {skill} has no CHANGELOG entry"
           assert f"ms-appkit {kit}" in changelog, f"kit {kit} has no CHANGELOG entry"
-          stamped = pathlib.Path(
-              "packages/ms-appkit/src/ms_appkit/_version.py"
-          ).read_text()
-          assert f'"{kit}"' in stamped, "_version.py disagrees with pyproject.toml"
-          print(f"skill {version}, kit {kit}")
+          assert stamped == kit, \
+              f"_version.py says {stamped}, pyproject.toml says {kit}"
+          print(f"skill {skill}, kit {kit}")
           PY
