@@ -179,7 +179,7 @@ Three, no more, from **one shared helper** so they cannot drift:
 | --- | --- |
 | Results and outputs | `Documents/<App Name>/` |
 | Log file | `~/.<app-slug>/<app-slug>.log` |
-| Settings | the platform's usual place, via `QSettings` |
+| Settings | `~/.<app-slug>/settings.json`, via `ms_appkit.settings` |
 
 ### Always present
 
@@ -668,9 +668,8 @@ reporter earned.
 
 **When a new lesson arrives, ask first whether it can be a test.** Adding a
 sentence here is the fallback — and **prove the test fails when the rule is
-broken**, or it is decoration. Two guards passed against their own violation
-until checked that way: one matched "CI" inside "recipe", one mistook bullets
-under a leading heading for the summary it required.
+broken**, or it is decoration. Three guards in this family passed against their
+own violation until checked that way; §13 names them.
 
 ---
 
