@@ -499,12 +499,23 @@ Matrix: `ubuntu-latest` and `windows-latest` × the supported Python range.
 2. Install the package.
 3. **Packaging inputs are tracked by git** — fail if `git ls-files` does not know
    one.
-4. Lint — **and run the same lint from the test suite**, so `pytest` alone is
-   enough to know a push will not turn CI red. A lint that lives only in the
-   workflow is one you find out about after pushing: an import left in the
-   wrong order went out with a tag on it and turned all six jobs red a minute
-   later. `ms_appkit.housekeeping.lint_faults()` does this, and complains
-   rather than passing quietly when `ruff` is not installed.
+4. Lint — **with its rule set stated in `pyproject.toml`, and run from the test
+   suite as well as the workflow.**
+
+   Two separate lessons, a few minutes apart. A lint that lives only in the
+   workflow is one you find out about after pushing: an import in the wrong
+   order went out with a tag on it and turned all six jobs red.
+   `ms_appkit.housekeeping.lint_faults()` runs it from `pytest` instead, and
+   complains rather than passing quietly when `ruff` is missing.
+
+   Then the same guard passed locally and failed in CI, on the same commit.
+   The package had no `[tool.ruff]` section, so each side fell back to its own
+   installed default: **nothing found here, twenty-one findings there.** A lint
+   whose rule set is implicit is not one lint, it is two that share a name.
+   State it — the family uses `select = ["E", "F", "W", "I", "UP", "B"]`,
+   `ignore = ["E501"]`, `line-length = 100` — and both sides check the same
+   thing. One of the twenty-one was a real closure-over-a-loop-variable bug in
+   a guard, so the wider net was not wasted; it was just not reproducible.
 5. Tests, `QT_QPA_PLATFORM=offscreen` set **in the workflow**.
 6. **Interface tests actually ran** — re-run and fail if they *skipped*.
 
@@ -789,7 +800,7 @@ remember:
 | The version has a `CHANGELOG` entry | the body is written from it |
 | Every issue in the changelog has a test naming it | a regression should be recognised |
 | `--version` works from the command line | someone is on the phone to a machine with no internet |
-| The lint the build runs also runs in the test suite | a lint only CI ran went red after the tag was already pushed |
+| The lint the build runs also runs in the test suite, under a rule set stated in `pyproject.toml` | a lint only CI ran went red after the tag was pushed; then an unconfigured one found nothing locally and 21 things in CI |
 | CI: bash declared, packaging inputs tracked, Qt libraries present, interface tests must not skip | each cost a release |
 | Release: the tag is on `main`; published assets verified | each was a manual step that got missed |
 

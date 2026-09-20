@@ -6,9 +6,8 @@ The footer, the update banner, the report dialog and the trail arrive with
 
 from __future__ import annotations
 
-from ms_appkit.shell import AppWindow
-
 from example_app.ui.pages import HomePage, SettingsPage
+from ms_appkit.shell import AppWindow
 
 DEFAULTS = {"port": None}
 

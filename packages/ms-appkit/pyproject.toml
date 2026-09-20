@@ -28,5 +28,17 @@ where = ["src"]
 [tool.setuptools.package-data]
 ms_appkit = ["resources/*.png", "resources/icons/*.svg", "resources/icons/*"]
 
+# Stated, not inherited. With no [tool.ruff] section ruff falls back to its own
+# defaults, and those differ between versions -- a local run found nothing while
+# the build found twenty-one. A lint whose rule set is implicit is not a lint;
+# it is two different lints that happen to share a name.
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

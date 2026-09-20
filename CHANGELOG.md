@@ -22,7 +22,11 @@ button that closes it. Reported against the Espec program as issue #9.
   half of the release-page complaint. Qt-free, so what the window will show can
   be asserted without building one.
 - `housekeeping.lint_faults()` — runs `ruff` from the test suite, and complains
-  rather than passing quietly when it is not installed.
+  rather than passing quietly when it is not installed. The rule set is now
+  stated in `pyproject.toml` so it means the same thing here and in the build.
+- `misplaced_back_buttons()` no longer closes over a loop variable — found by
+  the wider rule set, and it would have read the wrong file's labels the first
+  time the closure outlived its iteration.
 - `housekeeping.notes_window_faults()` — four checks, each proved to fail
   against its own violation: the window fits the screen, it scrolls *with the
   bar left on*, the notes are rendered rather than shown as source, and the
@@ -39,6 +43,10 @@ button that closes it. Reported against the Espec program as issue #9.
 - §6 and §7: run the build's lint from the test suite, and wait for `main` to
   go green *before* tagging. Both learned the same afternoon, from an import
   in the wrong order that went out with a tag on it.
+- §6 again, ten minutes later: **state the lint's rule set.** With no
+  `[tool.ruff]` section each side fell back to its own installed default —
+  nothing found locally, twenty-one findings in CI, same commit. A lint whose
+  configuration is implicit is two different lints sharing a name.
 
 ## 2026-09-19
 

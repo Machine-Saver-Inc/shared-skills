@@ -330,7 +330,11 @@ def misplaced_back_buttons(ui: Path) -> list[str]:
                 if isinstance(target, ast.Name):
                     labels[target.id] = str(node.value.args[0].value)
 
-        def words(node) -> str:
+        # `labels` is rebuilt for each file, so it is bound here rather than
+        # closed over: the closure happens to be called inside the same
+        # iteration today, and would read the wrong file's labels the moment
+        # it was not.
+        def words(node, labels=labels) -> str:
             if isinstance(node, ast.Name):
                 return labels.get(node.id, "")
             if isinstance(node, ast.Call) and node.args and isinstance(

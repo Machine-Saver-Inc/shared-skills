@@ -301,11 +301,11 @@ def test_the_failure_is_explained_in_words_someone_can_act_on():
 def test_one_trust_store_carries_both_sets_of_roots():
     """A fallback that only ran after a failure cost every connection a doomed
     attempt first, and skipped entirely when the failure was not an SSLError."""
+    import ssl
+
     import certifi
 
     from ms_appkit.update.net import trust
-
-    import ssl
 
     context = trust()
     assert trust() is context, "the context is built once and reused"
@@ -326,10 +326,10 @@ def test_one_trust_store_carries_both_sets_of_roots():
 
 
 def test_an_unsigned_download_is_refused():
-    from ms_appkit.update.checker import verify_against_checksums
-
-    from pathlib import Path
     import tempfile
+    from pathlib import Path
+
+    from ms_appkit.update.checker import verify_against_checksums
 
     with tempfile.TemporaryDirectory() as folder:
         path = Path(folder) / "setup.exe"
