@@ -4,6 +4,37 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-09-20
+
+### ms-appkit 1.1.0
+
+**What's new** is now a window rather than a message box, because a message box
+sizes itself to its text and does not scroll. One release made it 2042 pixels
+tall on a 1080-pixel screen: the bottom half was unreachable, including the
+button that closes it. Reported against the Espec program as issue #9.
+
+- `NotesWindow` — a resizable dialog holding a `QTextBrowser` that renders the
+  Markdown, capped at 60% of the available screen height, with **Close** on the
+  left and **Open the release page** on the right.
+- `ms_appkit.update.notes.what_changed()` — the part of a release body above
+  the first horizontal rule. Somebody who pressed **What's new** has already
+  installed the program and does not need the install steps; that was the other
+  half of the release-page complaint. Qt-free, so what the window will show can
+  be asserted without building one.
+- `housekeeping.notes_window_faults()` — four checks, each proved to fail
+  against its own violation: the window fits the screen, it scrolls *with the
+  bar left on*, the notes are rendered rather than shown as source, and the
+  install steps are not shown to somebody already running the program.
+
+### ms-desktop-app 2.2.0
+
+- §4 gains the rule this cost: a dialog that sizes itself to its content is a
+  clipping bug waiting for a long enough input. `QMessageBox` for a sentence;
+  a scrollable window for anything a person wrote.
+- A checked range is not a usable one — a scrollbar switched off still reports
+  its range, and the first version of that guard passed against its own
+  violation because of it.
+
 ## 2026-09-19
 
 ### ms-appkit 1.0.0 — first release

@@ -366,6 +366,96 @@ def misplaced_back_buttons(ui: Path) -> list[str]:
     return complaints
 
 
+# --- what the program shows about a release --------------------------------
+
+
+LONG_BODY = (
+    "## What's new in 9.9.9\n\n"
+    + "\n\n".join(
+        f"**Change {n}** \u2014 a paragraph about something that changed, long "
+        "enough to wrap onto a second line in a window this wide."
+        for n in range(1, 41)
+    )
+)
+
+BODY_WITH_INSTALL = (
+    "## What's new in 9.9.9\n\n"
+    "**Something changed** and this is what it means for you.\n\n"
+    "---\n\n"
+    "## Download\n\n"
+    "1. Download `Thing-Setup-9.9.9.exe` from **Assets** below.\n"
+    "2. Double-click it.\n"
+)
+
+
+def notes_window_faults() -> list[str]:
+    """What the **What's new** window must do with a real release body.
+
+    All four of these were true at once in a shipped build, and the report that
+    found them could only describe the symptom: "no way to see information that
+    goes off the screen".
+
+    The window held the raw body in a ``QMessageBox``, which sizes itself to
+    its text and does not scroll. On one release that was 2042 pixels tall on a
+    1080-pixel screen, so the bottom half was unreachable -- including the
+    button to close it. The text was Markdown shown as source. And more than
+    half of it was install instructions, for a program the reader had already
+    installed.
+    """
+    from PySide6.QtGui import QGuiApplication
+    from PySide6.QtWidgets import QApplication
+
+    from ms_appkit.update.checker import Release
+    from ms_appkit.update.ui import NotesWindow
+
+    QApplication.instance() or QApplication([])
+    screen = QGuiApplication.primaryScreen()
+    available = screen.availableGeometry().height() if screen else 800
+
+    faults = []
+
+    long_one = NotesWindow(Release("9.9.9", "v9.9.9", LONG_BODY, "", {}, None))
+    long_one.show()
+    if long_one.size().height() > available:
+        faults.append(
+            f"a long release makes a {long_one.size().height()}px window on a "
+            f"{available}px screen; the buttons run off the bottom edge"
+        )
+    # Both halves matter. A bar with a range that is switched off still
+    # reports that range, so asking only about the range passes happily on a
+    # view nobody can scroll.
+    from PySide6.QtCore import Qt
+
+    if long_one.body.verticalScrollBar().maximum() <= 0:
+        faults.append(
+            "a release too long for the window does not scroll, so the rest of "
+            "it cannot be read"
+        )
+    if long_one.body.verticalScrollBarPolicy() == Qt.ScrollBarAlwaysOff:
+        faults.append("the notes view has its scrollbar switched off")
+    shown = long_one.body.toPlainText()
+    if "**" in shown or shown.lstrip().startswith("#"):
+        faults.append(
+            "the notes are shown as Markdown source rather than rendered"
+        )
+    long_one.close()
+
+    with_install = NotesWindow(
+        Release("9.9.9", "v9.9.9", BODY_WITH_INSTALL, "", {}, None)
+    )
+    said = with_install.body.toPlainText()
+    if "Double-click" in said or "Download" in said:
+        faults.append(
+            "the install instructions are shown to somebody already running "
+            "the program; show only what changed"
+        )
+    if "Something changed" not in said:
+        faults.append("the actual change is missing from the notes window")
+    with_install.close()
+
+    return faults
+
+
 # --- the footer ------------------------------------------------------------
 
 

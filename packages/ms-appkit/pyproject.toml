@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ms-appkit"
-version = "1.0.0"
+version = "1.1.0"
 description = "The shared shell every Machine Saver desktop application is built on."
 readme = "README.md"
 requires-python = ">=3.10"

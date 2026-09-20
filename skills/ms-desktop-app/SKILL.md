@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.1.0.** Published at
+**Skill version 2.2.0.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -419,6 +419,28 @@ hosts that were failing.
 7. **Always offer "Open the release page"**, so a machine the updater cannot
    serve is one click from the file.
 
+### What's new is a window, not a message box
+
+A `QMessageBox` sizes itself to its text and does not scroll. Given a release
+body it made a window 2042 pixels tall on a 1080-pixel screen, and everything
+past the halfway point — including the button that closes it — was unreachable.
+The report could only describe the symptom: *"no way to see information that
+goes off the screen"*.
+
+**Any dialog whose content is text somebody else wrote needs a scrollable view
+and a height cap.** A message box is for a sentence you wrote yourself. The kit
+caps at 60% of `availableGeometry().height()` and leaves the scrollbar policy
+alone.
+
+**Show the changes, not the download.** The body is composed for two readers
+(§7); somebody who pressed **What's new** is the one who has already installed
+it. `ms_appkit.update.notes.what_changed()` takes the half above the first
+horizontal rule — and is Qt-free, so what the window will show can be asserted
+without building one.
+
+**Render the Markdown.** `setText` on a message box showed `**bold**`, `##`
+headings and tables drawn in pipes, as source.
+
 ---
 
 ## 5. Report a problem
@@ -683,7 +705,7 @@ reporter earned.
 
 **When a new lesson arrives, ask first whether it can be a test.** Adding a
 sentence here is the fallback — and **prove the test fails when the rule is
-broken**, or it is decoration. Three guards in this family passed against their
+broken**, or it is decoration. Four guards in this family passed against their
 own violation until checked that way; §13 names them.
 
 ---
@@ -713,10 +735,15 @@ template's, and the house-rules suite of every application that depends on it,
 before tagging.
 
 **Prove a new guard fails when its rule is broken.** Break the rule, watch the
-test go red, put it back. Three guards in this family passed against their own
+test go red, put it back. Four guards in this family passed against their own
 violation until checked that way: one matched "CI" inside "recipe", one mistook
-bullets under a leading heading for the summary it required, and one let a base
-button role be satisfied by a sub-role it was supposed to be independent of.
+bullets under a leading heading for the summary it required, one let a base
+button role be satisfied by a sub-role it was supposed to be independent of,
+and one asked a scrollbar for its range without asking whether the bar was
+switched on — a hidden bar still reports a range, so the check passed on a view
+nobody could scroll. **A checked range is not a usable one:** when a guard asks
+whether something *can* be done, it has to ask about the mechanism as well as
+the numbers.
 
 **Clear `__pycache__` before trusting a result after restoring a mutated file.**
 A `cp` restore inside the same second leaves a stale `.pyc` that Python keeps
@@ -739,6 +766,7 @@ remember:
 | Icons come from Lucide, with its licence shipped | hand-drawn ones shipped illegible |
 | Back is left and the forward action right — in the helper *and* at every call site | it was the other way round, and a correct helper can still be filled backwards |
 | The footer carries the version, the maker and the report button | the version was on one screen only |
+| What's new fits the screen, scrolls, renders, and omits the install steps | 2042px of unscrollable Markdown source on a 1080px screen |
 | Every screen has a name a report can use | the first line of every report read "opened ?" |
 | A styled control sets border and background with its radius | buttons rendered as bare text |
 | Each role has hover, pressed and disabled | a role styled only at rest has no pressed look |

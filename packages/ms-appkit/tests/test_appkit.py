@@ -337,6 +337,79 @@ def test_an_unsigned_download_is_refused():
         assert not verify_against_checksums(path, "deadbeef  setup.exe")
 
 
+# --- what's new ------------------------------------------------------------
+
+
+def test_the_whats_new_window_can_be_read(qt):
+    """Issue #9: it scrolled off the screen with no scrollbar, showed Markdown
+    as source, and was mostly install instructions."""
+    assert not house.notes_window_faults()
+
+
+def test_only_the_changes_are_shown_not_the_download():
+    from ms_appkit.update.notes import what_changed
+
+    said = what_changed(house.BODY_WITH_INSTALL)
+    assert "Something changed" in said
+    assert "Download" not in said and "Double-click" not in said
+    assert not said.lstrip().startswith("#"), (
+        "the window title already says which version this is"
+    )
+
+
+@pytest.mark.parametrize("rule", ["---", "***", "___", "- - -", "  ---  "])
+def test_every_shape_of_horizontal_rule_separates_the_two_halves(rule):
+    from ms_appkit.update.notes import what_changed
+
+    body = f"It got faster.\n\n{rule}\n\n## Download\n\nGet the installer."
+    assert what_changed(body) == "It got faster."
+
+
+def test_a_release_written_by_hand_still_shows():
+    """No horizontal rule means no install section to cut. Showing too much
+    beats showing nothing."""
+    from ms_appkit.update.notes import what_changed
+
+    assert what_changed("Just a sentence about the fix.") == \
+        "Just a sentence about the fix."
+    assert what_changed("") == ""
+    assert what_changed("   \n\n  ") == ""
+
+
+def test_a_dash_inside_the_notes_is_not_mistaken_for_the_rule(qt):
+    """A line of dashes under a Markdown table, or an em-dash in a sentence,
+    must not truncate the notes."""
+    from ms_appkit.update.notes import what_changed
+
+    body = (
+        "We changed the table \u2014 it now reads:\n\n"
+        "| Setting | Value |\n| --- | --- |\n| Speed | Fast |\n\n"
+        "And that is all.\n\n---\n\n## Download\n"
+    )
+    said = what_changed(body)
+    assert "And that is all." in said
+    assert "Download" not in said
+
+
+def test_the_release_page_is_always_one_click_away(qt):
+    """A machine the updater cannot serve still has somebody who can fetch the
+    file by hand \u2014 and the leaving action keeps the left-hand place."""
+    from PySide6.QtWidgets import QPushButton
+
+    from ms_appkit.update.checker import Release
+    from ms_appkit.update.ui import NotesWindow
+
+    window = NotesWindow(
+        Release("9.9.9", "v9.9.9", "It got faster.", "https://example.invalid/r",
+                {}, None)
+    )
+    buttons = window.findChildren(QPushButton)
+    said = [b.text() for b in buttons]
+    assert said == ["Close", "Open the release page"], said
+    assert all(not b.icon().isNull() for b in buttons), "both carry their mark"
+    window.close()
+
+
 # --- settings --------------------------------------------------------------
 
 
