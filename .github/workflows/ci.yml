@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.10", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      # A bare Linux runner has no libEGL, and `import PySide6` succeeds
+      # without it -- the first submodule import is what fails.
+      - name: Qt runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 \
+            libxcb-xinerama0 libxkbcommon0
+
+      - name: Install the kit
+        run: pip install -e "packages/ms-appkit[dev]"
+
+      - name: The kit's own tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest packages/ms-appkit/tests -q
+
+      - name: The template application honours the house rules
+        env:
+          QT_QPA_PLATFORM: offscreen
+          PYTHONPATH: packages/ms-appkit/template
+        run: python -m pytest packages/ms-appkit/template/tests -q
+
+      # A suite that skips is not a suite that passed. Every interface test
+      # here needs Qt, so a skip means the runner lost it.
+      - name: The interface tests actually ran
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: |
+          python -m pytest packages/ms-appkit/tests -q -rs > result.txt 2>&1 || true
+          cat result.txt
+          if grep -qE "^[0-9]+ (passed, )?[0-9]* ?skipped" result.txt; then
+            echo "interface tests skipped; Qt is missing on this runner"; exit 1
+          fi
+          grep -qE "[0-9]+ passed" result.txt
+
+      - name: The skill states the version its header claims
+        if: runner.os == 'Linux'
+        run: |
+          grep -q "Skill version" skills/ms-desktop-app/SKILL.md
+          python - <<'PY'
+          import re, pathlib, tomllib
+          skill = pathlib.Path("skills/ms-desktop-app/SKILL.md").read_text()
+          version = re.search(r"\*\*Skill version ([0-9.]+)\.\*\*", skill).group(1)
+          changelog = pathlib.Path("CHANGELOG.md").read_text()
+          assert f"ms-desktop-app {version}" in changelog, \
+              f"skill {version} has no CHANGELOG entry"
+          kit = tomllib.loads(
+              pathlib.Path("packages/ms-appkit/pyproject.toml").read_text()
+          )["project"]["version"]
+          assert f"ms-appkit {kit}" in changelog, f"kit {kit} has no CHANGELOG entry"
+          stamped = pathlib.Path(
+              "packages/ms-appkit/src/ms_appkit/_version.py"
+          ).read_text()
+          assert f'"{kit}"' in stamped, "_version.py disagrees with pyproject.toml"
+          print(f"skill {version}, kit {kit}")
+          PY

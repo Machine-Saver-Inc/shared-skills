@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ms-appkit"
+version = "1.0.0"
+description = "The shared shell every Machine Saver desktop application is built on."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Machine Saver Inc" }]
+dependencies = [
+    "PySide6-Essentials>=6.6",
+    "certifi>=2024.2.2",
+]
+
+[project.urls]
+Homepage = "https://github.com/Machine-Saver-Inc/shared-skills"
+Source = "https://github.com/Machine-Saver-Inc/shared-skills/tree/main/packages/ms-appkit"
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ms_appkit = ["resources/*.png", "resources/icons/*.svg", "resources/icons/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
