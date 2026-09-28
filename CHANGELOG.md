@@ -16,6 +16,8 @@ sign-in key now says so when asked to sign in, instead of failing at Google.
   else empty.
 - `tracked_secret_faults` now also fails a tracked `_client_secret.py`.
 - Three new tests, each proved to fail against its own violation.
+- The template's **Sign out** sits beside the name of whoever is signed in, sized
+  to its words rather than stretched across the window.
 
 ### ms-desktop-app 2.4.1
 
