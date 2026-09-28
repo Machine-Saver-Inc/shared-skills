@@ -22,6 +22,7 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from ms_appkit.identity import app
+from ms_appkit.update import channel as channels
 from ms_appkit.widgets import button, maker_mark
 
 SEPARATOR = "·"
@@ -71,7 +72,8 @@ class Footer(QWidget):
         a broken updater goes unnoticed for a year.
         """
         if failed:
-            when = f" {SEPARATOR} could not reach GitHub to check"
+            host = channels.current().host
+            when = f" {SEPARATOR} could not reach {host} to check"
         elif last_checked:
             when = f" {SEPARATOR} last checked {last_checked}"
         else:

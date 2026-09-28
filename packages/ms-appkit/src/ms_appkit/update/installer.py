@@ -28,6 +28,7 @@ from enum import Enum
 from pathlib import Path
 
 from ms_appkit.identity import app
+from ms_appkit.update import channel as channels
 from ms_appkit.update.checker import (
     Release,
     asset_for_this_platform,
@@ -75,6 +76,7 @@ def download_asset(
     destination: Path | None = None,
     progress: Callable[[int, int], None] | None = None,
     opener: Callable = open_url,
+    channel: channels.ReleaseChannel | None = None,
 ) -> Path:
     """Fetch the file for this platform. Raises UpdateError with a readable reason."""
     chosen = asset_for_this_platform(release)
@@ -84,13 +86,12 @@ def download_asset(
             "Open the release page and pick a file by hand."
         )
     name, url = chosen
+    source = channel or channels.current()
     folder = destination or Path(tempfile.mkdtemp(prefix=f"{app().slug}-update-"))
     folder.mkdir(parents=True, exist_ok=True)
     target = folder / name
 
-    request = urllib.request.Request(
-        url, headers={"User-Agent": app().user_agent}
-    )
+    request = urllib.request.Request(url, headers=source.download_headers())
     try:
         with opener(request, timeout=DOWNLOAD_TIMEOUT_S) as response:
             total = int(response.headers.get("Content-Length") or 0)
@@ -110,16 +111,18 @@ def download_asset(
         # the check goes to api.github.com and the download to the asset host,
         # so a trust store that satisfies one can still fail the other.
         raise UpdateError(
-            f"The download did not finish.\n\n{describe_failure(exc)}"
+            f"The download did not finish.\n\n{describe_failure(exc, source)}"
         ) from exc
     return target
 
 
-def fetch_checksums(release: Release, opener: Callable = open_url) -> str:
+def fetch_checksums(release: Release, opener: Callable = open_url,
+                    channel: channels.ReleaseChannel | None = None) -> str:
     if not release.checksums_url:
         return ""
+    source = channel or channels.current()
     request = urllib.request.Request(
-        release.checksums_url, headers={"User-Agent": app().user_agent}
+        release.checksums_url, headers=source.download_headers()
     )
     try:
         with opener(request, timeout=DOWNLOAD_TIMEOUT_S) as response:
@@ -129,9 +132,10 @@ def fetch_checksums(release: Release, opener: Callable = open_url) -> str:
         return ""
 
 
-def verify_download(path: Path, release: Release, opener=open_url) -> None:
+def verify_download(path: Path, release: Release, opener=open_url,
+                    channel: channels.ReleaseChannel | None = None) -> None:
     """Refuse to run anything whose hash is not the one the release published."""
-    text = fetch_checksums(release, opener)
+    text = fetch_checksums(release, opener, channel)
     if not text:
         raise UpdateError(
             "Could not fetch the checksum list for this release, so the download "

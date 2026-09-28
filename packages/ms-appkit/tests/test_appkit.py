@@ -421,6 +421,148 @@ def test_the_release_page_is_always_one_click_away(qt):
     window.close()
 
 
+
+# --- where releases come from -----------------------------------------------
+#
+# A private program will be released somewhere other than GitHub. These hold
+# the seam that makes that possible: the update code asks the channel, and a
+# public program's channel behaves exactly as the code it replaced.
+
+
+class _Answer:
+    """Enough of an HTTP response for the checker and the downloader."""
+
+    def __init__(self, body: bytes):
+        self._body = body
+        self.headers = {"Content-Length": str(len(body))}
+
+    def read(self, size: int = -1) -> bytes:
+        if size < 0:
+            chunk, self._body = self._body, b""
+        else:
+            chunk, self._body = self._body[:size], self._body[size:]
+        return chunk
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def _a_channel(**changes):
+    from ms_appkit.update.channel import GitHubReleases
+
+    class Elsewhere(GitHubReleases):
+        """A host that is not GitHub and wants its own header on every request."""
+
+        def feed_headers(self):
+            return {**super().feed_headers(), "X-Channel": "feed"}
+
+        def download_headers(self):
+            return {**super().download_headers(), "X-Channel": "download"}
+
+    return Elsewhere(repo="Machine-Saver-Inc/kit-under-test",
+                     host="the Machine Saver release store",
+                     domain="releases.example.invalid", refused_hint="", **changes)
+
+
+def test_a_public_program_is_released_through_github_exactly_as_before():
+    from ms_appkit.update import channel
+    from ms_appkit.update.channel import GitHubReleases
+
+    source = channel.current()
+    assert isinstance(source, GitHubReleases)
+    assert source.latest_url == app().latest_release_api
+    assert source.releases_page == app().releases_page
+    headers = source.feed_headers()
+    assert headers["Accept"] == "application/vnd.github+json"
+    assert headers["User-Agent"] == app().user_agent
+
+
+def test_the_feed_is_read_by_the_channel_not_by_the_checker():
+    import json
+
+    from ms_appkit.update.checker import fetch_latest_release_detailed
+
+    seen = []
+    feed = {"tag_name": "v9.1.0", "body": "Faster.", "html_url": "https://x.invalid/r",
+            "assets": [{"name": "SHA256SUMS", "browser_download_url": "https://x.invalid/s"}]}
+
+    def opener(request, timeout):
+        seen.append(request)
+        return _Answer(json.dumps(feed).encode())
+
+    release, error = fetch_latest_release_detailed(opener=opener, channel=_a_channel())
+    assert error is None
+    assert release.version == "9.1.0" and release.checksums_url == "https://x.invalid/s"
+    assert seen[0].get_header("X-channel") == "feed"
+
+
+def test_every_download_carries_the_channel_s_headers(tmp_path, monkeypatch):
+    """A private host will put its token here; a request that skips the
+    channel would arrive without one and be refused."""
+    from ms_appkit.update import checker
+    from ms_appkit.update.checker import Release
+    from ms_appkit.update.installer import download_asset, fetch_checksums
+
+    monkeypatch.setattr(checker, "asset_pattern_for_this_platform", lambda: (".bin",))
+    release = Release("9.1.0", "v9.1.0", "", "", {"app.bin": "https://x.invalid/a"},
+                      "https://x.invalid/s")
+    seen = []
+
+    def opener(request, timeout):
+        seen.append(request)
+        return _Answer(b"payload")
+
+    source = _a_channel()
+    download_asset(release, destination=tmp_path, opener=opener, channel=source)
+    fetch_checksums(release, opener=opener, channel=source)
+    assert [r.get_header("X-channel") for r in seen] == ["download", "download"]
+
+
+def test_an_error_names_the_host_it_was_talking_to():
+    from ms_appkit.update.checker import describe_failure
+
+    source = _a_channel()
+    lookup = describe_failure(Exception("getaddrinfo failed"), source)
+    assert "releases.example.invalid" in lookup and "github" not in lookup.lower()
+    slow = describe_failure(TimeoutError("timed out"), source)
+    assert slow.startswith("the Machine Saver release store did not answer")
+    refused = describe_failure(Exception("HTTP Error 403: Forbidden"), source)
+    assert "hourly limit" not in refused, "a GitHub excuse on a host that is not GitHub"
+
+
+def test_no_update_code_names_github_outside_the_channel():
+    """Anything that names the host outside channel.py is a place the private
+    channel would silently not reach. Comments and docstrings may say GitHub;
+    strings the program uses may not."""
+    import ast
+    from pathlib import Path
+
+    import ms_appkit
+
+    root = Path(ms_appkit.__file__).parent
+    files = [*sorted((root / "update").glob("*.py")), root / "footer.py", root / "shell.py"]
+    offenders = []
+    for path in files:
+        if path.name == "channel.py":
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        docstrings = {
+            id(node.body[0].value)
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef,
+                                 ast.AsyncFunctionDef))
+            and node.body and isinstance(node.body[0], ast.Expr)
+            and isinstance(node.body[0].value, ast.Constant)
+        }
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Constant) and isinstance(node.value, str)
+                    and id(node) not in docstrings and "github" in node.value.lower()):
+                offenders.append(f"{path.name}:{node.lineno}: {node.value[:40]!r}")
+    assert not offenders, offenders
+
 # --- settings --------------------------------------------------------------
 
 

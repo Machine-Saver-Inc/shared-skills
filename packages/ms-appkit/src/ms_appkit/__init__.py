@@ -13,7 +13,8 @@ What it provides:
 * :mod:`ms_appkit.widgets` -- ``button``, ``action_bar``, the form controls.
 * :mod:`ms_appkit.footer` -- report, maker mark, version, check for updates.
 * :mod:`ms_appkit.shell` -- the window those three sit in.
-* :mod:`ms_appkit.update` -- checking, downloading, verifying, installing.
+* :mod:`ms_appkit.update` -- checking, downloading, verifying, installing;
+  :mod:`ms_appkit.update.channel` is the one place that knows the release host.
 * :mod:`ms_appkit.diagnostics` and :mod:`ms_appkit.report_dialog` -- the report.
 * :mod:`ms_appkit.trail` -- what the operator did, for the report to carry.
 * :mod:`ms_appkit.bootstrap` -- ``run()``, which wires all of the above.
