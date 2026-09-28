@@ -74,9 +74,9 @@ def _text_colour(role: str) -> str:
         return "#ffffff"
     application = QApplication.instance()
     if role == "danger":
-        from ms_appkit.style import BAD
+        from ms_appkit.style import BAD, DARK_BAD, is_dark
 
-        return BAD
+        return DARK_BAD if is_dark(application) else BAD
     if application is None:
         return "#1a1a1a"
     return application.palette().color(QPalette.ButtonText).name()

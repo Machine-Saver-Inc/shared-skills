@@ -81,6 +81,7 @@ class AppWindow(QMainWindow):
         self._check: UpdateWorker | None = None
         self._download: DownloadWorker | None = None
         self._updating = False
+        self._closing = False
 
         container = QWidget()
         outer = QVBoxLayout(container)
@@ -176,7 +177,11 @@ class AppWindow(QMainWindow):
 
     # -- reporting -----------------------------------------------------------
     def report_problem(self) -> None:
-        context = {"Screen": self.current_screen(), **self.report_context()}
+        try:
+            details = self.report_context()
+        except Exception as exc:  # noqa: BLE001 - a report must always open
+            details = {"Could not gather state": str(exc)}
+        context = {"Screen": self.current_screen(), **details}
         ReportDialog(context, self).exec()
 
     # -- updates -------------------------------------------------------------
@@ -207,6 +212,8 @@ class AppWindow(QMainWindow):
         self._run_check(announce=True)
 
     def _run_check(self, announce: bool) -> None:
+        if self._closing or (self._check is not None and self._check.isRunning()):
+            return
         self._check = UpdateWorker()
         self._check.done.connect(
             lambda outcome: self._on_check_done(outcome, announce),
@@ -218,7 +225,8 @@ class AppWindow(QMainWindow):
         kind = outcome_kind(outcome)
         self._record_check(ok=outcome.reached)
         if kind == "update" and outcome.release is not None:
-            self.banner.offer(outcome.release)
+            self._pending_release = outcome.release
+            self.refresh_busy_state()
             return
         if not announce:
             return
@@ -240,6 +248,13 @@ class AppWindow(QMainWindow):
         if box.clickedButton() is open_page and channels.current().releases_page:
             webbrowser.open(channels.current().releases_page)
 
+    def refresh_busy_state(self) -> None:
+        """Call when a job starts or finishes; re-offer a deferred release."""
+        if self.busy():
+            self.banner.hide()
+        elif self._pending_release is not None and not self._closing:
+            self.banner.offer(self._pending_release)
+
     def _record_check(self, ok: bool = True) -> None:
         if ok:
             self.settings["last_update_check"] = datetime.now().strftime(
@@ -258,6 +273,7 @@ class AppWindow(QMainWindow):
         )
 
     def download_update(self, release: Release) -> None:
+        self._pending_release = release
         reason = self.busy()
         if reason:
             QMessageBox.information(
@@ -265,12 +281,14 @@ class AppWindow(QMainWindow):
                 f"The update will wait until {reason} has finished.",
             )
             return
-        self._pending_release = release
+        if self._download is not None and self._download.isRunning():
+            return
 
         progress = QProgressDialog(
             f"Downloading version {release.version}...", "Cancel", 0, 100, self
         )
         progress.setWindowTitle("Update")
+        progress.setWindowModality(Qt.WindowModal)
         progress.setAutoClose(False)
         progress.setMinimumDuration(0)
 
@@ -303,6 +321,11 @@ class AppWindow(QMainWindow):
             webbrowser.open(channels.current().releases_page)
 
     def _apply(self, path) -> None:
+        # A hardware job may have started after the download was requested.
+        # Never let an installer stop it; the operator can retry when idle.
+        if self.busy() or self._closing:
+            self.refresh_busy_state()
+            return
         try:
             result = apply_update(path)
         except UpdateError as exc:
@@ -318,3 +341,18 @@ class AppWindow(QMainWindow):
         # it is sitting on, and an AppImage has already been swapped.
         self._updating = True
         self.close()
+
+    def closeEvent(self, event) -> None:
+        # QThreads must outlive their work. Cancel downloads, then close from
+        # finished without blocking the UI while a network timeout expires.
+        self._closing = True
+        running = [worker for worker in (self._check, self._download)
+                   if worker is not None and worker.isRunning()]
+        for worker in running:
+            if worker is self._download:
+                worker.cancel()
+            worker.finished.connect(self.close)
+        if running:
+            event.ignore()
+            return
+        super().closeEvent(event)

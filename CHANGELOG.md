@@ -4,6 +4,28 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-09-28 - Espec integration
+
+### ms-appkit 1.4.0
+
+- Helper text and status colors now stay readable in both light and dark themes.
+- Closing waits for network workers to finish and cancels an active download.
+
+Programs stay open reliably and wait for hardware work to finish before
+showing or installing an update. Reporting a problem still opens if the
+program cannot read part of its current state.
+
+- Retain the main window throughout the application event loop.
+- Defer update offers while busy and re-check before invoking an installer.
+- Add `refresh_busy_state()` for application job start/finish hooks.
+- Keep running update workers alive across repeated checks and window close.
+- Keep the report dialog available when an application's context hook fails.
+- Five lifecycle regressions were proved failing against 1.3.0 before fixing.
+
+### ms-desktop-app 2.4.1
+
+Document the job lifecycle hook used to defer and re-offer updates.
+
 ## 2026-09-28 (later)
 
 ### ms-appkit 1.3.0
