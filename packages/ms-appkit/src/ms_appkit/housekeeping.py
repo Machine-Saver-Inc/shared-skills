@@ -566,7 +566,10 @@ SECRET_SHAPES = re.compile(
     r"|-----BEGIN [A-Z ]*PRIVATE KEY-----"
     r"|AKIA[0-9A-Z]{16}"                        # AWS access key
     r"|gh[pousr]_[A-Za-z0-9]{30,}"              # GitHub token
-    r"|(?i:(password|passwd|api[_-]?key|secret)\s*[=:]\s*['\"]?[^\s'\"#]{6,})"
+    # A literal value: quoted, or bare to the end of the line. Code that reads
+    # a value from somewhere (``secret=config["secret"]``) is not a credential.
+    r"|(?i:(password|passwd|api[_-]?key|secret)['\"]?\s*[=:]\s*"
+    r"(['\"][^'\"\s]{6,}['\"]|[A-Za-z0-9+/_\-]{12,}\s*$))"
 )
 #: Where the rule would trip over itself.
 SECRET_EXEMPT = ("housekeeping.py", "test_appkit.py", "test_house_rules.py")
