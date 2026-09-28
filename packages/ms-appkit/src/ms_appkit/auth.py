@@ -328,6 +328,11 @@ class Auth:
 
         Blocking: run it off the interface thread.
         """
+        if not self.config.client_secret:
+            raise SignInError(
+                "This copy of the program was built without its sign-in key, so it "
+                "cannot sign you in. Install a released version, or report a problem."
+            )
         verifier, challenge = _pkce()
         state = secrets.token_urlsafe(24)
         got: dict[str, str] = {}

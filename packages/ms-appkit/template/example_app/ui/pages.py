@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from ms_appkit.identity import app
 from ms_appkit.widgets import (
@@ -75,10 +75,22 @@ class SettingsPage(QWidget):
 
         # A private program's sign-in is forgotten from here (skill section 1a).
         if app().is_private:
+            from ms_appkit import auth
+
             account = FieldGroup("Account", "Who this computer is signed in as.")
+            try:
+                who = auth.current().last.footer_text()
+            except auth.SignInError:
+                who = "Not signed in"
+            row = QHBoxLayout()
+            row.addWidget(QLabel(who))
             leave = button("Sign out", "user")
             leave.clicked.connect(self.sign_out)
-            account.add(leave)
+            row.addWidget(leave)
+            row.addStretch(1)       # a button sized to its words, not the window
+            holder = QWidget()
+            holder.setLayout(row)
+            account.add(holder)
             outer.addWidget(account)
         outer.addStretch(1)
 

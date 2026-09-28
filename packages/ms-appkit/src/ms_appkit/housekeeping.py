@@ -554,7 +554,7 @@ def visibility_faults(declared: str, repo_is_private: bool | None) -> list[str]:
 
 #: Files that are credentials by name, whatever is in them.
 SECRET_FILES = re.compile(
-    r"(^|/)(\.env(\..+)?|client_secret[^/]*\.json|credentials\.json|"
+    r"(^|/)(\.env(\..+)?|client_secret[^/]*\.json|_client_secret\.py|credentials\.json|"
     r"[^/]*service[-_]?account[^/]*\.json|[^/]*\.(pem|p12|pfx|key))$",
     re.IGNORECASE,
 )
