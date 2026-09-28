@@ -1150,3 +1150,40 @@ def test_the_sign_in_is_kept_in_the_operating_system_s_credential_store(monkeypa
     store.delete()
     store.delete()      # already gone is not an error
     assert store.get() is None
+
+
+# --- the client secret is stamped at build time, never tracked ---------------
+
+
+def test_the_client_secret_comes_from_the_build_then_the_environment(tmp_path, monkeypatch):
+    import sys
+
+    from ms_appkit.identity import SECRET_ENV, stamped_secret
+
+    package = tmp_path / "stamped_app"
+    package.mkdir()
+    (package / "__init__.py").write_text("")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    monkeypatch.delenv(SECRET_ENV, raising=False)
+    assert stamped_secret("stamped_app") == "", "neither: empty, not an error"
+    monkeypatch.setenv(SECRET_ENV, "from-the-environment")
+    assert stamped_secret("stamped_app") == "from-the-environment"
+    (package / "_client_secret.py").write_text('CLIENT_SECRET = "from-the-build"\n')
+    sys.modules.pop("stamped_app._client_secret", None)
+    assert stamped_secret("stamped_app") == "from-the-build", "the build wins"
+
+
+def test_a_build_without_its_key_says_so_instead_of_asking_google():
+    from ms_appkit.auth import SignInError
+
+    google = FakeGoogle()
+    session, _, _ = _session(google, saved=False, client_secret="")
+    session.clock = __import__("time").time      # so a missing guard fails, not hangs
+    with pytest.raises(SignInError, match="built without its sign-in key"):
+        session.sign_in(timeout=1)
+    assert not google.seen, "nothing was sent to Google"
+
+
+def test_a_tracked_stamped_secret_fails_the_build(tmp_path):
+    repo = _repo(tmp_path, {"app/_client_secret.py": "CLIENT_SECRET = 'x'\n"})
+    assert house.tracked_secret_faults(repo) == ["app/_client_secret.py: a credential file is tracked"]

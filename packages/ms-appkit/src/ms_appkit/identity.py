@@ -22,7 +22,9 @@ mistake nobody meant to make.
 
 from __future__ import annotations
 
+import importlib
 import logging
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,10 +38,11 @@ VISIBILITIES = ("public", "private")
 class PrivateConfig:
     """Where a private program signs in, fetches releases and reads credentials.
 
-    None of these values is a secret in the sense a password is -- a desktop
-    OAuth client's "secret" is not confidential by Google's own account of it --
-    but they identify Machine Saver's infrastructure, so a private program
-    keeps them in its own private repository and never in this public one.
+    Everything but ``client_secret`` lives in the program's own private
+    repository. ``client_secret`` is stamped in at build time from a GitHub
+    repository secret -- see :func:`stamped_secret` -- because even a desktop
+    client's secret, which Google says is not confidential, is shaped like a
+    credential, and the house rules fail any tracked file that holds one.
     See the ``ms-desktop-app`` skill, section 1a.
     """
 
@@ -100,6 +103,29 @@ class AppInfo:
 
 
 _app = AppInfo()
+
+#: What the release workflow writes and git ignores: ``<package>/_client_secret.py``.
+STAMPED_MODULE = "_client_secret"
+SECRET_ENV = "MS_GOOGLE_CLIENT_SECRET"
+
+
+def stamped_secret(package: str) -> str:
+    """The OAuth client secret this build was stamped with, or ``""``.
+
+    Looked for in ``<package>._client_secret.CLIENT_SECRET`` -- written by the
+    release workflow from the repository secret ``GOOGLE_CLIENT_SECRET`` and
+    listed in ``.gitignore`` -- then in the ``MS_GOOGLE_CLIENT_SECRET``
+    environment variable, for a developer running from source. A build with
+    neither can still open; signing in then says it was built without its key.
+    """
+    try:
+        found = getattr(importlib.import_module(f"{package}.{STAMPED_MODULE}"),
+                        "CLIENT_SECRET", "")
+        if found:
+            return found
+    except ImportError:
+        pass
+    return os.environ.get(SECRET_ENV, "")
 
 
 def configure(name: str, repo: str, version: str, slug: str = "",

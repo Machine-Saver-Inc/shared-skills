@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.4.0.** Published at
+**Skill version 2.4.1.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -257,8 +257,11 @@ whose sign-in is bypassed opens without anything worth taking.
   and `email_verified` must be true. The whole domain is allowed; there is no
   per-app group.
 - The client ID is passed in by each private application, from its own private
-  repository. A desktop client's "secret" is not confidential by Google's own
-  account of it, but it still does not belong in this public repository.
+  repository. The client **secret** is not: it is stamped in at build time from
+  the repository secret `GOOGLE_CLIENT_SECRET` (see *Using it*). Google says a
+  desktop client's secret is not confidential, but it is shaped like a
+  credential, and the family's own rule fails any tracked file holding one — a
+  rule with an exception for "this one is fine" is not a rule.
 - Scopes: `openid email`, `devstorage.read_only` for releases, and
   `cloud-platform` for Secret Manager (which accepts nothing narrower). The
   Internal consent screen is what makes a broad scope acceptable.
@@ -339,6 +342,12 @@ env:
   BUCKET: <release bucket>
   SLUG: <app-slug>
 steps:
+  - name: Stamp the sign-in key (never committed)
+    env:
+      SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+    run: |
+      [ -n "$SECRET" ] || { echo "GOOGLE_CLIENT_SECRET is not set"; exit 1; }
+      printf 'CLIENT_SECRET = "%s"\n' "$SECRET" > <app>/_client_secret.py
   # ... build, sha256sum * > SHA256SUMS, tools/release_notes.py > release-body.md
   - uses: google-github-actions/auth@v2
     with:
@@ -368,9 +377,14 @@ steps:
 
 1. Depend on the kit **with the `private` extra**, which adds `keyring`:
    `"ms-appkit[private] @ git+https://github.com/Machine-Saver-Inc/shared-skills.git#subdirectory=packages/ms-appkit"`.
-2. Put the `PrivateConfig` in `<app>/_private.py` — client ID and secret from
-   the OAuth client JSON, the Cloud project, the release bucket, the support
-   address. The repository is private; this module never goes anywhere else.
+2. Put the `PrivateConfig` in `<app>/_private.py` — the client ID from the OAuth
+   client JSON, the Cloud project, the release bucket, the support address —
+   with `client_secret=stamped_secret("<app>")`. Add `<app>/_client_secret.py`
+   to `.gitignore`; the house rules fail the build if it is ever tracked. Put
+   the secret in the repository's **Settings → Secrets → Actions** as
+   `GOOGLE_CLIENT_SECRET`. To sign in from source, set `MS_GOOGLE_CLIENT_SECRET`
+   in your own shell. A build with neither opens, and says plainly that it was
+   built without its sign-in key when asked to sign in.
 3. `from ms_appkit import secrets` and `secrets.get("wipom-password")` wherever
    the program needs a credential. It raises `SecretUnavailable` with a sentence
    to show, never returns a blank.
@@ -387,7 +401,7 @@ steps:
 | Rule | Where |
 | --- | --- |
 | The declared visibility matches the repository's | `housekeeping.visibility_faults`, from `MS_REPO_PRIVATE`; skips only outside CI |
-| No `.env`, key file or credential-shaped string is tracked | `housekeeping.tracked_secret_faults`, over `git ls-files` |
+| No `.env`, key file, stamped `_client_secret.py` or credential-shaped string is tracked | `housekeeping.tracked_secret_faults`, over `git ls-files` |
 | A private program's sign-in settings are the family's | `housekeeping.private_config_faults` — a real client ID, a domain support address, grace ≤ 14 days |
 | A private program builds no window before sign-in succeeds | the kit's tests drive `bootstrap.run` itself with the sign-in declined |
 | No update code names a host outside `update.channel` | the kit's tests, since 1.2.0 |

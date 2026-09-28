@@ -4,6 +4,27 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-09-28 (evening)
+
+### ms-appkit 1.3.1
+
+Nothing changes on screen in a released program. A copy built without its
+sign-in key now says so when asked to sign in, instead of failing at Google.
+
+- `identity.stamped_secret(package)` — the OAuth client secret the release
+  build wrote into `<package>/_client_secret.py`, else `MS_GOOGLE_CLIENT_SECRET`,
+  else empty.
+- `tracked_secret_faults` now also fails a tracked `_client_secret.py`.
+- Three new tests, each proved to fail against its own violation.
+
+### ms-desktop-app 2.4.1
+
+- §1a said to put the client secret in `_private.py`. The family's own
+  credential rule fails that file, correctly. The secret now comes from the
+  repository secret `GOOGLE_CLIENT_SECRET`, stamped in by the release workflow;
+  *Using it* and the `release.yml` fragment say how. Found while setting up the
+  first private program.
+
 ## 2026-09-28 (later)
 
 ### ms-appkit 1.3.0
