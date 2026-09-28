@@ -51,6 +51,8 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
           PYTHONPATH: packages/ms-appkit/template
+          # Only the build knows whether the repository is private (skill 1a).
+          MS_REPO_PRIVATE: ${{ github.event.repository.private }}
         run: python -m pytest packages/ms-appkit/template/tests -q
 
       # A suite that skips is not a suite that passed. Every interface test

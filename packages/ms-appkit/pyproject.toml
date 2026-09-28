@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ms-appkit"
-version = "1.2.0"
+version = "1.3.0"
 description = "The shared shell every Machine Saver desktop application is built on."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -20,6 +20,9 @@ Homepage = "https://github.com/Machine-Saver-Inc/shared-skills"
 Source = "https://github.com/Machine-Saver-Inc/shared-skills/tree/main/packages/ms-appkit"
 
 [project.optional-dependencies]
+# A private program (skill section 1a) keeps its sign-in in the operating
+# system's credential store. A public one never imports it.
+private = ["keyring>=24"]
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [tool.setuptools.packages.find]

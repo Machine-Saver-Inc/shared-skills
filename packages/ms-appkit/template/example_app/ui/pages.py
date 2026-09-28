@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QVBoxLayout, QWidget
 
+from ms_appkit.identity import app
 from ms_appkit.widgets import (
     FieldGroup,
     action_bar,
@@ -46,6 +47,7 @@ class HomePage(QWidget):
 class SettingsPage(QWidget):
     saved = Signal(dict)
     back = Signal()
+    sign_out = Signal()
 
     def __init__(self, settings: dict) -> None:
         super().__init__()
@@ -70,6 +72,14 @@ class SettingsPage(QWidget):
         )
         updates.add(self.check_updates)
         outer.addWidget(updates)
+
+        # A private program's sign-in is forgotten from here (skill section 1a).
+        if app().is_private:
+            account = FieldGroup("Account", "Who this computer is signed in as.")
+            leave = button("Sign out", "user")
+            leave.clicked.connect(self.sign_out)
+            account.add(leave)
+            outer.addWidget(account)
         outer.addStretch(1)
 
         back = button("Back", "back")

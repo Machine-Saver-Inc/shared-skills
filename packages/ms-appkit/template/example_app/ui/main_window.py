@@ -24,6 +24,7 @@ class MainWindow(AppWindow):
         self.settings_page = SettingsPage(self.settings)
         self.settings_page.back.connect(lambda: self.show_screen(self.HOME))
         self.settings_page.saved.connect(self._save_settings)
+        self.settings_page.sign_out.connect(self.sign_out)
         self.SETTINGS = self.add_screen(self.settings_page, "Settings")
 
         self.show_screen(self.HOME)

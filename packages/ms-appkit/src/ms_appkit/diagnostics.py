@@ -14,6 +14,7 @@ to ``~`` before anything is shown or posted.
 from __future__ import annotations
 
 import platform
+import re
 import sys
 import urllib.parse
 from dataclasses import dataclass, field
@@ -37,14 +38,27 @@ def log_path() -> Path:
     return app().log_path
 
 
-def redact(text: str) -> str:
-    """Reduce anything under the user's home directory to ``~``.
+# Shapes of a Google credential. A private program's log may mention a failed
+# request; a report must never carry what authorised it.
+TOKEN_SHAPES = re.compile(
+    r"ya29\.[\w.\-]+"                          # access token
+    r"|1//[\w\-]{10,}"                           # refresh token
+    r"|eyJ[\w\-]+\.[\w\-]+\.[\w\-]+"            # ID token (a JWT)
+    r"|GOCSPX-[\w\-]+"                           # OAuth client secret
+    r"|(?i:bearer)\s+[\w.\-]{16,}"               # anything sent as a bearer
+)
 
-    Reports go to a public repository, and a Windows home path carries the
-    account name.
+
+def redact(text: str) -> str:
+    """Reduce anything under the user's home directory to ``~``, and remove
+    anything shaped like a credential.
+
+    Reports go to a public repository or to an email group, and a Windows home
+    path carries the account name.
     """
     if not text:
         return text
+    text = TOKEN_SHAPES.sub("[credential removed]", text)
     home = str(Path.home())
     out = text.replace(home, "~").replace(home.replace("\\", "/"), "~")
     if "\\" in home:                      # Windows paths appear escaped in logs
@@ -209,3 +223,33 @@ def issue_url(report: Report, base: str = "",
     return base + "?" + urllib.parse.urlencode({
         "title": report.title, "labels": report.label,
     }), True
+
+
+# Mail clients differ, but a mailto body much past 1,800 characters is where
+# the first of them starts cutting it. The full report is always on the
+# clipboard as well.
+MAX_MAIL_BODY = 1800
+
+
+def mail_url(report: Report, to: str, edited: str | None = None) -> tuple[str, bool]:
+    """A private program's report as an email to support, and whether anything
+    had to be left out.
+
+    The person running a private program has no GitHub account, so the report
+    goes to a Google Group instead (skill section 1a). As with an issue, text a
+    person wrote is never cut from the middle: if it does not fit, the subject
+    goes and they paste the body.
+    """
+    if edited is not None:
+        title, body = split_edited(edited)
+        title = title or report.title
+    else:
+        title, body = report.title, report.body(include_log=True)
+        if len(body) > MAX_MAIL_BODY:
+            body = report.body(include_log=False)
+    trimmed = len(body) > MAX_MAIL_BODY
+    if trimmed:
+        body = "(The full report is on your clipboard - paste it here.)"
+    query = urllib.parse.urlencode({"subject": title, "body": body},
+                                   quote_via=urllib.parse.quote)
+    return f"mailto:{to}?{query}", trimmed

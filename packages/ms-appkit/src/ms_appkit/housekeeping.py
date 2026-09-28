@@ -530,3 +530,105 @@ def footer_faults(window) -> list[str]:
     if not marks:
         faults.append("the Machine Saver mark is missing from the footer")
     return faults
+
+
+# --- public or private (skill section 1a) -------------------------------------
+
+
+def visibility_faults(declared: str, repo_is_private: bool | None) -> list[str]:
+    """The program says what its repository is.
+
+    ``repo_is_private`` comes from the build: GitHub Actions knows it as
+    ``github.event.repository.private``. A "private" program in a public
+    repository has published its source; a "public" one in a private repository
+    cannot be updated by anyone without a GitHub account.
+    """
+    if repo_is_private is None:
+        return ["the build did not say whether the repository is private "
+                "(set MS_REPO_PRIVATE from github.event.repository.private)"]
+    actual = "private" if repo_is_private else "public"
+    if declared != actual:
+        return [f"the program says it is {declared} but its repository is {actual}"]
+    return []
+
+
+#: Files that are credentials by name, whatever is in them.
+SECRET_FILES = re.compile(
+    r"(^|/)(\.env(\..+)?|client_secret[^/]*\.json|credentials\.json|"
+    r"[^/]*service[-_]?account[^/]*\.json|[^/]*\.(pem|p12|pfx|key))$",
+    re.IGNORECASE,
+)
+#: Text that is a credential by shape.
+SECRET_SHAPES = re.compile(
+    r"GOCSPX-[\w\-]{10,}"                       # Google OAuth client secret
+    r"|ya29\.[\w.\-]{20,}"                      # Google access token
+    r"|1//0[\w\-]{20,}"                         # Google refresh token
+    r"|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    r"|AKIA[0-9A-Z]{16}"                        # AWS access key
+    r"|gh[pousr]_[A-Za-z0-9]{30,}"              # GitHub token
+    # A literal value: quoted, or bare to the end of the line. Code that reads
+    # a value from somewhere (``secret=config["secret"]``) is not a credential.
+    r"|(?i:(password|passwd|api[_-]?key|secret)['\"]?\s*[=:]\s*"
+    r"(['\"][^'\"\s]{6,}['\"]|[A-Za-z0-9+/_\-]{12,}\s*$))"
+)
+#: Where the rule would trip over itself.
+SECRET_EXEMPT = ("housekeeping.py", "test_appkit.py", "test_house_rules.py")
+
+
+def tracked_secret_faults(root: Path, allow: Iterable[str] = ()) -> list[str]:
+    """Nothing tracked by git is a credential, by name or by shape.
+
+    The reason section 1a exists: a program that needs a password fetches it
+    after sign-in, and a public program needs none. Uses ``git ls-files`` so an
+    ignored local ``.env`` is not a fault and a tracked one always is.
+    """
+    import subprocess
+
+    try:
+        listed = subprocess.run(
+            ["git", "ls-files", "-z"], cwd=root, capture_output=True, check=True,
+        ).stdout.decode("utf-8").split("\0")
+    except (OSError, subprocess.CalledProcessError) as exc:
+        return [f"could not ask git which files are tracked: {exc}"]
+    allowed = set(allow)
+    faults = []
+    for name in filter(None, listed):
+        if name in allowed:
+            continue
+        if SECRET_FILES.search(name):
+            faults.append(f"{name}: a credential file is tracked")
+            continue
+        if Path(name).name in SECRET_EXEMPT:
+            continue
+        path = root / name
+        try:
+            if path.stat().st_size > 2_000_000:
+                continue
+            text = path.read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue
+        for number, line in enumerate(text.splitlines(), 1):
+            if SECRET_SHAPES.search(line):
+                faults.append(f"{name}:{number}: looks like a credential")
+                break
+    return faults
+
+
+def private_config_faults(info) -> list[str]:
+    """A private program's sign-in settings are the family's, not improvised."""
+    if not info.is_private:
+        return [] if info.private is None else ["a public program carries a PrivateConfig"]
+    config = info.private
+    if config is None:
+        return ["a private program has no PrivateConfig"]
+    faults = []
+    if not config.client_id.endswith(".apps.googleusercontent.com"):
+        faults.append("client_id is not a Google OAuth client ID")
+    if not config.bucket or not config.project:
+        faults.append("the release bucket and the Cloud project must both be named")
+    if not config.support_email.endswith("@" + config.domain):
+        faults.append(f"support_email must be a {config.domain} address")
+    if not 1 <= config.grace_days <= 14:
+        faults.append("grace_days is a policy of at most 14 (section 1a); "
+                      "change the skill before changing this")
+    return faults

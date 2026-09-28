@@ -4,6 +4,50 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-09-28 (later)
+
+### ms-appkit 1.3.0
+
+A program can now be **private**. The person using it signs in with their
+machinesaver.net Google account before it opens, it updates from Machine
+Saver's own release store instead of GitHub, the passwords it needs are fetched
+after sign-in instead of being kept in a file, and **Report a problem** emails
+the support group. Public programs are unchanged.
+
+- `configure(..., visibility="private", private=PrivateConfig(...))`, and the
+  same two arguments on `bootstrap.run`. A private program without its sign-in
+  settings, or a public one with them, is refused at startup.
+- `ms_appkit.auth` — sign-in through the system browser (PKCE, loopback on
+  `127.0.0.1`), only the configured domain let in, the sign-in kept in the
+  operating system's credential store, 14 days offline, locked out at once if
+  Google says the account is suspended. No Qt, so every path is tested.
+- `ms_appkit.signin` — the sign-in screen, and the gate `run` passes through
+  before it builds the window.
+- `GoogleCloudStorage` release channel, and `channel.feed()` to write the
+  `latest.json` it reads. Not being signed in is a failed update check with a
+  sentence, not a crash.
+- `ms_appkit.secrets.get(name)` — Secret Manager, with the person's own token.
+- **Email it to support** replaces **Open GitHub to post it** in a private
+  program's report dialog; `diagnostics.redact` now also removes anything
+  shaped like a Google credential, from every report.
+- The footer says who is signed in, and when the program is working offline.
+- Three new house rules: `visibility_faults`, `tracked_secret_faults`,
+  `private_config_faults`. The template carries them, a **Sign out** on its
+  Settings screen for private programs, and `VISIBILITY` / `PRIVATE`.
+- The `private` extra installs `keyring`.
+- 34 new tests; each new guard was broken on purpose and watched go red (13
+  breaks, 13 failures).
+
+### ms-desktop-app 2.4.0
+
+- §1a describes what is built rather than what is planned: *Using it* (the
+  extra, `_private.py`, `secrets.get`, **Sign out**, hidden imports, the CI
+  variable), the checks and where each one lives, and a `release.yml` fragment
+  for a private release — feed written last, an anonymous download proved
+  refused, the published files checked against `SHA256SUMS`.
+- The offline notice lives in the footer on every screen, and a clock set back
+  ends the grace period rather than extending it.
+
 ## 2026-09-28
 
 ### ms-desktop-app 2.3.0

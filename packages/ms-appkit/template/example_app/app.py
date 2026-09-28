@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from example_app import APP_NAME, GITHUB_REPO, SLUG, __version__
+from example_app import APP_NAME, GITHUB_REPO, PRIVATE, SLUG, VISIBILITY, __version__
 from ms_appkit.bootstrap import run
 
 
@@ -19,6 +19,8 @@ def main() -> int:
         window=MainWindow,
         icon=Path(__file__).resolve().parent / "resources" / "icon.png",
         single_instance=True,
+        visibility=VISIBILITY,
+        private=PRIVATE,
     )
 
 

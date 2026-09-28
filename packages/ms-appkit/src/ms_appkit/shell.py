@@ -107,6 +107,34 @@ class AppWindow(QMainWindow):
             lambda index: TRAIL.opened(self._screen_names.get(index, "?"))
         )
         self.refresh_version_line()
+        self.refresh_account_line()
+
+    # -- signing in (private programs only, skill section 1a) ----------------
+    def refresh_account_line(self) -> None:
+        """Whose sign-in this is, beside the maker mark. Public: nothing."""
+        if not app().is_private:
+            self.footer.set_account("")
+            return
+        from ms_appkit import auth
+
+        try:
+            status = auth.current().last
+        except auth.SignInError:
+            return
+        self.footer.set_account(status.footer_text(), warn=status.kind == "offline")
+
+    def sign_out(self) -> None:
+        """For the Settings screen's **Sign out**: forget, say so, close."""
+        from ms_appkit import auth, secrets
+
+        auth.current().sign_out()
+        secrets.forget()
+        QMessageBox.information(
+            self, "Signed out",
+            "This computer no longer holds your sign-in. The program will close; "
+            "you will be asked to sign in the next time you open it.",
+        )
+        self.close()
 
     # -- screens -------------------------------------------------------------
     def add_screen(self, widget: QWidget, name: str) -> int:

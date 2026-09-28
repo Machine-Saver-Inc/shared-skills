@@ -51,6 +51,11 @@ class Footer(QWidget):
 
         row.addStretch(1)
         row.addWidget(maker_mark())
+        # A private program says whose sign-in it is running under (section 1a).
+        self.account_label = QLabel("")
+        self.account_label.setObjectName("Hint")
+        self.account_label.setVisible(False)
+        row.addWidget(self.account_label)
         row.addStretch(1)
 
         self.version_label = QLabel("")
@@ -81,3 +86,9 @@ class Footer(QWidget):
         self.version_label.setText(f"Version {version or app().version}{when}")
         self.version_label.setObjectName("StatusWarn" if failed else "Hint")
         self.version_label.style().polish(self.version_label)
+
+    def set_account(self, text: str, warn: bool = False) -> None:
+        """Who is signed in, beside the maker mark. Empty hides it."""
+        self.account_label.setText(text)
+        self.account_label.setObjectName("StatusWarn" if warn else "Hint")
+        self.account_label.setVisible(bool(text))

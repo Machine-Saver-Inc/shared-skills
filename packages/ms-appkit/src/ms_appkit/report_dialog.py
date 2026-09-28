@@ -27,7 +27,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from ms_appkit.diagnostics import Report, issue_url, read_log_tail
+from ms_appkit.diagnostics import Report, issue_url, mail_url, read_log_tail
+from ms_appkit.identity import app
 from ms_appkit.trail import TRAIL
 from ms_appkit.widgets import button
 
@@ -75,12 +76,20 @@ class ReportDialog(QDialog):
         self.description.textChanged.connect(self._refresh)
         layout.addWidget(self.description)
 
+        # A private program's operator has no GitHub account; the report goes
+        # to the support group by email instead (skill section 1a).
+        self.private = app().is_private and app().private is not None
+        where = (
+            f"It goes by email to {app().private.support_email}."
+            if self.private else
+            "This repository is public, so check you are happy with it."
+        )
         self.note = QLabel(
             "The details below are collected automatically and go with the report, "
             "including which screens you opened and which buttons you pressed. "
-            "Edit anything you like — what is posted is what this box says. This "
-            "repository is public, so check you are happy with it; paths under "
-            "your home folder are shortened to <code>~</code>."
+            f"Edit anything you like — what is sent is what this box says. {where} "
+            "Paths under your home folder are shortened to <code>~</code>, and "
+            "anything that looks like a password or sign-in token is removed."
         )
         self.note.setWordWrap(True)
         self.note.setTextFormat(Qt.RichText)
@@ -101,7 +110,10 @@ class ReportDialog(QDialog):
         # Built from the shared button so the three read as the same kind of
         # control. They used to be a filled one and two bare words.
         buttons = QDialogButtonBox()
-        self.post = button("Open GitHub to post it", "open", "primary")
+        if self.private:
+            self.post = button("Email it to support", "mail", "primary")
+        else:
+            self.post = button("Open GitHub to post it", "open", "primary")
         buttons.addButton(self.post, QDialogButtonBox.AcceptRole)
         self.copy = button("Copy to clipboard", "copy")
         buttons.addButton(self.copy, QDialogButtonBox.ActionRole)
@@ -156,7 +168,11 @@ class ReportDialog(QDialog):
 
     def _post(self) -> None:
         report = self._current()
-        url, trimmed = issue_url(report, edited=self._text() if self._edited else None)
+        edited = self._text() if self._edited else None
+        if self.private:
+            url, trimmed = mail_url(report, app().private.support_email, edited=edited)
+        else:
+            url, trimmed = issue_url(report, edited=edited)
 
         # On the clipboard either way: if the log had to be dropped to fit the
         # address bar, the full text is still one paste away.
@@ -164,17 +180,21 @@ class ReportDialog(QDialog):
 
         if not webbrowser.open(url):
             QMessageBox.warning(
-                self, "Could not open your browser",
+                self, "Could not open your browser" if not self.private
+                else "Could not open your email",
                 "The full report is on your clipboard. Open the repository's "
-                "Issues page and paste it into a new issue.",
+                "Issues page and paste it into a new issue." if not self.private
+                else "The full report is on your clipboard. Paste it into an "
+                     f"email to {app().private.support_email}.",
             )
             return
 
         if trimmed:
+            where = "Your email" if self.private else "GitHub"
             QMessageBox.information(
                 self, "One thing to paste",
-                "GitHub is open with the report filled in, but it was too long "
-                "for the address bar so the log lines were left out. The full "
-                "report is on your clipboard if you want to paste it instead.",
+                f"{where} is open with the report started, but it was too long "
+                "to fill in completely. The full report is on your clipboard — "
+                "paste it in before sending.",
             )
         self.accept()

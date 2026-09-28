@@ -27,7 +27,7 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-from ms_appkit.identity import app, configure
+from ms_appkit.identity import PrivateConfig, app, configure
 
 
 def start_logging(level: int = logging.INFO) -> Path:
@@ -45,12 +45,28 @@ def start_logging(level: int = logging.INFO) -> Path:
     return path
 
 
+def open_window(window: Callable[[], object],
+                gate: Callable[[], bool] | None = None):
+    """Build and show the window -- for a private program, only after sign-in.
+
+    Kept apart from :func:`run` so the house rules can prove the window is never
+    built while the gate says no (skill section 1a).
+    """
+    if gate is not None and not gate():
+        return None
+    made = window()
+    made.show()
+    return made
+
+
 def run(name: str, repo: str, version: str, window: Callable[[], object],
         slug: str = "", icon: Path | None = None, extra_style: str = "",
-        single_instance: bool = False, argv: list[str] | None = None) -> int:
+        single_instance: bool = False, argv: list[str] | None = None,
+        visibility: str = "public", private: PrivateConfig | None = None) -> int:
     """Configure, build the application, show the window, run the loop."""
     argv = sys.argv if argv is None else argv
-    configure(name=name, repo=repo, version=version, slug=slug)
+    configure(name=name, repo=repo, version=version, slug=slug,
+              visibility=visibility, private=private)
 
     # Answerable from a command line, which matters when someone is on the
     # phone with a machine that has never seen the internet.
@@ -65,7 +81,7 @@ def run(name: str, repo: str, version: str, window: Callable[[], object],
 
     from ms_appkit.style import build_stylesheet, is_dark
 
-    application = QApplication(argv)
+    application = QApplication.instance() or QApplication(argv)
     application.setApplicationName(name)
     application.setApplicationVersion(version)
     application.setOrganizationName(app().organisation)
@@ -87,6 +103,10 @@ def run(name: str, repo: str, version: str, window: Callable[[], object],
             )
             return 1
 
-    made = window()
-    made.show()
+    gate = None
+    if app().is_private:
+        from ms_appkit.signin import gate
+
+    if open_window(window, gate) is None:
+        return 1          # not signed in: nothing was built, nothing to run
     return application.exec()

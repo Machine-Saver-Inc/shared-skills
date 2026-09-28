@@ -91,8 +91,8 @@ def download_asset(
     folder.mkdir(parents=True, exist_ok=True)
     target = folder / name
 
-    request = urllib.request.Request(url, headers=source.download_headers())
     try:
+        request = urllib.request.Request(url, headers=source.download_headers())
         with opener(request, timeout=DOWNLOAD_TIMEOUT_S) as response:
             total = int(response.headers.get("Content-Length") or 0)
             done = 0
@@ -121,10 +121,10 @@ def fetch_checksums(release: Release, opener: Callable = open_url,
     if not release.checksums_url:
         return ""
     source = channel or channels.current()
-    request = urllib.request.Request(
-        release.checksums_url, headers=source.download_headers()
-    )
     try:
+        request = urllib.request.Request(
+            release.checksums_url, headers=source.download_headers()
+        )
         with opener(request, timeout=DOWNLOAD_TIMEOUT_S) as response:
             return response.read().decode("utf-8", "replace")
     except (urllib.error.URLError, TimeoutError, OSError) as exc:

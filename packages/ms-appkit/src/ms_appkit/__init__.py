@@ -24,6 +24,6 @@ The house rules these enforce, and the ones no test can, are in the
 """
 
 from ms_appkit._version import __version__
-from ms_appkit.identity import AppInfo, app, configure
+from ms_appkit.identity import AppInfo, PrivateConfig, app, configure
 
-__all__ = ["__version__", "AppInfo", "app", "configure"]
+__all__ = ["__version__", "AppInfo", "PrivateConfig", "app", "configure"]
