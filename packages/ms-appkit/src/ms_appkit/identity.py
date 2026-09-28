@@ -42,6 +42,9 @@ class AppInfo:
     organisation: str = ORGANISATION
     configured: bool = False
 
+    # The three GitHub addresses below describe the public repository. The
+    # update code no longer reads them: it asks ms_appkit.update.channel, which
+    # is where a private program's host will differ.
     @property
     def releases_page(self) -> str:
         return f"https://github.com/{self.repo}/releases" if self.repo else ""

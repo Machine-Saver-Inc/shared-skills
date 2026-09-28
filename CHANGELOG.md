@@ -4,6 +4,49 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-09-28
+
+### ms-desktop-app 2.3.0
+
+A program can now be **private** as well as public. The people who run a
+private program sign in with their machinesaver.net Google account before it
+opens; its downloads, updates and the credentials it uses are only reachable
+after that sign-in. Public programs, including the Espec burn-in program, work
+exactly as before.
+
+- New §1a, *Public or private*: what each one means, what private promises and
+  what it does not, sign-in through the system browser (whole machinesaver.net
+  domain, Internal consent screen, `hd` checked), a 14-day offline grace period
+  that ends at once if Google says the account is suspended, releases in a
+  domain-only Cloud Storage bucket, credentials in Secret Manager instead of a
+  tracked `.env`, **Email it to support** in place of a GitHub issue, and a
+  release workflow that must prove an anonymous download is *refused*.
+- §3 asks it as question 6, before anything is written.
+- The register gains **Sign in with Google**, **Sign out** and **Email it to
+  support**, using marks the kit already holds.
+- The kit implements private programs from 1.3.0. Until then every program is
+  public.
+
+### ms-appkit 1.2.0
+
+Nothing changes on screen in this version.
+
+- `ms_appkit.update.channel` — where releases come from, behind one small
+  interface: the feed address and headers, how the answer is read, the headers
+  a download needs, the release page, and what to call the host in a sentence.
+  `GitHubReleases` is the only channel and behaves exactly as the code it
+  replaced; the private channel in 1.3.0 plugs in here.
+- The checker, the downloader, the checksum fetch, the footer and the window
+  now ask the channel instead of naming GitHub. An error on a host that is not
+  GitHub will no longer blame GitHub's hourly limit.
+- `CheckOutcome.reached` — whether the host answered. `reached_github` stays as
+  a name for existing callers.
+- Five new tests, each proved to fail against its own violation: a public
+  program's channel is the GitHub feed it always was; the feed is read by the
+  channel; every download and checksum request carries the channel's headers
+  (where a private host's token will go); an error names the host it was
+  talking to; and no update code outside `channel.py` names GitHub.
+
 ## 2026-09-20
 
 ### ms-appkit 1.1.0

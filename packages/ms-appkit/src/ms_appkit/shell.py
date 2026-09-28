@@ -53,6 +53,7 @@ from ms_appkit.footer import Footer
 from ms_appkit.identity import app
 from ms_appkit.report_dialog import ReportDialog
 from ms_appkit.trail import TRAIL
+from ms_appkit.update import channel as channels
 from ms_appkit.update.checker import CheckOutcome, Release, outcome_kind
 from ms_appkit.update.installer import Applied, UpdateError, apply_update, relaunch
 from ms_appkit.update.ui import DownloadWorker, UpdateBanner, UpdateWorker
@@ -187,7 +188,7 @@ class AppWindow(QMainWindow):
 
     def _on_check_done(self, outcome: CheckOutcome, announce: bool) -> None:
         kind = outcome_kind(outcome)
-        self._record_check(ok=outcome.reached_github)
+        self._record_check(ok=outcome.reached)
         if kind == "update" and outcome.release is not None:
             self.banner.offer(outcome.release)
             return
@@ -208,8 +209,8 @@ class AppWindow(QMainWindow):
         open_page = box.addButton("Open the releases page", QMessageBox.ActionRole)
         box.addButton("Close", QMessageBox.RejectRole)
         box.exec()
-        if box.clickedButton() is open_page and app().releases_page:
-            webbrowser.open(app().releases_page)
+        if box.clickedButton() is open_page and channels.current().releases_page:
+            webbrowser.open(channels.current().releases_page)
 
     def _record_check(self, ok: bool = True) -> None:
         if ok:
@@ -270,8 +271,8 @@ class AppWindow(QMainWindow):
         open_page = box.addButton("Open the releases page", QMessageBox.ActionRole)
         box.addButton("Close", QMessageBox.RejectRole)
         box.exec()
-        if box.clickedButton() is open_page and app().releases_page:
-            webbrowser.open(app().releases_page)
+        if box.clickedButton() is open_page and channels.current().releases_page:
+            webbrowser.open(channels.current().releases_page)
 
     def _apply(self, path) -> None:
         try:

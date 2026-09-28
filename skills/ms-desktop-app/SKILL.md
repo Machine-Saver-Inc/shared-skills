@@ -5,14 +5,15 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.2.0.** Published at
+**Skill version 2.3.0.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
 For any tool Machine Saver puts on a colleague's computer: a machine
 controller, a printer utility, a gateway provisioner, a data importer, a field
 calibration aid. Installed by the person who uses it rather than by IT, and
-distributed from a public repo in the `Machine-Saver-Inc` org.
+distributed from a repo in the `Machine-Saver-Inc` org — public by default,
+or private behind a machinesaver.net Google sign-in (§1a).
 
 **The user is not a developer.** They double-click an icon, they have never read
 anything about the program, and if it fails they need to be told what to do —
@@ -194,6 +195,152 @@ into a problem report. A registry key cannot.
 
 ---
 
+## 1a. Public or private
+
+**Specified in skill 2.3.0. `ms-appkit` implements it from 1.3.0; until then
+every application is public, and `ms-appkit` 1.2.0 carries the seam it will use
+(`ms_appkit.update.channel`).**
+
+Every application is one or the other, decided before the first line of code
+(it is question 6 in §3) and stated once, at startup:
+
+```python
+run(name=APP_NAME, repo=GITHUB_REPO, version=__version__, slug=SLUG,
+    window=MainWindow, visibility="private")        # "public" is the default
+```
+
+**Public** is what the family has always been: a public repository, releases on
+GitHub, no sign-in. Choose it when nothing in the program or its source needs
+protecting. The Espec burn-in program is public.
+
+**Private** is for a program whose source, releases or credentials must stay
+inside Machine Saver — a label printer that logs into a customer portal, a tool
+that encodes a certification's contents. The people who run it have a
+machinesaver.net Google account and usually no GitHub account, so private does
+**not** mean "sign in to a private GitHub repository". It means the source stays
+in a private GitHub repository and everything the person at the machine
+touches — the download, the update, the credentials — sits behind their Google
+sign-in instead.
+
+| | Public | Private |
+| --- | --- | --- |
+| Source | public repo, `Machine-Saver-Inc` | private repo, `Machine-Saver-Inc` |
+| Releases | GitHub Releases | Google Cloud Storage bucket, readable by `machinesaver.net` only |
+| Starting the program | opens | **Sign in with Google** first, machinesaver.net accounts only |
+| Credentials it needs | none — a public program holds no secrets | Google Secret Manager, fetched after sign-in; never in git, never in `settings.json` |
+| Report a problem | **Open GitHub to post it** | **Email it to support** — the operator has no GitHub account |
+| Release page link | GitHub releases page | the bucket's folder in the Cloud console |
+
+### What private promises, and what it does not
+
+It promises that **nobody outside machinesaver.net can download it**, that
+**the credentials it uses arrive only after a machinesaver.net sign-in**, and
+that **suspending someone's Workspace account locks them out** the next time the
+program checks — no reinstall, no password rotation.
+
+It does not promise that a copy already on a disk cannot be run by someone
+determined: the sign-in screen is a gate in a program the user controls. That is
+why the credentials are the thing that is protected, not the window. A program
+whose sign-in is bypassed opens without anything worth taking.
+
+### Sign-in
+
+- **Google, through the system browser**, with PKCE and a loopback redirect to
+  `127.0.0.1`. Never an embedded browser: Google blocks them, and the person
+  should see their own browser's address bar.
+- **One OAuth client for the family**, type *Desktop app*, consent screen
+  **Internal** — Google itself then refuses any account outside the Workspace.
+  The program checks as well: the ID token's `hd` must be `machinesaver.net`
+  and `email_verified` must be true. The whole domain is allowed; there is no
+  per-app group.
+- The client ID is passed in by each private application, from its own private
+  repository. A desktop client's "secret" is not confidential by Google's own
+  account of it, but it still does not belong in this public repository.
+- Scopes: `openid email`, `devstorage.read_only` for releases, and
+  `cloud-platform` for Secret Manager (which accepts nothing narrower). The
+  Internal consent screen is what makes a broad scope acceptable.
+- **The refresh token lives in the operating system's credential store**
+  (Windows Credential Manager, Secret Service on Linux) through `keyring`.
+  Never in `settings.json`, the log, or a problem report — the report redacts
+  anything shaped like a token as well as home paths.
+- The footer's middle reads **Signed in as name@machinesaver.net**. **Sign out**
+  is on the Settings screen.
+
+### Offline
+
+Shop-floor PCs lose their connection. A private program may start without
+reaching Google for **14 days** after the last time Google confirmed the
+sign-in, and says so on Home: *"Working offline — sign-in last confirmed 3 days
+ago."* Two exceptions, both deliberate:
+
+- **A refusal is not an outage.** If Google answers and says the sign-in is no
+  longer valid (`invalid_grant` — the account was suspended or the token
+  revoked), the program locks at once, whatever is left of the 14 days.
+- **The grace period is not on the Settings screen.** Every *preference* is
+  editable (§1); this is a *policy*, so the application states it in code and
+  the operator cannot lengthen it.
+
+### Where releases live
+
+One bucket for the family, with uniform bucket-level access and public access
+prevention enforced. `machinesaver.net` holds *Storage Object Viewer* on it.
+
+```
+gs://<bucket>/<app-slug>/latest.json           the feed: version, notes, file names
+gs://<bucket>/<app-slug>/v1.2.0/<installer>    the files
+gs://<bucket>/<app-slug>/v1.2.0/SHA256SUMS
+```
+
+`latest.json` carries what the GitHub feed carried — version, tag, the release
+body composed by `tools/release_notes.py`, and the asset names — so **What's
+new**, the checksum rule and the three outcomes (newer / current / could not
+tell) are unchanged. Only `ms_appkit.update.channel` knows which host it is
+talking to; a kit test fails if any other update code names GitHub.
+
+### Credentials
+
+`ms_appkit.secrets.get("wipom-password")` reads from Secret Manager with the
+signed-in person's own token. `machinesaver.net` holds *Secret Manager Secret
+Accessor* on each secret a program needs, one secret per value. A private
+program's repository never tracks `.env` or anything like it; a public one has
+nothing to track.
+
+### Releasing a private program
+
+`release.yml` is the same as §6 except for where the files go and how they are
+checked:
+
+1. GitHub Actions authenticates to Google Cloud through **Workload Identity
+   Federation**, restricted to `Machine-Saver-Inc` repositories. No key file
+   exists anywhere.
+2. The built files and `SHA256SUMS` go to `<app-slug>/vX.Y.Z/`; `latest.json` is
+   written **last**, so no program is ever offered a version whose files are not
+   there yet.
+3. **Verify both halves.** An anonymous request for `latest.json` must be
+   **refused** — a private release that anyone can fetch is a failed release —
+   and the files fetched with the workflow's own identity must match
+   `SHA256SUMS`.
+
+### The checks that will hold it (arriving with `ms-appkit` 1.3.0)
+
+| Rule | Why |
+| --- | --- |
+| The declared visibility matches the repository's | a "private" program in a public repo has published its source |
+| No `.env`, key file or credential-shaped string is tracked | the reason this section exists |
+| A private program builds no window before sign-in succeeds | a gate that the first screen can skip is not a gate |
+| No update code names a host outside `update.channel` | holds from 1.2.0; the private channel is unreachable otherwise |
+| Tokens never reach the log, the report or `settings.json` | the report is pasted into email |
+
+### One-time setup (a Workspace administrator, once for the family)
+
+A Google Cloud project for the desktop applications; the Internal OAuth consent
+screen and one *Desktop app* client; the release bucket; a Workload Identity
+pool trusting GitHub Actions from `Machine-Saver-Inc`, and a service account
+that may write to the bucket; Secret Manager enabled; a Google Group address for
+**Email it to support**.
+
+---
+
 ## 2. Icons and the button register
 
 ### The library is Lucide
@@ -254,6 +401,9 @@ same role, in every application. The left column is also the vocabulary: say
 | **Open past results** | open the results folder | `folder` | `folder-open` | secondary |
 | **Start …** | begin the app's main job | `start` | `play` | primary |
 | **Stop …** | end the job early | `stop` | `circle-stop` | danger |
+| **Sign in with Google** | start a private program's sign-in (§1a) | `user` | `user` | primary |
+| **Sign out** | forget this computer's sign-in (§1a) | `user` | `user` | secondary |
+| **Email it to support** | a private program's problem report (§1a) | `mail` | `mail` | primary |
 
 **Marks vendored and ready for the apps that do not exist yet** — use these
 rather than inventing: `printer` (`printer`), `label` (`tag`), `gateway`
@@ -299,6 +449,8 @@ mark.
 3. What does it talk to — hardware, a network service, files, nothing?
 4. Is there a long-running or unattended operation? (§11)
 5. Windows only, or Linux too?
+6. **Public or private?** (§1a) Private if the source, the releases or any
+   credential it uses must stay inside Machine Saver.
 
 ### The layout
 
@@ -372,6 +524,8 @@ an application still has to get right — mainly `busy()`, which is the only thi
 the kit cannot know.
 
 Against the GitHub Releases API. A public repo needs no token and no server.
+A private program's releases live in Google Cloud Storage instead (§1a);
+`ms_appkit.update.channel` is the only place that difference is allowed to live.
 
 | Platform | Install |
 | --- | --- |
@@ -803,6 +957,7 @@ remember:
 | The lint the build runs also runs in the test suite, under a rule set stated in `pyproject.toml` | a lint only CI ran went red after the tag was pushed; then an unconfigured one found nothing locally and 21 things in CI |
 | CI: bash declared, packaging inputs tracked, Qt libraries present, interface tests must not skip | each cost a release |
 | Release: the tag is on `main`; published assets verified | each was a manual step that got missed |
+| The update code names its release host only in `update.channel` | a private host would otherwise be unreachable from half the updater |
 
 Still yours: read a CI run to completion, never pipe pytest into `tail`, and
 look at the screenshots.

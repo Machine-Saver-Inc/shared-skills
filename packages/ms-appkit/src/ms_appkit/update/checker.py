@@ -1,10 +1,12 @@
-"""Update checking against GitHub Releases.
+"""Update checking.
 
-Machine Saver applications are released from public repositories, so this needs
-no token and no server of our own: the releases feed is the update channel.
+Where releases come from -- a public repository's GitHub Releases today -- is
+the business of :mod:`ms_appkit.update.channel`. This module only asks the
+channel, so the version comparison, the three outcomes and the checksum rule are
+the same for every host.
 
-Which repository, and which version is running, come from
-:func:`ms_appkit.identity.app`, so this module is the same in every program.
+Which version is running comes from :func:`ms_appkit.identity.app`, so this
+module is the same in every program.
 """
 
 from __future__ import annotations
@@ -20,6 +22,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from ms_appkit.identity import app
+from ms_appkit.update import channel as channels
 from ms_appkit.update.net import open_url
 
 log = logging.getLogger(__name__)
@@ -42,8 +45,14 @@ class CheckOutcome:
     error: str | None = None
 
     @property
-    def reached_github(self) -> bool:
+    def reached(self) -> bool:
+        """Whether the release host answered at all."""
         return self.error is None
+
+    @property
+    def reached_github(self) -> bool:
+        """The name from when every host was GitHub. Kept for callers."""
+        return self.reached
 
     @property
     def update_available(self) -> bool:
@@ -89,25 +98,19 @@ _open = open_url
 
 
 def fetch_latest_release_detailed(
-    url: str = "", opener=None
+    url: str = "", opener=None, channel: channels.ReleaseChannel | None = None
 ) -> tuple[Release | None, str | None]:
-    """Ask GitHub for the newest release.
+    """Ask the release channel for the newest release.
 
     Returns ``(release, None)`` on success or ``(None, reason)`` on failure.
     Never raises: startup must not wait on the network.
     """
-    this = app()
-    url = url or this.latest_release_api
+    source = channel or channels.current()
+    url = url or source.latest_url
     if not url:
         return None, ("This build does not know which repository it is "
                       "released from, so it cannot check for updates.")
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "User-Agent": this.user_agent,
-        },
-    )
+    request = urllib.request.Request(url, headers=source.feed_headers())
     open_it = opener or _open
 
     last: Exception | None = None
@@ -120,40 +123,35 @@ def fetch_latest_release_detailed(
             last = exc
             log.info("update check attempt %d failed: %s", attempt + 1, exc)
     else:
-        return None, describe_failure(last)
+        return None, describe_failure(last, source)
 
-    assets = {a["name"]: a["browser_download_url"] for a in data.get("assets", [])}
-    return Release(
-        version=str(data.get("tag_name", "")).lstrip("vV"),
-        tag=data.get("tag_name", ""),
-        notes=data.get("body") or "",
-        html_url=data.get("html_url", this.releases_page),
-        assets=assets,
-        checksums_url=assets.get("SHA256SUMS"),
-    ), None
+    return source.release_from(data), None
 
 
-def describe_failure(exc: Exception | None) -> str:
+def describe_failure(exc: Exception | None,
+                     channel: channels.ReleaseChannel | None = None) -> str:
     """Say what went wrong in words the person at the machine can act on."""
     if exc is None:
         return "The update check did not complete."
+    source = channel or channels.current()
+    host = source.host
     text = str(exc)
     lowered = text.lower()
     if "certificate" in lowered or "ssl" in lowered:
-        return ("The secure connection to GitHub could not be verified. This is "
+        return (f"The secure connection to {host} could not be verified. This is "
                 "usually a company proxy or an out-of-date certificate store.\n\n"
                 f"{text}")
     if "timed out" in lowered or isinstance(exc, TimeoutError):
-        return ("GitHub did not answer in time. The network may be slow or "
+        return (f"{host} did not answer in time. The network may be slow or "
                 f"blocked.\n\n{text}")
     if "name or service not known" in lowered or "getaddrinfo" in lowered \
             or "nodename nor servname" in lowered:
-        return ("github.com could not be looked up. This computer may have no "
-                f"internet connection.\n\n{text}")
+        return (f"{source.domain or host} could not be looked up. This computer "
+                f"may have no internet connection.\n\n{text}")
     if "forbidden" in lowered or "403" in text:
-        return ("GitHub refused the request. If several programs share this "
-                f"connection, the hourly limit may have been reached.\n\n{text}")
-    return f"Could not reach GitHub.\n\n{text}"
+        hint = f" {source.refused_hint}" if source.refused_hint else ""
+        return f"{host} refused the request.{hint}\n\n{text}"
+    return f"Could not reach {host}.\n\n{text}"
 
 
 def is_newer(release: Release, current: str = "") -> bool:
@@ -168,7 +166,7 @@ def outcome_kind(outcome: CheckOutcome) -> str:
     """
     if outcome.update_available:
         return "update"
-    if outcome.reached_github:
+    if outcome.reached:
         return "current"
     return "unknown"
 
