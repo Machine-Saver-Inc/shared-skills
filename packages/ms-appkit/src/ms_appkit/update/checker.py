@@ -110,12 +110,14 @@ def fetch_latest_release_detailed(
     if not url:
         return None, ("This build does not know which repository it is "
                       "released from, so it cannot check for updates.")
-    request = urllib.request.Request(url, headers=source.feed_headers())
     open_it = opener or _open
 
     last: Exception | None = None
     for attempt in range(ATTEMPTS):
         try:
+            # Built inside the attempt: a private host's headers carry a token,
+            # and not being signed in is a failed check, not a crash.
+            request = urllib.request.Request(url, headers=source.feed_headers())
             with open_it(request, timeout=TIMEOUT_S) as response:
                 data = json.loads(response.read().decode("utf-8"))
             break
@@ -133,6 +135,8 @@ def describe_failure(exc: Exception | None,
     """Say what went wrong in words the person at the machine can act on."""
     if exc is None:
         return "The update check did not complete."
+    if isinstance(exc, channels.NotSignedIn):
+        return f"{exc}\n\nUpdates are checked again once you are signed in."
     source = channel or channels.current()
     host = source.host
     text = str(exc)

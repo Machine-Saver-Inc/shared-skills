@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.3.0.** Published at
+**Skill version 2.4.0.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -197,16 +197,19 @@ into a problem report. A registry key cannot.
 
 ## 1a. Public or private
 
-**Specified in skill 2.3.0. `ms-appkit` implements it from 1.3.0; until then
-every application is public, and `ms-appkit` 1.2.0 carries the seam it will use
-(`ms_appkit.update.channel`).**
+**`ms-appkit` 1.3.0 implements this section.**
 
 Every application is one or the other, decided before the first line of code
 (it is question 6 in §3) and stated once, at startup:
 
 ```python
+# <app>/__init__.py
+VISIBILITY = "private"                     # "public" is the default
+from gateway_app._private import PRIVATE   # a PrivateConfig; see "Using it" below
+
+# <app>/app.py
 run(name=APP_NAME, repo=GITHUB_REPO, version=__version__, slug=SLUG,
-    window=MainWindow, visibility="private")        # "public" is the default
+    window=MainWindow, visibility=VISIBILITY, private=PRIVATE)
 ```
 
 **Public** is what the family has always been: a public repository, releases on
@@ -270,8 +273,11 @@ whose sign-in is bypassed opens without anything worth taking.
 
 Shop-floor PCs lose their connection. A private program may start without
 reaching Google for **14 days** after the last time Google confirmed the
-sign-in, and says so on Home: *"Working offline — sign-in last confirmed 3 days
-ago."* Two exceptions, both deliberate:
+sign-in, and says so in the footer beside the maker mark, on every screen:
+*"Signed in as name@machinesaver.net · working offline, 11 days left."* The time
+of that confirmation is kept in the credential store with the token, not in
+`settings.json`, so it cannot be edited forward; a clock set *back* before it
+ends the grace period rather than extending it. Two exceptions, both deliberate:
 
 - **A refusal is not an outage.** If Google answers and says the sign-in is no
   longer valid (`invalid_grant` — the account was suspended or the token
@@ -321,15 +327,74 @@ checked:
    and the files fetched with the workflow's own identity must match
    `SHA256SUMS`.
 
-### The checks that will hold it (arriving with `ms-appkit` 1.3.0)
+`latest.json` is written by `ms_appkit.update.channel.feed()`, the same module
+that reads it, so the two cannot drift; it refuses a release with no
+`SHA256SUMS`.
 
-| Rule | Why |
+```yaml
+permissions:
+  contents: write
+  id-token: write        # lets the job prove to Google which repository it is
+env:
+  BUCKET: <release bucket>
+  SLUG: <app-slug>
+steps:
+  # ... build, sha256sum * > SHA256SUMS, tools/release_notes.py > release-body.md
+  - uses: google-github-actions/auth@v2
+    with:
+      workload_identity_provider: projects/<number>/locations/global/workloadIdentityPools/github/providers/machine-saver-inc
+      service_account: release-uploader@<project>.iam.gserviceaccount.com
+  - uses: google-github-actions/setup-gcloud@v2
+  - name: Publish, feed last
+    run: |
+      V="${GITHUB_REF_NAME#v}"
+      gcloud storage cp dist/* SHA256SUMS "gs://$BUCKET/$SLUG/v$V/"
+      python -c "import os,pathlib; from ms_appkit.update.channel import feed; \
+        print(feed(os.environ['V'], pathlib.Path('release-body.md').read_text(), \
+                   os.listdir('dist') + ['SHA256SUMS']))" > latest.json
+      gcloud storage cp latest.json "gs://$BUCKET/$SLUG/latest.json"
+  - name: An anonymous download must be refused
+    run: |
+      code=$(curl -s -o /dev/null -w '%{http_code}' \
+        "https://storage.googleapis.com/storage/v1/b/$BUCKET/o/$SLUG%2Flatest.json?alt=media")
+      [ "$code" = 401 ] || [ "$code" = 403 ] || { echo "anonymous got $code"; exit 1; }
+  - name: The published files match SHA256SUMS
+    run: |
+      mkdir check && gcloud storage cp "gs://$BUCKET/$SLUG/v${GITHUB_REF_NAME#v}/*" check/
+      (cd check && sha256sum -c SHA256SUMS)
+```
+
+### Using it
+
+1. Depend on the kit **with the `private` extra**, which adds `keyring`:
+   `"ms-appkit[private] @ git+https://github.com/Machine-Saver-Inc/shared-skills.git#subdirectory=packages/ms-appkit"`.
+2. Put the `PrivateConfig` in `<app>/_private.py` — client ID and secret from
+   the OAuth client JSON, the Cloud project, the release bucket, the support
+   address. The repository is private; this module never goes anywhere else.
+3. `from ms_appkit import secrets` and `secrets.get("wipom-password")` wherever
+   the program needs a credential. It raises `SecretUnavailable` with a sentence
+   to show, never returns a blank.
+4. Wire the Settings screen's **Sign out** to `self.sign_out()` on the window;
+   the template shows how, and hides the group for a public program.
+5. PyInstaller: add `keyring.backends.Windows`, `keyring.backends.SecretService`
+   and `ms_appkit.signin` to `hiddenimports` — each is imported inside a
+   function.
+6. In `ci.yml`, give the house-rules step
+   `MS_REPO_PRIVATE: ${{ github.event.repository.private }}`.
+
+### The checks that hold it
+
+| Rule | Where |
 | --- | --- |
-| The declared visibility matches the repository's | a "private" program in a public repo has published its source |
-| No `.env`, key file or credential-shaped string is tracked | the reason this section exists |
-| A private program builds no window before sign-in succeeds | a gate that the first screen can skip is not a gate |
-| No update code names a host outside `update.channel` | holds from 1.2.0; the private channel is unreachable otherwise |
-| Tokens never reach the log, the report or `settings.json` | the report is pasted into email |
+| The declared visibility matches the repository's | `housekeeping.visibility_faults`, from `MS_REPO_PRIVATE`; skips only outside CI |
+| No `.env`, key file or credential-shaped string is tracked | `housekeeping.tracked_secret_faults`, over `git ls-files` |
+| A private program's sign-in settings are the family's | `housekeeping.private_config_faults` — a real client ID, a domain support address, grace ≤ 14 days |
+| A private program builds no window before sign-in succeeds | the kit's tests drive `bootstrap.run` itself with the sign-in declined |
+| No update code names a host outside `update.channel` | the kit's tests, since 1.2.0 |
+| Tokens never reach the log, the report or `settings.json` | `diagnostics.redact` removes every Google credential shape; the kit's tests prove it and prove `settings.json` stays clean |
+| A revoked account is locked out inside the grace period; a wrong-domain account is refused; a forged sign-in is refused | the kit's tests, against a fake Google that answers the way the real one does |
+
+Every one of them was shown to fail by breaking its rule on purpose.
 
 ### One-time setup (a Workspace administrator, once for the family)
 

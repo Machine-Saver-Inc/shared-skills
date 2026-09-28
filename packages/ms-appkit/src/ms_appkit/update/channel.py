@@ -19,16 +19,28 @@ asks the channel:
 * what to call the host in a sentence, so an error does not say "GitHub" about
   a host that is not GitHub.
 
-:class:`GitHubReleases` is the only channel today and behaves exactly as the
-code it replaced. The private channel arrives with ms-appkit 1.3.0; the skill's
-§1a describes it.
+:class:`GitHubReleases` serves a public program and behaves exactly as the code
+it replaced. :class:`GoogleCloudStorage` serves a private one: the files live in
+a bucket only the company's Google accounts can read, and every request carries
+the signed-in person's own token (skill section 1a).
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+import urllib.parse
+from collections.abc import Callable
+from dataclasses import dataclass, field
 
 from ms_appkit.identity import AppInfo, app
+
+
+class NotSignedIn(OSError):
+    """A private release host was asked for something before sign-in.
+
+    An ``OSError`` so the checker and the downloader treat it exactly like any
+    other failure to reach the host: say so in a sentence, change nothing.
+    """
 
 
 class ReleaseChannel:
@@ -95,11 +107,91 @@ class GitHubReleases(ReleaseChannel):
         )
 
 
+STORAGE = "https://storage.googleapis.com/storage/v1/b"
+
+
+def _signed_in_token() -> str:
+    from ms_appkit import auth
+
+    try:
+        return auth.current().access_token()
+    except auth.SignInError as exc:
+        raise NotSignedIn(str(exc)) from exc
+
+
+@dataclass(frozen=True)
+class GoogleCloudStorage(ReleaseChannel):
+    """A private program's releases, in a bucket only the domain can read.
+
+    Layout, one folder per program::
+
+        <slug>/latest.json        written last, so it never names missing files
+        <slug>/v1.2.0/<files>     the installers and SHA256SUMS
+    """
+
+    bucket: str
+    slug: str
+    token: Callable[[], str] = field(default=_signed_in_token, compare=False)
+    host: str = "the Machine Saver release store"
+    domain: str = "storage.googleapis.com"
+    refused_hint: str = ("Your account may not be allowed to read releases. Sign "
+                         "out and sign in again with your machinesaver.net account.")
+
+    def object_url(self, path: str) -> str:
+        return f"{STORAGE}/{self.bucket}/o/{urllib.parse.quote(path, safe='')}?alt=media"
+
+    @property
+    def latest_url(self) -> str:
+        return self.object_url(f"{self.slug}/latest.json") if self.bucket else ""
+
+    @property
+    def releases_page(self) -> str:
+        return (f"https://console.cloud.google.com/storage/browser/{self.bucket}/{self.slug}"
+                if self.bucket else "")
+
+    def _signed(self, headers: dict[str, str]) -> dict[str, str]:
+        return {**headers, "Authorization": f"Bearer {self.token()}"}
+
+    def feed_headers(self) -> dict[str, str]:
+        return self._signed(super().feed_headers())
+
+    def download_headers(self) -> dict[str, str]:
+        return self._signed(super().download_headers())
+
+    def release_from(self, data: dict):
+        from ms_appkit.update.checker import Release
+
+        tag = str(data.get("tag") or f"v{data.get('version', '')}")
+        assets = {name: self.object_url(f"{self.slug}/{tag}/{name}")
+                  for name in data.get("files", [])}
+        return Release(
+            version=str(data.get("version") or tag).lstrip("vV"),
+            tag=tag,
+            notes=data.get("notes") or "",
+            html_url=self.releases_page,
+            assets=assets,
+            checksums_url=assets.get("SHA256SUMS"),
+        )
+
+
+def feed(version: str, notes: str, files: list[str]) -> str:
+    """The ``latest.json`` a private release publishes, in the one shape the
+    channel reads. Called by the release workflow, so the writer and the reader
+    cannot drift apart."""
+    if "SHA256SUMS" not in files:
+        raise ValueError("a release without SHA256SUMS cannot be verified")
+    version = version.lstrip("vV")
+    return json.dumps({"version": version, "tag": f"v{version}", "notes": notes,
+                       "files": sorted(files)}, indent=2)
+
+
 _override: ReleaseChannel | None = None
 
 
 def for_app(info: AppInfo) -> ReleaseChannel:
     """The channel a program with this identity is released through."""
+    if info.is_private and info.private is not None:
+        return GoogleCloudStorage(bucket=info.private.bucket, slug=info.slug)
     return GitHubReleases(info.repo)
 
 

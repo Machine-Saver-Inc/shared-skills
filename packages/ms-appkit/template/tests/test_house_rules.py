@@ -29,10 +29,11 @@ UI = ROOT / "example_app" / "ui"
 
 @pytest.fixture(scope="session", autouse=True)
 def identity():
-    from example_app import APP_NAME, GITHUB_REPO, SLUG, __version__
+    from example_app import APP_NAME, GITHUB_REPO, PRIVATE, SLUG, VISIBILITY, __version__
 
     return ms_appkit.configure(
-        name=APP_NAME, repo=GITHUB_REPO, version=__version__, slug=SLUG
+        name=APP_NAME, repo=GITHUB_REPO, version=__version__, slug=SLUG,
+        visibility=VISIBILITY, private=PRIVATE,
     )
 
 
@@ -97,3 +98,24 @@ def test_this_version_has_a_changelog_entry():
     if not changelog.is_file():          # the template ships without one
         pytest.skip("no CHANGELOG.md in the template")
     assert f"[{__version__}]" in changelog.read_text(encoding="utf-8")
+
+
+# --- public or private (skill section 1a) -------------------------------------
+
+
+def test_the_repository_is_what_the_program_says_it_is(identity):
+    """Only the build knows the repository's real visibility. CI passes it as
+    MS_REPO_PRIVATE: ${{ github.event.repository.private }}."""
+    told = os.environ.get("MS_REPO_PRIVATE")
+    if told is None and not os.environ.get("CI"):
+        pytest.skip("only the build knows whether the repository is private")
+    private = None if told is None else told.strip().lower() == "true"
+    assert not house.visibility_faults(identity.visibility, private)
+
+
+def test_no_credential_is_tracked_by_git():
+    assert not house.tracked_secret_faults(ROOT)
+
+
+def test_a_private_program_signs_in_the_family_s_way(identity):
+    assert not house.private_config_faults(identity)
