@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.4.2.** Published at
+**Skill version 2.4.3.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -473,6 +473,7 @@ same role, in every application. The left column is also the vocabulary: say
 | **Open GitHub to post it** | open the pre-filled issue | `open` | `external-link` | primary |
 | **Copy to clipboard** | put the report on the clipboard | `copy` | `copy` | secondary |
 | **Test connection** | prove the thing answers | `connect` | `plug` | primary |
+| **Print a test label** | print the calibration label at the saved Label position | `printer` | `printer` | secondary |
 | **Find it for me** | probe every candidate | `search` | `search` | secondary |
 | **Check again** | re-scan for devices | `refresh` | `refresh-cw` | secondary |
 | **Change port** | go back to device selection | `connect` | `plug` | secondary |
@@ -485,7 +486,7 @@ same role, in every application. The left column is also the vocabulary: say
 | **Email it to support** | a private program's problem report (§1a) | `mail` | `mail` | primary |
 
 **Marks vendored and ready for the apps that do not exist yet** — use these
-rather than inventing: `printer` (`printer`), `label` (`tag`), `gateway`
+rather than inventing: `label` (`tag`), `gateway`
 (`router`), `wifi`, `network`, `globe`, `barcode` (`qr-code`), `scan`
 (`scan-line`), `power`, `usb`, `terminal`, `database`, `import` (`file-input`),
 `export` (`file-output`), `upload`, `add` (`plus`), `remove` (`minus`), `edit`

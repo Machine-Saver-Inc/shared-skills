@@ -4,6 +4,15 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-09-29 - Print a test label
+
+### ms-desktop-app 2.4.3
+
+- The register gains **Print a test label** (`printer`, secondary): prints the
+  shared calibration label from `ms-labels` at the printer's saved Label
+  position. First used by TriVibe & T-Port Labels; the AirVibe rebuild uses the
+  same words. `printer` moves from the ready-for-later list into the register.
+
 ## 2026-09-29 - Espec integration
 
 ### ms-appkit 1.4.0
