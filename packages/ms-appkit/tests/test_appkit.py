@@ -1156,6 +1156,7 @@ def test_the_sign_in_is_kept_in_the_operating_system_s_credential_store(monkeypa
 
 
 def test_the_client_secret_comes_from_the_build_then_the_environment(tmp_path, monkeypatch):
+    import importlib
     import sys
 
     from ms_appkit.identity import SECRET_ENV, stamped_secret
@@ -1168,8 +1169,16 @@ def test_the_client_secret_comes_from_the_build_then_the_environment(tmp_path, m
     assert stamped_secret("stamped_app") == "", "neither: empty, not an error"
     monkeypatch.setenv(SECRET_ENV, "from-the-environment")
     assert stamped_secret("stamped_app") == "from-the-environment"
+    # Put the folder's timestamp back to what it was, as Windows' coarse clock
+    # does within the same moment. Python's import system keeps a list of each
+    # folder's files and re-reads it only when that timestamp changes, so
+    # without invalidate_caches() the new file stays invisible -- which is how
+    # this test failed on windows-latest after passing everywhere else.
+    before = package.stat()
     (package / "_client_secret.py").write_text('CLIENT_SECRET = "from-the-build"\n')
+    os.utime(package, ns=(before.st_atime_ns, before.st_mtime_ns))
     sys.modules.pop("stamped_app._client_secret", None)
+    importlib.invalidate_caches()
     assert stamped_secret("stamped_app") == "from-the-build", "the build wins"
 
 
