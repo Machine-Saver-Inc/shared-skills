@@ -12,9 +12,10 @@ Saver applications rather than two unrelated Qt forms.
 from __future__ import annotations
 
 ACCENT = "#2f6feb"
-GOOD = "#1a7f37"
-WARN = "#9a6700"
+GOOD = "#167332"
+WARN = "#896000"
 BAD = "#b4232c"
+DARK_BAD = "#ff8f98"
 
 
 def is_dark(application=None) -> bool:
@@ -38,6 +39,10 @@ def build_stylesheet(dark: bool = False, extra: str = "") -> str:
     # palette(mid) is too faint for a border on some Windows themes and too
     # loud on others, so the edge is stated rather than borrowed.
     edge = "#5a6570" if dark else "#bcc3cb"
+    hint = "#aab3bf" if dark else "#59636e"
+    good = "#72d493" if dark else GOOD
+    warn = "#edc36e" if dark else WARN
+    bad = DARK_BAD if dark else BAD
     sunk = "#2b3138" if dark else "#e9edf1"
     muted = "#2f4470" if dark else "#a9c1ef"
     muted_text = "#8fa3c4" if dark else "#f2f6fd"
@@ -46,11 +51,11 @@ def build_stylesheet(dark: bool = False, extra: str = "") -> str:
     return f"""
 QWidget {{ font-size: 14px; }}
 QLabel#Title {{ font-size: 26px; font-weight: 600; }}
-QLabel#Subtitle {{ font-size: 15px; color: palette(mid); }}
-QLabel#Hint {{ color: palette(mid); font-size: 12px; }}
-QLabel#StatusGood {{ color: {GOOD}; font-weight: 600; }}
-QLabel#StatusWarn {{ color: {WARN}; font-weight: 600; }}
-QLabel#StatusBad {{ color: {BAD}; font-weight: 600; }}
+QLabel#Subtitle {{ font-size: 15px; color: {hint}; }}
+QLabel#Hint {{ color: {hint}; font-size: 12px; }}
+QLabel#StatusGood {{ color: {good}; font-weight: 600; }}
+QLabel#StatusWarn {{ color: {warn}; font-weight: 600; }}
+QLabel#StatusBad {{ color: {bad}; font-weight: 600; }}
 
 /* Buttons ---------------------------------------------------------------
    Setting padding and a radius without also setting a border and a background
@@ -91,9 +96,9 @@ QPushButton#Primary:disabled {{
 }}
 QPushButton#Primary:focus {{ border: 2px solid {focus_ring}; padding: 12px 25px; }}
 
-QPushButton#Danger {{ color: {BAD}; border-color: {edge}; }}
+QPushButton#Danger {{ color: {bad}; border-color: {edge}; }}
 QPushButton#Danger:hover {{
-    border-color: {BAD}; color: {BAD}; background: {danger_wash};
+    border-color: {bad}; color: {bad}; background: {danger_wash};
 }}
 
 /* The footer's own buttons, which sit under the content rather than in it. */

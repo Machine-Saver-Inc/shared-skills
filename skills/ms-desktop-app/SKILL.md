@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.4.1.** Published at
+**Skill version 2.4.2.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -641,6 +641,9 @@ hosts that were failing.
 
 1. **Compare versions numerically.** `1.9.0` sorts above `1.10.0` as strings.
 2. **Never update during work in progress.** Re-offer when it finishes.
+   Implement `busy()` for every hardware job and call `refresh_busy_state()`
+   when each job starts or finishes. The kit defers a release found while busy
+   and checks again immediately before applying a downloaded update.
 3. **A failed check is not "up to date".** Three outcomes: newer, confirmed
    current, could not tell. Startup must not block: log it, show it where asked.
 4. **Unverifiable means untrusted.** Mismatch *or* unfetchable `SHA256SUMS`

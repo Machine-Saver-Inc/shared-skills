@@ -107,6 +107,7 @@ def run(name: str, repo: str, version: str, window: Callable[[], object],
     if app().is_private:
         from ms_appkit.signin import gate
 
-    if open_window(window, gate) is None:
+    main_window = open_window(window, gate)
+    if main_window is None:
         return 1          # not signed in: nothing was built, nothing to run
     return application.exec()
