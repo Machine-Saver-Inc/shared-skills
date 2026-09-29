@@ -4,7 +4,7 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
-## 2026-09-28 - Espec integration
+## 2026-09-29 - Espec integration
 
 ### ms-appkit 1.4.0
 
@@ -15,16 +15,40 @@ Programs stay open reliably and wait for hardware work to finish before
 showing or installing an update. Reporting a problem still opens if the
 program cannot read part of its current state.
 
-- Retain the main window throughout the application event loop.
+- Retain the main window throughout the application event loop. `run()` in
+  1.3.x discarded it right after building it (introduced in 1.3.0).
 - Defer update offers while busy and re-check before invoking an installer.
 - Add `refresh_busy_state()` for application job start/finish hooks.
 - Keep running update workers alive across repeated checks and window close.
 - Keep the report dialog available when an application's context hook fails.
 - Five lifecycle regressions were proved failing against 1.3.0 before fixing.
 
-### ms-desktop-app 2.4.1
+### ms-desktop-app 2.4.2
 
 Document the job lifecycle hook used to defer and re-offer updates.
+
+## 2026-09-28 (evening)
+
+### ms-appkit 1.3.1
+
+Nothing changes on screen in a released program. A copy built without its
+sign-in key now says so when asked to sign in, instead of failing at Google.
+
+- `identity.stamped_secret(package)` — the OAuth client secret the release
+  build wrote into `<package>/_client_secret.py`, else `MS_GOOGLE_CLIENT_SECRET`,
+  else empty.
+- `tracked_secret_faults` now also fails a tracked `_client_secret.py`.
+- Three new tests, each proved to fail against its own violation.
+- The template's **Sign out** sits beside the name of whoever is signed in, sized
+  to its words rather than stretched across the window.
+
+### ms-desktop-app 2.4.1
+
+- §1a said to put the client secret in `_private.py`. The family's own
+  credential rule fails that file, correctly. The secret now comes from the
+  repository secret `GOOGLE_CLIENT_SECRET`, stamped in by the release workflow;
+  *Using it* and the `release.yml` fragment say how. Found while setting up the
+  first private program.
 
 ## 2026-09-28 (later)
 
