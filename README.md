@@ -5,7 +5,7 @@ in one place, so that a lesson learned in one of them lands in all of them.
 
 | | |
 | --- | --- |
-| [`skills/ms-desktop-app/`](skills/ms-desktop-app/) | The skill an agent reads before scaffolding or changing one of these tools. Currently **2.4.2**. |
+| [`skills/ms-desktop-app/`](skills/ms-desktop-app/) | The skill an agent reads before scaffolding or changing one of these tools. Currently **2.4.3**. |
 | [`packages/ms-appkit/`](packages/ms-appkit/) | The Python package that *is* the shared shell. Currently **1.4.0**. |
 
 ## Why this exists
