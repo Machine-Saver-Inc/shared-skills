@@ -1,5 +1,23 @@
 # Machine Saver shared skills
 
+<!-- machine-saver-scope:start -->
+## Scope
+
+Reusable Machine Saver development skills and the ms-appkit desktop application shell, including common application behavior and conventions.
+
+**Owner:** Machine-Saver-Inc. **Development area:** Developer tooling.
+
+## Ownership boundaries
+
+Product-specific business logic, private company policies and credentials do not belong in this public shared toolkit.
+
+## Development tracking
+
+Track work in this repository's issues and pull requests. Cross-repository work is coordinated through the [Machine Saver development Projects](https://github.com/orgs/Machine-Saver-Inc/projects).
+
+Follow this repository's contribution instructions and preserve links to related product issues. Scope describes responsibility; release and deployment readiness require the repository's own evidence.
+<!-- machine-saver-scope:end -->
+
 Everything that should be the same in every Machine Saver desktop application,
 in one place, so that a lesson learned in one of them lands in all of them.
 
