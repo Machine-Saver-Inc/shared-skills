@@ -1,0 +1,12 @@
+node_modules/
+www/vendor/
+ios/App/Pods/
+android/.gradle/
+android/app/build/
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+.env
+screenshots/*.png
+!screenshots/.gitkeep
