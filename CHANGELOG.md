@@ -4,6 +4,60 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-02 - Mobile applications
+
+### ms-mobile-app 1.0.0 — first release
+
+The mobile counterpart of `ms-desktop-app`, for anything Machine Saver puts on
+a technician's or customer's phone. Same section numbers, same button register,
+same rules; the concessions a phone forces are listed up front with the reason
+for each — a tab bar in place of the footer (the signature lives on Home and
+More), **Update now** opens the store instead of installing, settings in
+`localStorage` but exported whole into every report, the share sheet in place
+of a results folder, the action trail in place of a log, and the simulator
+shipped *inside* the app as Help → Status examples. §6 records the store-account
+lessons: enrol as an organisation, use the legal name exactly as D&B has it,
+company-owned accounts, tell the reference to expect Apple's call.
+
+### ms-mobilekit 1.0.0 — first release
+
+The JavaScript package that *is* the mobile shell. HTML + ES modules, no
+framework, no bundler, inside a Capacitor 7 shell; vendored into `www/vendor/`
+by `postinstall` so the app ships self-contained.
+
+- **The shell** — tab bar, signature (Report a problem · the Machine Saver
+  mark · version · Check for updates), update banner with the family's
+  wording, Auto / Light / Dark, safe-area insets, the OS back gesture doing
+  what Back does, long-press the title for the version.
+- **`actionBar`** — Back on the left, the forward action on the right, decided
+  in one place.
+- **`button` / `primary` / `danger`** — one helper, three roles with every
+  state described, and the place a press is recorded for the problem report.
+- **74 Lucide marks** — the desktop kit's 59 so the register carries across,
+  plus `home`, `nfc`, `sound`, `play`, `share`, `camera`, `bluetooth`, `more`,
+  `phone`, `magnet`, `battery`, `signal`, `location`, `store`, `theme`; licence
+  and `SOURCE.md` ship with the app.
+- **The problem report** — GitHub issue for a public repo, email for a private
+  one, the share sheet where the OS has it; DOM-free builder so its output is
+  asserted; issue URLs trimmed under 6000 chars with the full text copied first.
+- **The update check** — numeric version comparison, three honest outcomes,
+  network failures explained rather than quoted, the store link per platform.
+- **`housekeeping`** — ten checks an application's `tests/house_rules.test.mjs`
+  calls: one version written once; a changelog summary a user can read;
+  buttons from the helper with a mark the kit holds and one mark per label;
+  every screen named; the shell parts present; icons the kit's with licence;
+  `native.json` declaring each capability with a usage string, carried into
+  Info.plist and the manifest by `apply_native.mjs`; no `fetch` without a
+  timeout; CI and release rules; README sections; status examples on screen.
+  Each one was broken on purpose and watched go red.
+- **`tools/ui_gate.cjs`** — seven widths × light and dark; fails on
+  horizontal scroll, clipping, contrast under 4.5:1 and any tap target under
+  44 px. Caught a 36 px link in its first consumer the hour it was written.
+- **`template/`** — a runnable three-tab app to copy, with its own house-rules
+  test and CI.
+
+First consumer: `airvibe-cellular-app`.
+
 ## 2026-09-29 - Print a test label
 
 ### ms-desktop-app 2.4.3

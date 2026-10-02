@@ -1,0 +1,109 @@
+/* ms-mobilekit — the shared shell every Machine Saver mobile app imports.
+   Tokens on :root; apps override the accent pair only (see SKILL §1).
+   Every styled control describes default, hover, pressed, focus and disabled. */
+
+:root {
+  --ms-bg: #f1f1ee; --ms-panel: #ffffff; --ms-ink: #111111; --ms-ink-2: #4e5257; --ms-line: #d9d9d4;
+  --ms-accent: #ffff00; --ms-accent-ink: #111111; --ms-accent-soft: #fffbb3; --ms-accent-text: #6b6400;
+  --ms-ok: #156238; --ms-ok-soft: #dcf3e6; --ms-warn: #8a5200; --ms-warn-soft: #fff0cc; --ms-bad: #b4232c; --ms-bad-soft: #fde0e2;
+  --ms-sans: "IBM Plex Sans", -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --ms-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --ms-radius: 14px; --ms-tap: 44px;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --ms-bg: #000000; --ms-panel: #141414; --ms-ink: #f2f2ee; --ms-ink-2: #b3b3ad; --ms-line: #2c2c2c;
+  --ms-accent-soft: #2e2d00; --ms-accent-text: #ffff00;
+  --ms-ok: #5fd394; --ms-ok-soft: #133523; --ms-warn: #f2b84b; --ms-warn-soft: #3b2a0a; --ms-bad: #ff7b84; --ms-bad-soft: #3f1317;
+} }
+:root[data-theme="dark"] {
+  --ms-bg: #000000; --ms-panel: #141414; --ms-ink: #f2f2ee; --ms-ink-2: #b3b3ad; --ms-line: #2c2c2c;
+  --ms-accent-soft: #2e2d00; --ms-accent-text: #ffff00;
+  --ms-ok: #5fd394; --ms-ok-soft: #133523; --ms-warn: #f2b84b; --ms-warn-soft: #3b2a0a; --ms-bad: #ff7b84; --ms-bad-soft: #3f1317;
+}
+
+html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; height: 100%; background: var(--ms-bg); color: var(--ms-ink); font-family: var(--ms-sans); font-size: 16px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 28px; font-weight: 600; } h2 { font-size: 21px; font-weight: 600; } h3 { font-size: 16px; font-weight: 600; }
+p { margin: 0; }
+.ms-muted { color: var(--ms-ink-2); } .ms-small { font-size: 14px; }
+
+/* ---- shell: one column, phone width, framed on wide screens ---- */
+.ms-shell { min-height: 100%; display: flex; justify-content: center; }
+.ms-phone { width: 100%; max-width: 430px; min-height: 100vh; background: var(--ms-panel); display: flex; flex-direction: column; position: relative; }
+@media (min-width: 700px) {
+  .ms-shell { padding: 32px 16px; }
+  .ms-phone { min-height: 860px; border: 1px solid var(--ms-line); border-radius: 28px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.18); }
+}
+.ms-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--ms-line); position: sticky; top: env(safe-area-inset-top, 0px); background: var(--ms-panel); z-index: 3; min-height: 60px; }
+.ms-top .ms-title { display: flex; align-items: center; gap: 10px; font-weight: 600; min-width: 0; }
+.ms-top .ms-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ms-main { flex: 1; padding: 20px 16px 110px; display: flex; flex-direction: column; gap: 18px; }
+.ms-screen { display: none; flex-direction: column; gap: 18px; }
+.ms-screen.on { display: flex; }
+
+/* ---- buttons: three roles from one helper, every state described ---- */
+.btn { min-height: 48px; border-radius: var(--ms-radius); border: 1px solid var(--ms-line); background: var(--ms-panel); color: var(--ms-ink);
+  padding: 0 18px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-align: center; -webkit-tap-highlight-color: transparent; }
+.btn:hover { background: var(--ms-bg); }
+.btn:active { transform: translateY(1px); background: var(--ms-line); }
+.btn:focus-visible { outline: 3px solid var(--ms-ink); outline-offset: 2px; }
+.btn:disabled { opacity: .55; cursor: default; transform: none; }
+.btn.primary { background: var(--ms-accent); border-color: var(--ms-accent); color: var(--ms-accent-ink); }
+.btn.primary:hover { filter: brightness(.95); }
+.btn.primary:active { filter: brightness(.9); }
+.btn.primary:disabled { background: var(--ms-accent-soft); border-color: var(--ms-accent-soft); color: var(--ms-ink-2); opacity: 1; filter: none; }
+.btn.danger { color: var(--ms-bad); border-color: var(--ms-bad); background: var(--ms-panel); }
+.btn.danger:hover { background: var(--ms-bad-soft); }
+.btn.danger:active { background: var(--ms-bad-soft); filter: brightness(.95); }
+.btn.block { width: 100%; }
+.btn svg.ms-icon { width: 20px; height: 20px; flex: none; }
+.ms-icon { stroke: currentColor; fill: none; }
+.ms-row { display: flex; gap: 10px; flex-wrap: wrap; } .ms-row > .btn { flex: 1 1 140px; }
+
+/* ---- action bar: Back LEFT, forward RIGHT, the helper is the only place this is decided ---- */
+.ms-actions { display: flex; gap: 10px; align-items: center; }
+.ms-actions .ms-actions-back { margin-right: auto; }
+.ms-actions .ms-actions-forward { margin-left: auto; }
+
+/* ---- cards, chips, notes ---- */
+.ms-card { border: 1px solid var(--ms-line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 10px; background: var(--ms-panel); }
+.ms-card.soft { background: var(--ms-bg); border-color: transparent; }
+.ms-chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 4px 10px; font-size: 14px; font-weight: 600; }
+.ms-chip.ok { background: var(--ms-ok-soft); color: var(--ms-ok); } .ms-chip.warn { background: var(--ms-warn-soft); color: var(--ms-warn); }
+.ms-chip.bad { background: var(--ms-bad-soft); color: var(--ms-bad); } .ms-chip.neutral { background: var(--ms-bg); color: var(--ms-ink-2); }
+.ms-note { font-size: 14px; color: var(--ms-ink-2); border-radius: 12px; background: var(--ms-bg); padding: 10px 12px; }
+pre.ms-raw { margin: 0; font-family: var(--ms-mono); font-size: 13px; line-height: 1.5; background: var(--ms-bg); border-radius: var(--ms-radius); padding: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---- update banner: same wording everywhere ---- */
+.ms-banner { display: none; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 16px; background: var(--ms-accent-soft); color: var(--ms-ink); border-bottom: 1px solid var(--ms-line); font-size: 14px; }
+.ms-banner.on { display: flex; }
+.ms-banner .btn { min-height: 40px; padding: 0 12px; }
+
+/* ---- tab bar: every screen; last tab is More, where the signature lives ---- */
+nav.ms-tabs { position: sticky; bottom: 0; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; border-top: 1px solid var(--ms-line); background: var(--ms-panel); padding-bottom: env(safe-area-inset-bottom, 0px); z-index: 3; }
+.ms-tab { min-height: 60px; border: 0; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 12px; font-weight: 600; color: var(--ms-ink-2); -webkit-tap-highlight-color: transparent; }
+.ms-tab svg.ms-icon { width: 22px; height: 22px; }
+.ms-tab:hover { color: var(--ms-ink); } .ms-tab:active { opacity: .7; } .ms-tab:focus-visible { outline: 3px solid var(--ms-ink); outline-offset: -3px; }
+.ms-tab.on { color: var(--ms-accent-text); }
+.ms-tab.on::after { content: ""; width: 28px; height: 3px; border-radius: 2px; background: var(--ms-accent); }
+
+/* ---- signature: the family's footer, on Home and More ---- */
+.ms-signature { display: flex; flex-direction: column; gap: 10px; padding: 14px 0 0; border-top: 1px solid var(--ms-line); font-size: 14px; color: var(--ms-ink-2); }
+.ms-signature .ms-maker { display: flex; align-items: center; gap: 8px; }
+.ms-signature .ms-maker svg, .ms-signature .ms-maker img { width: 24px; height: 24px; }
+.ms-signature .ms-version { font-family: var(--ms-mono); font-size: 13px; }
+
+details.ms-fold { border: 1px solid var(--ms-line); border-radius: var(--ms-radius); padding: 0 14px; }
+details.ms-fold summary { min-height: 48px; display: flex; align-items: center; cursor: pointer; font-weight: 600; list-style: none; }
+details.ms-fold summary::-webkit-details-marker { display: none; }
+details.ms-fold summary::after { content: "+"; margin-left: auto; font-size: 20px; color: var(--ms-ink-2); }
+details.ms-fold[open] summary::after { content: "–"; }
+details.ms-fold > div { padding: 0 0 14px; display: flex; flex-direction: column; gap: 10px; }
+
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }

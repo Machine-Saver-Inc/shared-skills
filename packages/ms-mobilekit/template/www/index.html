@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Example Tool</title>
+<link rel="stylesheet" href="vendor/ms-mobilekit/kit.css">
+</head>
+<body>
+<div class="ms-shell"><div class="ms-phone">
+<header class="ms-top">
+  <div class="ms-title"><span>Example Tool</span></div>
+  <button class="btn" data-mark="theme" data-ms-theme>Auto</button>
+</header>
+<div id="banner"></div>
+<main class="ms-main">
+
+  <section class="ms-screen" data-screen="home" data-title="Home">
+    <div><h1>Example Tool</h1><p class="ms-muted">One sentence saying what this does for the person holding the phone.</p></div>
+    <button class="btn primary block" data-mark="start" data-go="job">Start the job</button>
+    <div class="ms-row">
+      <button class="btn" data-mark="help" data-go="help">Help</button>
+      <button class="btn" data-mark="settings" data-go="more">Settings</button>
+    </div>
+    <p class="ms-note" id="status">Not connected to anything yet.</p>
+    <div id="signature-home"></div>
+  </section>
+
+  <section class="ms-screen" data-screen="job" data-title="Job">
+    <h2>Do the one thing</h2>
+    <p class="ms-muted">This is the screen the person opened the app to reach. One obvious action.</p>
+    <div id="job-actions"></div>
+  </section>
+
+  <section class="ms-screen" data-screen="help" data-title="Help">
+    <h2>Help</h2>
+    <div class="ms-card">
+      <h3>Status examples</h3>
+      <p class="ms-small ms-muted">Every state the app can show, without the hardware.</p>
+      <div class="ms-row">
+        <button class="btn" data-mark="success" data-ex="ok" data-screen-for="job">Worked</button>
+        <button class="btn" data-mark="failure" data-ex="fail">Failed</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="ms-screen" data-screen="more" data-title="More">
+    <h2>More</h2>
+    <div class="ms-card"><h3>Settings</h3><p class="ms-small ms-muted">Every value the app uses, editable, with good defaults.</p></div>
+    <div id="signature-more"></div>
+  </section>
+
+</main>
+<nav class="ms-tabs" aria-label="Sections">
+  <button class="ms-tab" data-mark="home" data-go="home" data-also="job">Home</button>
+  <button class="ms-tab" data-mark="help" data-go="help">Help</button>
+  <button class="ms-tab" data-mark="more" data-go="more">More</button>
+</nav>
+</div></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
