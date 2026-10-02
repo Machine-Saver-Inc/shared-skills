@@ -3,13 +3,18 @@ on: [push, pull_request]
 jobs:
   checks:
     runs-on: ubuntu-latest
-    defaults: { run: { shell: bash } }
-    strategy: { matrix: { node: [20, 22] } }
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      matrix:
+        node: [20, 22]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: "${{ matrix.node }}" }
-      - run: npm ci
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm install --no-audit --no-fund
       - name: Packaging inputs are tracked by git
         run: for f in capacitor.config.json native.json www/index.html www/js/app.js www/js/version.js; do git ls-files --error-unmatch "$f" >/dev/null; done
       - name: Version consistency
@@ -22,4 +27,6 @@ jobs:
       - name: Screenshots
         run: npm run screenshots
       - uses: actions/upload-artifact@v4
-        with: { name: screenshots-node${{ matrix.node }}, path: screenshots/*.png }
+        with:
+          name: screenshots-node${{ matrix.node }}
+          path: screenshots/*.png

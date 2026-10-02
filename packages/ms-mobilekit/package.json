@@ -1,6 +1,6 @@
 {
   "name": "ms-mobilekit",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "The shared shell every Machine Saver mobile (iPhone/Android) application is built from: footer signature, tab bar, Lucide icons, the button register, report a problem, update check, settings, and the housekeeping checks that fail a build.",
   "type": "module",
   "license": "MIT",
@@ -10,7 +10,18 @@
     "./housekeeping": "./housekeeping/index.mjs",
     "./tools/*": "./tools/*"
   },
-  "files": ["src", "housekeeping", "tools", "template", "README.md", "CHANGELOG.md"],
-  "scripts": { "test": "node --test tests/*.test.mjs" },
-  "engines": { "node": ">=20" }
+  "files": [
+    "src",
+    "housekeeping",
+    "tools",
+    "template",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
 }

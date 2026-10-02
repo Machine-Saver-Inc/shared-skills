@@ -3,11 +3,19 @@
 The shell every Machine Saver iPhone/Android application is built from. The
 mobile counterpart of `ms-appkit`; read `skills/ms-mobile-app/SKILL.md` first.
 
-```
-npm i git+https://github.com/Machine-Saver-Inc/shared-skills.git#subdirectory=packages/ms-mobilekit
+npm cannot install a subfolder of a git repository, so an app does not list the
+kit as a dependency. It copies `template/tools/fetch_kit.mjs` and sets, in
+`package.json`:
+
+```json
+"scripts": { "postinstall": "node tools/fetch_kit.mjs" },
+"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "main" }
 ```
 
-`postinstall` → `tools/vendor_kit.mjs` copies `src/` into `www/vendor/ms-mobilekit/`.
+`npm install` then downloads the repo tarball at `ref`, extracts
+`packages/ms-mobilekit` into `node_modules/`, and runs `tools/vendor_kit.mjs`,
+which copies `src/` into `www/vendor/ms-mobilekit/`. Pin `ref` to a tag for a
+reproducible build.
 
 | | |
 | --- | --- |
