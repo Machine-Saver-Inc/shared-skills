@@ -3,9 +3,12 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "repository": { "type": "git", "url": "https://github.com/Machine-Saver-Inc/example-tool.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Machine-Saver-Inc/example-tool.git"
+  },
   "scripts": {
-    "postinstall": "node node_modules/ms-mobilekit/tools/vendor_kit.mjs",
+    "postinstall": "node tools/fetch_kit.mjs",
     "test": "node --test tests/*.test.mjs",
     "test:ui": "node node_modules/ms-mobilekit/tools/ui_gate.cjs",
     "screenshots": "node tools/screenshots.mjs",
@@ -14,9 +17,19 @@
     "serve": "npx --yes http-server www -p 8080"
   },
   "dependencies": {
-    "@capacitor/android": "^7.0.0", "@capacitor/core": "^7.0.0", "@capacitor/ios": "^7.0.0",
-    "ms-mobilekit": "git+https://github.com/Machine-Saver-Inc/shared-skills.git#subdirectory=packages/ms-mobilekit"
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0"
   },
-  "devDependencies": { "@capacitor/cli": "^7.0.0", "playwright": "^1.45.0" },
-  "engines": { "node": ">=20" }
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0",
+    "playwright": "^1.45.0"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "msKit": {
+    "repo": "Machine-Saver-Inc/shared-skills",
+    "ref": "main"
+  }
 }

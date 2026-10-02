@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver iPhone/And
 
 # Machine Saver mobile applications
 
-**Skill version 1.0.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
+**Skill version 1.0.1.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
 alongside **`ms-mobilekit`** — the JavaScript package that *is* the shell this
 skill describes. It is the mobile counterpart of `ms-desktop-app` **2.4.3** and
 follows its section numbers, so a reader of one knows where to look in the
@@ -60,13 +60,22 @@ Everything not in that table is the same rule as desktop.
 
 ## 0. Do not build the shell. Import it.
 
-```sh
-npm i git+https://github.com/Machine-Saver-Inc/shared-skills.git#subdirectory=packages/ms-mobilekit
+npm cannot install a subfolder of a git repository (the pip-style
+`#subdirectory=` suffix is silently wrong — it cost the first app its first CI
+run). So the kit is not a dependency; it is fetched. Copy
+`template/tools/fetch_kit.mjs` into the app and set, in `package.json`:
+
+```json
+"scripts": { "postinstall": "node tools/fetch_kit.mjs" },
+"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "main" }
 ```
 
-`postinstall` runs `tools/vendor_kit.mjs`, which copies the kit's runtime into
-`www/vendor/ms-mobilekit/` so the app ships self-contained (Capacitor copies
-`www/` as-is, and there is no bundler to resolve `node_modules` at runtime).
+`npm install` downloads the shared-skills tarball at `ref`, extracts
+`packages/ms-mobilekit` into `node_modules/`, then runs `tools/vendor_kit.mjs`,
+which copies the kit's runtime into `www/vendor/ms-mobilekit/` so the app ships
+self-contained (Capacitor copies `www/` as-is; there is no bundler to resolve
+`node_modules` at runtime). Pin `ref` to a tag when the build must be
+reproducible.
 
 ```html
 <!-- www/index.html -->
@@ -265,6 +274,7 @@ mark.
 ├─ capacitor.config.json   appId net.machinesaver.<app>, appName
 ├─ tests/house_rules.test.mjs   copied from the kit's template, day one
 ├─ tests/<domain>.test.mjs      the work, under Node
+├─ tools/fetch_kit.mjs     copied from the template; installs the kit on npm install
 ├─ tools/screenshots.mjs
 ├─ .github/workflows/      ci.yml  release.yml
 └─ CHANGELOG.md  README.md  package.json
@@ -276,8 +286,9 @@ and the rules testable in CI.
 
 ### Build in this order
 
-1. `version.js`, `package.json`, `capacitor.config.json`, `native.json`,
-   `.gitignore` — then `npm i` so the kit vendors.
+1. `version.js`, `package.json` (with `msKit` and the `postinstall`),
+   `tools/fetch_kit.mjs`, `capacitor.config.json`, `native.json`, `.gitignore`
+   — then `npm install` so the kit fetches and vendors.
 2. `tests/house_rules.test.mjs`, copied. It fails; fine.
 3. `ci.yml` from the template.
 4. **The status examples** — the record or state for every situation the app
@@ -372,8 +383,8 @@ deliberately public.
 
 ### `ci.yml` — every push and pull request
 
-Node 20 and 22. 0. **`shell: bash` once, in `defaults`.** 1. `npm ci` (vendors
-the kit). 2. **Packaging inputs tracked by git** — `git ls-files --error-unmatch`
+Node 20 and 22. 0. **`shell: bash` once, in `defaults`.** 1. `npm install`
+(fetches and vendors the kit; there is no lockfile, so never `npm ci`). 2. **Packaging inputs tracked by git** — `git ls-files --error-unmatch`
 on `capacitor.config.json`, `native.json`, `www/index.html`, `www/js/*.js`.
 3. Version consistency. 4. House rules and unit tests. 5. Playwright, then the
 **UI gate**: seven widths from 360 to 1024 × light and dark; fails on horizontal
@@ -386,7 +397,13 @@ scroll, clipped text, contrast under 4.5:1, and any tap target under 44 px.
 from the tag. 3. `cap add android` if absent, **`apply_native.mjs`** (writes
 `native.json` into the manifest), `cap sync`. 4. Build the unsigned AAB and APK.
 5. `SHA256SUMS`. 6. Body from `release_notes.mjs` (§7). 7. Publish.
-8. **Download the published asset anonymously and verify it.**
+8. **Download the published asset and verify it** — with the workflow token
+(`gh release download`), because an app repo is usually private and an
+anonymous `curl` gets a 404 there.
+
+**Write workflow YAML in block form.** A one-line `with: { name: x-${{ matrix.node }} }`
+is a nested map to YAML, the file is invalid, and nothing runs. The first
+consumer's first run died on exactly this line.
 
 iOS archives need a macOS runner and four secrets (`APPLE_CERT_P12`,
 `APPLE_CERT_PASSWORD`, `APPLE_PROVISION`, `ASC_API_KEY`). Until they exist:
@@ -535,13 +552,13 @@ fails when the rule is broken.
 ```
 shared-skills/
 ├─ skills/ms-desktop-app/SKILL.md     desktop, 2.4.3
-├─ skills/ms-mobile-app/SKILL.md      this file, 1.0.0
+├─ skills/ms-mobile-app/SKILL.md      this file, 1.0.1
 ├─ packages/ms-appkit/                the desktop shell (Python)
-└─ packages/ms-mobilekit/             the mobile shell (JavaScript), 1.0.0
+└─ packages/ms-mobilekit/             the mobile shell (JavaScript), 1.0.1
    ├─ src/                            kit.css, kit.js, report.js, update.js, settings.js, icons/
    ├─ housekeeping/index.mjs          the checks
-   ├─ tools/                          vendor_kit, apply_native, ui_gate, screenshots helper, release_notes, version_check
-   ├─ template/                       a runnable three-tab app to copy
+   ├─ tools/                          vendor_kit, apply_native, ui_gate, static, release_notes, version_check
+   ├─ template/                       a runnable three-tab app to copy (incl. tools/fetch_kit.mjs)
    └─ tests/                          the kit's own
 ```
 

@@ -25,8 +25,8 @@ in one place, so that a lesson learned in one of them lands in all of them.
 | --- | --- |
 | [`skills/ms-desktop-app/`](skills/ms-desktop-app/) | The skill an agent reads before scaffolding or changing one of these tools. Currently **2.4.3**. |
 | [`packages/ms-appkit/`](packages/ms-appkit/) | The Python package that *is* the shared shell. Currently **1.4.0**. |
-| [`skills/ms-mobile-app/`](skills/ms-mobile-app/) | The skill an agent reads before scaffolding or changing a Machine Saver iPhone/Android app. Currently **1.0.0**. |
-| [`packages/ms-mobilekit/`](packages/ms-mobilekit/) | The JavaScript package that *is* the shared mobile shell. Currently **1.0.0**. |
+| [`skills/ms-mobile-app/`](skills/ms-mobile-app/) | The skill an agent reads before scaffolding or changing a Machine Saver iPhone/Android app. Currently **1.0.1**. |
+| [`packages/ms-mobilekit/`](packages/ms-mobilekit/) | The JavaScript package that *is* the shared mobile shell. Currently **1.0.1**. |
 
 ## Why this exists
 
@@ -58,15 +58,15 @@ A runnable two-screen application that uses it correctly, with its own
 house-rules test, is in
 [`packages/ms-appkit/template/`](packages/ms-appkit/template/).
 
-For a phone app:
+For a phone app, npm cannot install a subfolder of a git repository, so the
+app copies `packages/ms-mobilekit/template/tools/fetch_kit.mjs` and sets:
 
 ```json
-"dependencies": {
-  "ms-mobilekit": "git+https://github.com/Machine-Saver-Inc/shared-skills.git#subdirectory=packages/ms-mobilekit"
-}
+"scripts": { "postinstall": "node tools/fetch_kit.mjs" },
+"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "main" }
 ```
 
-with the matching template in
+The matching template is in
 [`packages/ms-mobilekit/template/`](packages/ms-mobilekit/template/).
 
 ## Versioning

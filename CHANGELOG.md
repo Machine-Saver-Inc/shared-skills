@@ -4,6 +4,29 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-02 (later) - First consumer's CI lessons
+
+### ms-mobilekit 1.0.1
+
+Nothing changes on screen. The AirVibe Cellular app's first three CI runs each
+failed on something the template had wrong; all three are fixed in the template.
+
+- npm cannot install a subfolder of a git repository, so the kit is no longer a
+  dependency: `template/tools/fetch_kit.mjs`, run from `postinstall`, fetches
+  the shared-skills tarball at `msKit.ref` and extracts `packages/ms-mobilekit`
+  into `node_modules/`, then vendors it.
+- `ci.yml`: a one-line `{ … }` map containing `${{ matrix.node }}` is a nested
+  map to YAML; the workflow was invalid and nothing ran. Block form now.
+- `npm install`, not `npm ci` — the template carries no lockfile.
+- `release.yml`: verify the published asset with the workflow token
+  (`gh release download`); an anonymous `curl` cannot reach a private repo.
+
+### ms-mobile-app 1.0.1
+
+- §0 describes the fetch, not a dependency line that never worked.
+- §3 and §6 carry the three lessons: `npm install`, block-form YAML, token
+  for the verify step.
+
 ## 2026-10-02 - Mobile applications
 
 ### ms-mobile-app 1.0.0 — first release
