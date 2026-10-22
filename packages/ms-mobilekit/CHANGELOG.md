@@ -1,5 +1,13 @@
 # Changelog — ms-mobilekit
 
+## [1.1.1] — 2026-10-22
+
+Nothing changes on screen. `checkCI` now insists on a `schedule:` trigger, as
+the desktop kit does, so an app nobody has touched is still found broken by a
+kit or runner change before its next release; the checks added in 1.1.0 have
+tests of their own (`tests/housekeeping.test.mjs`), each shown to fail on a
+broken copy of the template.
+
 ## [1.1.0] — 2026-10-22
 
 Nothing changes on screen. The app is now part of a family that can be kept

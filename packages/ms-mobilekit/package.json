@@ -1,6 +1,6 @@
 {
   "name": "ms-mobilekit",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "The shared shell every Machine Saver mobile (iPhone/Android) application is built from: footer signature, tab bar, Lucide icons, the button register, report a problem, update check, settings, and the housekeeping checks that fail a build.",
   "type": "module",
   "license": "MIT",

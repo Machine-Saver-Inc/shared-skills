@@ -63,14 +63,35 @@ jobs:
       run:
         shell: bash
     steps:
-      - name: The sweep needs its token
+      # The sweep acts as the family's GitHub App when FAMILY_SWEEP_APP_ID and
+      # FAMILY_SWEEP_APP_KEY are set (a token that outlives any one person),
+      # and as a personal token (FAMILY_SWEEP_TOKEN) otherwise. One of the two
+      # must exist, and the sweep says so plainly when neither does.
+      - name: A token from the family's GitHub App, when it is configured
+        id: app
+        if: ${{ env.APP_ID != '' }}
+        uses: actions/create-github-app-token@v1
         env:
-          TOKEN: ${{ secrets.FAMILY_SWEEP_TOKEN }}
+          APP_ID: ${{ secrets.FAMILY_SWEEP_APP_ID }}
+        with:
+          app-id: ${{ secrets.FAMILY_SWEEP_APP_ID }}
+          private-key: ${{ secrets.FAMILY_SWEEP_APP_KEY }}
+          owner: Machine-Saver-Inc
+
+      - name: The sweep needs its token
+        id: token
+        env:
+          APP_TOKEN: ${{ steps.app.outputs.token }}
+          PAT: ${{ secrets.FAMILY_SWEEP_TOKEN }}
         run: |
-          if [ -z "$TOKEN" ]; then
-            echo "::error::FAMILY_SWEEP_TOKEN is not set on shared-skills; the sweep cannot read or write the application repositories. Add a fine-grained token (contents and pull requests: write on the Machine-Saver-Inc application repositories) as a repository secret."
+          token="${APP_TOKEN:-$PAT}"
+          if [ -z "$token" ]; then
+            echo "::error::Neither FAMILY_SWEEP_APP_ID/FAMILY_SWEEP_APP_KEY nor FAMILY_SWEEP_TOKEN is set on shared-skills; the sweep cannot read or write the application repositories. Add the family's GitHub App id and private key, or a fine-grained token with contents, pull requests and workflows write on the Machine-Saver-Inc application repositories."
             exit 1
           fi
+          echo "::add-mask::$token"
+          echo "token=$token" >> "$GITHUB_OUTPUT"
+          echo "using $([ -n "$APP_TOKEN" ] && echo 'the GitHub App' || echo 'the personal token')"
 
       - uses: actions/checkout@v4
         with:
@@ -80,7 +101,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: ${{ matrix.app.repo }}
-          token: ${{ secrets.FAMILY_SWEEP_TOKEN }}
+          token: ${{ steps.token.outputs.token }}
           path: app
           fetch-depth: 0
 
@@ -135,7 +156,7 @@ jobs:
       - name: Open or update the pull request
         if: steps.sweep.outputs.code != '2'
         env:
-          GH_TOKEN: ${{ secrets.FAMILY_SWEEP_TOKEN }}
+          GH_TOKEN: ${{ steps.token.outputs.token }}
           REPO: ${{ matrix.app.repo }}
           KIT: ${{ steps.tag.outputs.kit }}
           VERSION: ${{ steps.tag.outputs.version }}
