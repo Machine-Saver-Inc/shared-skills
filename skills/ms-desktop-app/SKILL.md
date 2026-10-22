@@ -745,6 +745,17 @@ Keep the report builder Qt-free so its output can be asserted in tests.
 
 ## 6. CI/CD
 
+**The family's CI lives once.** An application's `ci.yml` is the template's:
+a dozen lines that call
+`Machine-Saver-Inc/shared-skills/.github/workflows/desktop-ci.yml` at the kit
+tag the application pins, plus a monthly `schedule:`. Every lesson below is
+implemented in that reusable workflow, and the family sweep moves the tag, so
+a program nobody has touched still runs this year's checks. Writing the steps
+by hand is allowed only while migrating, and `housekeeping.ci_workflow_faults`
+then insists on each of them. Kits are released by `release-kit.yml` from an
+`ms-appkit/vX.Y.Z` tag, and `family-sweep.yml` (weekly, and after every kit
+release) runs `tools/sweep.py` against every registered application.
+
 ### `ci.yml` — every push and pull request
 
 Matrix: `ubuntu-latest` and `windows-latest` × the supported Python range.

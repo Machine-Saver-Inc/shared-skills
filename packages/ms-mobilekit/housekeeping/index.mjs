@@ -184,7 +184,9 @@ export function checkSimulator(root) {
 // answer and no build could be reproduced. ms-app.json is the record; the family sweep bumps it.
 export const FAMILY_SUPPORT_EMAIL = 'software-support@machinesaver.net';
 export const TEMPLATE_VERSION = 1;
-export const TEMPLATE_MARKED = ['tests/house_rules.test.mjs', '.github/workflows/ci.yml'];
+// Only the house-rules test is the kit's file whole; ci.yml carries the app's own
+// tracked-file list and steps, and checkCI judges its contents instead.
+export const TEMPLATE_MARKED = ['tests/house_rules.test.mjs'];
 
 export function checkManifest(root) {
   const errs = []; const p = join(root, 'ms-app.json');

@@ -1,78 +1,19 @@
 # ms-appkit template v1
 name: CI
 
+# The family's CI lives once, in shared-skills, and is called here at a kit
+# tag; the family sweep moves the tag. A monthly run finds a program nobody
+# has touched broken by a kit, Python or runner change before its next release.
 on:
   push:
     branches: [main]
   pull_request:
-  # A program nobody has touched for a year is still found broken by a kit,
-  # Python or runner change here, not at its next release.
   schedule:
     - cron: "17 6 1 * *"
   workflow_dispatch:
 
 jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    defaults:
-      run:
-        # Windows runners default to PowerShell; every step below is bash.
-        shell: bash
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python: ["3.10", "3.12"]
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python }}
-
-      - name: Qt runtime libraries
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 \
-            libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 \
-            libxcb-xinerama0 libxkbcommon0
-
-      - name: Install
-        run: pip install -e ".[dev]"
-
-      - name: Packaging inputs are tracked by git
-        run: |
-          for f in pyproject.toml ms-app.json packaging/example_app.spec \
-                   packaging/windows/example_app.iss packaging/windows/icon.ico \
-                   example_app/resources/icon.png tools/release_notes.py; do
-            git ls-files --error-unmatch "$f" > /dev/null
-          done
-
-      - name: Lint
-        run: ruff check .
-
-      - name: House rules and tests
-        env:
-          QT_QPA_PLATFORM: offscreen
-          # Only the build knows whether the repository is private (skill 1a).
-          MS_REPO_PRIVATE: ${{ github.event.repository.private }}
-          PYTHONFAULTHANDLER: "1"
-        run: |
-          set +e
-          python -m pytest -q -rs
-          code=$?
-          echo "pytest exited with $code"
-          exit $code
-
-      - name: The interface tests actually ran
-        env:
-          QT_QPA_PLATFORM: offscreen
-          MS_REPO_PRIVATE: ${{ github.event.repository.private }}
-        run: |
-          python -m pytest -q -rs > result.txt 2>&1 || true
-          cat result.txt
-          if grep -qE "SKIPPED .*(PySide6|Qt)" result.txt; then
-            echo "interface tests skipped; Qt is missing on this runner"; exit 1
-          fi
-          grep -qE "[0-9]+ passed" result.txt
+  ci:
+    uses: Machine-Saver-Inc/shared-skills/.github/workflows/desktop-ci.yml@ms-appkit/v1.5.0
+    with:
+      package: example_app
