@@ -4,6 +4,25 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-22 (follow-ups) - What the first sweep taught
+
+### ms-mobilekit 1.1.1 / ms-mobile-app 1.1.1
+
+- `checkCI` insists on a `schedule:` trigger, as the desktop kit does; the
+  1.1.0 checks have their own red-then-green tests.
+- Mobile skill §13 says how kits are tagged and how the sweep moves the pin.
+
+### Repository
+
+- The family sweep acts as the family's GitHub App when
+  `FAMILY_SWEEP_APP_ID` and `FAMILY_SWEEP_APP_KEY` are set, and as the personal
+  `FAMILY_SWEEP_TOKEN` otherwise, and says so when neither exists.
+- `release-kit.yml` starts the sweep only when `FAMILY_SWEEP_TOKEN` exists: an
+  event raised with the workflow's own token never starts another workflow.
+- Proven on 2026-10-22: with the token, the sweep found both applications
+  current and opened nothing; from a branch with a deliberately failing
+  template rule it opened a red pull request naming the rule.
+
 ## 2026-10-22 (family) - One bar, lessons that travel
 
 ### ms-appkit 1.5.0

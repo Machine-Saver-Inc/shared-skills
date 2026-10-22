@@ -153,6 +153,7 @@ export function checkCI(root) {
   if (!/ui_gate|test:ui/.test(y)) errs.push('ci.yml must run the UI gate (tests/ui_gate.cjs)');
   if (!/screenshots/.test(y)) errs.push('ci.yml must generate the screenshots');
   if (!/house_rules|--test|npm test/.test(y)) errs.push('ci.yml must run the house-rules tests');
+  if (!/^\s*schedule:/m.test(y)) errs.push('ci.yml has no schedule: trigger; a monthly run finds an untouched app broken by a kit or runner change before its next release');
   const rel = join(root, '.github/workflows/release.yml');
   if (ex(rel)) {
     const r = read(rel);

@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver iPhone/And
 
 # Machine Saver mobile applications
 
-**Skill version 1.1.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
+**Skill version 1.1.1.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
 alongside **`ms-mobilekit`** — the JavaScript package that *is* the shell this
 skill describes. It is the mobile counterpart of `ms-desktop-app` **2.5.0** and
 follows its section numbers, so a reader of one knows where to look in the
@@ -67,7 +67,7 @@ run). So the kit is not a dependency; it is fetched. Copy
 
 ```json
 "scripts": { "postinstall": "node tools/fetch_kit.mjs" },
-"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "ms-mobilekit/v1.1.0" }
+"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "ms-mobilekit/v1.1.1" }
 ```
 
 `npm install` downloads the shared-skills tarball at `ref`, extracts
@@ -548,6 +548,16 @@ fails when the rule is broken.
 ---
 
 ## 13. The shared-skills repository
+
+**Kits are tagged and the family sweep moves the pin.** `msKit.ref` is always a
+kit tag (`ms-mobilekit/vX.Y.Z`); `release-kit.yml` in shared-skills releases a
+kit from such a tag, and `family-sweep.yml` (weekly, and after every kit
+release) runs `tools/sweep.py` against every app in `registry/apps.yaml`: it
+moves the pin, refreshes `tests/house_rules.test.mjs` from the template, bumps
+`ms-app.json`, runs the app's house rules and opens one pull request. Red means
+a person is needed, with the rule named. Every app is in the registry, added in
+the pull request that creates its repository. (Desktop skill §13 has the full
+account.)
 
 ```
 shared-skills/

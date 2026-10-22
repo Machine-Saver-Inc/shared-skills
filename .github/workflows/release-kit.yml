@@ -110,9 +110,14 @@ jobs:
           body_path: release-body.md
 
       # Tell the sweep. It opens one pull request per registered application.
+      # This needs FAMILY_SWEEP_TOKEN: an event raised with the workflow's own
+      # GITHUB_TOKEN never starts another workflow, by GitHub's rule, so with
+      # no token the sweep simply waits for its weekly run.
       - name: Start the family sweep
+        if: ${{ env.HAS_TOKEN == 'true' }}
         env:
-          GH_TOKEN: ${{ secrets.FAMILY_SWEEP_TOKEN || github.token }}
+          HAS_TOKEN: ${{ secrets.FAMILY_SWEEP_TOKEN != '' }}
+          GH_TOKEN: ${{ secrets.FAMILY_SWEEP_TOKEN }}
           KIT: ${{ steps.which.outputs.kit }}
           VERSION: ${{ steps.which.outputs.version }}
         run: |
