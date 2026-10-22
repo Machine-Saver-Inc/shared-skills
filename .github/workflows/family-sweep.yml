@@ -1,0 +1,162 @@
+name: Family sweep
+
+# Backward propagation, made mechanical. For every application in
+# registry/apps.yaml that is built on a kit: move its kit pin to the newest
+# kit tag, refresh the files it copied from the template, bump ms-app.json,
+# run its house rules, and open (or update) one pull request with the result.
+# A green pull request is an upgrade somebody merges in a minute; a red one is
+# a lesson that needs a person, with the failing rule named in the body. The
+# run itself is the dashboard of who is behind.
+#
+# Needs FAMILY_SWEEP_TOKEN: a fine-grained token (or a GitHub App token) with
+# contents: write and pull-requests: write on the organisation's application
+# repositories. Without it the sweep can read but not open pull requests.
+
+on:
+  repository_dispatch:
+    types: [kit-released]
+  schedule:
+    - cron: "41 7 * * 1"          # weekly, Monday morning
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Sweep one application by slug (blank: all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      apps: ${{ steps.list.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - id: list
+        env:
+          ONLY: ${{ github.event.inputs.only }}
+        run: |
+          pip install pyyaml
+          python tools/check_registry.py
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import json, os, yaml
+          apps = yaml.safe_load(open("registry/apps.yaml", encoding="utf-8"))
+          only = os.environ.get("ONLY", "")
+          chosen = [a for a in apps if a["kind"] in ("desktop", "mobile") and (not only or a["slug"] == only)]
+          print("apps=" + json.dumps([{"slug": a["slug"], "repo": a["repo"], "kind": a["kind"]} for a in chosen]))
+          PY
+
+  sweep:
+    needs: plan
+    if: ${{ needs.plan.outputs.apps != '[]' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        app: ${{ fromJson(needs.plan.outputs.apps) }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: shared-skills
+          fetch-depth: 0
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.app.repo }}
+          token: ${{ secrets.FAMILY_SWEEP_TOKEN }}
+          path: app
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        if: matrix.app.kind == 'mobile'
+        with:
+          node-version: 20
+
+      - name: Qt runtime libraries
+        if: matrix.app.kind == 'desktop'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 \
+            libxcb-xinerama0 libxkbcommon0
+
+      - name: Newest kit tag
+        id: tag
+        env:
+          KIND: ${{ matrix.app.kind }}
+        run: |
+          cd shared-skills
+          kit=$([ "$KIND" = desktop ] && echo ms-appkit || echo ms-mobilekit)
+          tag=$(git tag -l "$kit/v*" --sort=-v:refname | head -1)
+          [ -n "$tag" ] || { echo "::error::no $kit tag exists yet"; exit 1; }
+          echo "kit=$kit" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=${tag#*/v}" >> "$GITHUB_OUTPUT"
+          echo "$tag"
+
+      - name: Move the pin, refresh the template files, run the house rules
+        id: sweep
+        env:
+          QT_QPA_PLATFORM: offscreen
+          MS_REPO_PRIVATE: "true"
+          KIND: ${{ matrix.app.kind }}
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          pip install pyyaml
+          set +e
+          python shared-skills/tools/sweep.py app --kind "$KIND" --tag "$TAG" --kit-checkout shared-skills \
+            --report sweep-report.md
+          code=$?
+          set -e
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          cat sweep-report.md
+
+      - name: Open or update the pull request
+        if: steps.sweep.outputs.code != '2'
+        env:
+          GH_TOKEN: ${{ secrets.FAMILY_SWEEP_TOKEN }}
+          REPO: ${{ matrix.app.repo }}
+          KIT: ${{ steps.tag.outputs.kit }}
+          VERSION: ${{ steps.tag.outputs.version }}
+          CODE: ${{ steps.sweep.outputs.code }}
+        run: |
+          cd app
+          branch="family-sweep/$KIT-$VERSION"
+          git config user.name "machine-saver-family-sweep"
+          git config user.email "software-support@machinesaver.net"
+          git checkout -B "$branch"
+          git add -A
+          if git diff --cached --quiet; then echo "nothing to change"; exit 0; fi
+          git commit -q -m "Family sweep: $KIT $VERSION
+
+The kit pin, the template-marked files and ms-app.json are brought to $KIT $VERSION;
+the house rules ran in the sweep (see the pull request body).
+
+Co-Authored-By: Machine Saver family sweep <software-support@machinesaver.net>"
+          git push -f origin "$branch"
+          state=$([ "$CODE" = 0 ] && echo "House rules pass; merge when convenient." || echo "House rules FAIL; a person is needed. The failing rules are below.")
+          body=$(printf '%s\n\n%s\n' "$state" "$(cat ../sweep-report.md)")
+          if gh pr view "$branch" --repo "$REPO" > /dev/null 2>&1; then
+            gh pr edit "$branch" --repo "$REPO" --body "$body"
+          else
+            gh pr create --repo "$REPO" --head "$branch" --base main \
+              --title "Family sweep: $KIT $VERSION" --body "$body"
+          fi
+
+      - name: Red means a lesson needs a person
+        if: steps.sweep.outputs.code == '1'
+        run: |
+          echo "::error::${{ matrix.app.slug }} fails its house rules at ${{ steps.tag.outputs.tag }}; see its pull request"
+          exit 1

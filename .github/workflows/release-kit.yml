@@ -1,0 +1,121 @@
+name: Release a kit
+
+# A kit release is a tag on this repository: ms-appkit/vX.Y.Z or
+# ms-mobilekit/vX.Y.Z. The tag must be on main and must say what pyproject /
+# package.json and the CHANGELOG say; then the kit's tests run once more, a
+# GitHub Release carries that artifact's changelog block, and the family sweep
+# is told so every application gets its upgrade pull request.
+
+on:
+  push:
+    tags:
+      - "ms-appkit/v*"
+      - "ms-mobilekit/v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: The tag is on main
+        run: |
+          git fetch --quiet origin main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::$GITHUB_REF_NAME is not on main. Merge first, then tag."
+            exit 1
+          fi
+
+      - name: Which kit, which version
+        id: which
+        run: |
+          kit="${GITHUB_REF_NAME%%/v*}"
+          version="${GITHUB_REF_NAME#*/v}"
+          echo "kit=$kit" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "$kit $version"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: The tag says what the kit says
+        env:
+          KIT: ${{ steps.which.outputs.kit }}
+          VERSION: ${{ steps.which.outputs.version }}
+        run: |
+          pip install pyyaml
+          python tools/check_versions.py
+          if [ "$KIT" = ms-appkit ]; then
+            declared=$(sed -n 's/^version = "\([0-9.]*\)"/\1/p' packages/ms-appkit/pyproject.toml)
+          else
+            declared=$(node -p "require('./packages/ms-mobilekit/package.json').version")
+          fi
+          [ "$declared" = "$VERSION" ] || { echo "::error::tag says $VERSION, $KIT says $declared"; exit 1; }
+
+      - name: Qt runtime libraries
+        if: steps.which.outputs.kit == 'ms-appkit'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 libdbus-1-3 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-keysyms1 libxcb-shape0 \
+            libxcb-xinerama0 libxkbcommon0
+
+      - name: The kit's tests, once more
+        env:
+          QT_QPA_PLATFORM: offscreen
+          KIT: ${{ steps.which.outputs.kit }}
+        run: |
+          if [ "$KIT" = ms-appkit ]; then
+            pip install -e "packages/ms-appkit[dev]"
+            python -m pytest packages/ms-appkit/tests -q
+          else
+            (cd packages/ms-mobilekit && npm test && node tools/check_template.mjs)
+          fi
+
+      - name: The release body is this kit's changelog block
+        env:
+          KIT: ${{ steps.which.outputs.kit }}
+          VERSION: ${{ steps.which.outputs.version }}
+        run: |
+          python - <<'PY'
+          import os, re, pathlib
+          kit, version = os.environ["KIT"], os.environ["VERSION"]
+          text = pathlib.Path("CHANGELOG.md").read_text(encoding="utf-8")
+          heading = f"### {kit} {version}"
+          start = text.index(heading) + len(heading)
+          rest = text[start:]
+          end = re.search(r"^### |^## ", rest, re.M)
+          body = rest[: end.start()] if end else rest
+          pathlib.Path("release-body.md").write_text(f"## {kit} {version}\n{body.strip()}\n", encoding="utf-8")
+          print(body.strip()[:400])
+          PY
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ steps.which.outputs.kit }} ${{ steps.which.outputs.version }}
+          body_path: release-body.md
+
+      # Tell the sweep. It opens one pull request per registered application.
+      - name: Start the family sweep
+        env:
+          GH_TOKEN: ${{ secrets.FAMILY_SWEEP_TOKEN || github.token }}
+          KIT: ${{ steps.which.outputs.kit }}
+          VERSION: ${{ steps.which.outputs.version }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/dispatches" \
+            -f event_type=kit-released \
+            -F "client_payload[kit]=$KIT" -F "client_payload[version]=$VERSION"

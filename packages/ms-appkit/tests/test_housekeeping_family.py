@@ -69,19 +69,42 @@ def test_the_summary_is_what_the_release_page_leads_with():
 # --- the build -------------------------------------------------------------------
 
 
+LEGACY_CI = """name: CI
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: "17 6 1 * *"
+jobs:
+  test:
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - run: ruff check .
+      - env:
+          QT_QPA_PLATFORM: offscreen
+          MS_REPO_PRIVATE: ${{ github.event.repository.private }}
+        run: python -m pytest -q
+      - run: grep -qE "[0-9]+ passed" result.txt
+"""
+
+
 def test_the_ci_check_wants_the_family_s_steps_and_a_schedule(app):
-    assert not house.ci_workflow_faults(app)
     ci = app / ".github" / "workflows" / "ci.yml"
+    assert not house.ci_workflow_faults(app), "the template calls the reusable workflow at a tag"
     edit(ci, "  schedule:\n    - cron: \"17 6 1 * *\"\n", "")
     assert any("schedule" in f for f in house.ci_workflow_faults(app))
+    edit(ci, "@ms-appkit/v1.5.0", "@main")
+    assert any("bash" in f for f in house.ci_workflow_faults(app)), \
+        "a call at a branch head is not the family's workflow; the own-steps rules apply"
+    # A program with its own steps passes when it carries every lesson.
+    ci.write_text(LEGACY_CI, encoding="utf-8")
+    assert not house.ci_workflow_faults(app)
     edit(ci, "shell: bash", "shell: pwsh")
     assert any("bash" in f for f in house.ci_workflow_faults(app))
-    ci.write_text(ci.read_text(encoding="utf-8").replace("MS_REPO_PRIVATE", "X"), encoding="utf-8")
+    ci.write_text(LEGACY_CI.replace("MS_REPO_PRIVATE", "X"), encoding="utf-8")
     assert any("MS_REPO_PRIVATE" in f for f in house.ci_workflow_faults(app))
-    ci.write_text("on:\n  schedule:\n    - cron: '0 0 1 * *'\njobs:\n  t:\n    uses: "
-                  "Machine-Saver-Inc/shared-skills/.github/workflows/desktop-ci.yml@ms-appkit/v1.5.0\n",
-                  encoding="utf-8")
-    assert not house.ci_workflow_faults(app), "the reusable workflow carries the lessons"
     ci.unlink()
     assert house.ci_workflow_faults(app) == [".github/workflows/ci.yml is missing"]
 
