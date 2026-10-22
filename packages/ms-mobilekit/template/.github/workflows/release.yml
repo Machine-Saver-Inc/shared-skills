@@ -28,7 +28,7 @@ jobs:
         run: |
           V="${GITHUB_REF_NAME#v}"
           sed -i "s/VERSION = '.*'/VERSION = '$V'/" www/js/version.js
-          npm version "$V" --no-git-tag-version
+          npm version "$V" --no-git-tag-version --allow-same-version
       - run: npm install --no-audit --no-fund && npm run version:check
       - name: Android project
         run: |
