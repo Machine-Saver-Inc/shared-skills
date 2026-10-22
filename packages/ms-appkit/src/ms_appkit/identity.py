@@ -32,6 +32,10 @@ log = logging.getLogger(__name__)
 
 ORGANISATION = "Machine Saver Inc"
 VISIBILITIES = ("public", "private")
+#: Where every private program's "Email it to support" goes. One address for
+#: the family, so a report never lands in a mailbox nobody reads; a program
+#: with a different one fails its house rules (housekeeping.family_support_email_faults).
+FAMILY_SUPPORT_EMAIL = "software-support@machinesaver.net"
 
 
 @dataclass(frozen=True)

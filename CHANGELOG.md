@@ -4,6 +4,51 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-22 (family) - One bar, lessons that travel
+
+### ms-appkit 1.5.0
+
+A rule exists only if a check enforces it. The first update through the
+release store installed and never reopened because the rule for it was a
+sentence in the skill and nowhere else; everything the skill promised about
+builds, releases and updates is now a `housekeeping` function the template's
+house rules run.
+
+- New checks: `changelog_faults`, `ci_workflow_faults`, `release_workflow_faults`,
+  `installer_script_faults`, `manifest_faults` (with `kit_pin`),
+  `template_drift_faults`, `dependency_faults` (`allowed_dependencies.txt`),
+  `bare_urlopen_faults`, `update_path_faults`, `readme_faults`,
+  `family_support_email_faults` (`identity.FAMILY_SUPPORT_EMAIL`). Each proved
+  red on a broken copy of the template and green on the template
+  (`tests/test_housekeeping_family.py`).
+- The template is complete: `pyproject.toml` with the kit pinned to a tag,
+  `ms-app.json`, `ci.yml` (with a monthly schedule), `release.yml` and
+  `release-private.yml`, the PyInstaller spec, the per-user Inno Setup script
+  with a placeholder `AppId`, `README.md` with the scope block, `CHANGELOG.md`,
+  `tools/release_notes.py`, `.gitignore`. `tests/test_template_complete.py`
+  runs every check against it.
+- Template files an app copies carry an `ms-appkit template vN` marker.
+
+### ms-desktop-app 2.5.0
+
+- Kits are tagged (`ms-appkit/vX.Y.Z`); an application always pins a tag, and
+  the family sweep moves it. Every application is in `registry/apps.yaml`.
+- §3 points at the completed template; the enforcement table names a check for
+  every rule and states the rule that a rule exists only if a check enforces it.
+
+### ms-mobilekit 1.1.0 / ms-mobile-app 1.1.0
+
+- `checkManifest`, `checkSupportEmail`, `checkTemplateDrift`; `ms-app.json`
+  in the template; the template pins `ms-mobilekit/v1.1.0`; a monthly schedule
+  in the template's `ci.yml`; `tools/check_template.mjs`. The mobile skill now
+  pairs with desktop 2.5.0 and says `ref` is always a tag.
+
+### Repository
+
+- `registry/apps.yaml`, `registry/schema.json`, `tools/check_registry.py`.
+- CI tests the mobile kit and its template, and `tools/check_versions.py`
+  checks all four artifacts' versions, changelog entries and the README table.
+
 ## 2026-10-22 (later) - The helper has to actually run
 
 ### ms-appkit 1.4.2

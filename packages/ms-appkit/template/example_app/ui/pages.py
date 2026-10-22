@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
-
 from ms_appkit.identity import app
 from ms_appkit.widgets import (
     FieldGroup,
@@ -16,6 +13,8 @@ from ms_appkit.widgets import (
     subtitle,
     title,
 )
+from PySide6.QtCore import Signal
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 
 class HomePage(QWidget):

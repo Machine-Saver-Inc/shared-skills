@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# Credentials never live in the repository (skill section 1a). The release
+# workflow writes the sign-in key here from the GOOGLE_CLIENT_SECRET secret.
+example_app/_client_secret.py
+.env
+.env.*
+client_secret*.json
+
+# NOT ignored, deliberately: packaging/*.spec. GitHub's stock Python
+# .gitignore excludes *.spec, and the build then cannot find its own recipe.

@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.4.5.** Published at
+**Skill version 2.5.0.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -55,7 +55,8 @@ is still yours to get right.
 ```toml
 # pyproject.toml
 dependencies = [
-  "ms-appkit @ git+https://github.com/Machine-Saver-Inc/shared-skills.git#subdirectory=packages/ms-appkit",
+  # Always a kit tag, never a branch: the family sweep moves the pin (section 13).
+  "ms-appkit @ git+https://github.com/Machine-Saver-Inc/shared-skills.git@ms-appkit/v1.5.0#subdirectory=packages/ms-appkit",
 ]
 ```
 
@@ -90,8 +91,15 @@ class MainWindow(AppWindow):
         return "a label is printing" if self.printing else None
 ```
 
-A runnable example of exactly this — two screens, its own house-rules test — is
-`packages/ms-appkit/template/`. Copy it and rename.
+A runnable example of exactly this is `packages/ms-appkit/template/`: two
+screens, and **every other file a program needs** — `pyproject.toml` with the
+kit pinned to a tag, `ms-app.json` (what the program is and what it was built
+from), `ci.yml`, `release.yml` and `release-private.yml` (keep one), the
+PyInstaller spec, the per-user Inno Setup script, `README.md` with the scope
+block, `CHANGELOG.md`, `tools/release_notes.py` and `tests/test_house_rules.py`.
+Copy it whole and rename; do not write any of those by hand. The files that
+carry an `ms-appkit template vN` marker are refreshed by the family sweep, so
+leave the marker where it is.
 
 **What a new application still writes:** its screens, its driver or client and
 the simulator behind it, its `core/`, its packaging, its README. Not a button
@@ -376,7 +384,7 @@ steps:
 ### Using it
 
 1. Depend on the kit **with the `private` extra**, which adds `keyring`:
-   `"ms-appkit[private] @ git+https://github.com/Machine-Saver-Inc/shared-skills.git#subdirectory=packages/ms-appkit"`.
+   `"ms-appkit[private] @ git+https://github.com/Machine-Saver-Inc/shared-skills.git@ms-appkit/v1.5.0#subdirectory=packages/ms-appkit"`.
 2. Put the `PrivateConfig` in `<app>/_private.py` — the client ID from the OAuth
    client JSON, the Cloud project, the release bucket, the support address —
    with `client_secret=stamped_secret("<app>")`. Add `<app>/_client_secret.py`
@@ -1000,8 +1008,20 @@ shared-skills/
 
 **Both carry version numbers and they move together.** A change to the shell is
 a change to the kit's version; if it also changes what this file says, bump the
-skill too and say so in `CHANGELOG.md`. An application pins the kit by tag when
-it needs to be reproducible and follows `main` otherwise.
+skill too and say so in `CHANGELOG.md`. Kit releases are tags on this repository
+(`ms-appkit/vX.Y.Z`, `ms-mobilekit/vX.Y.Z`), and **an application always pins a
+tag, never `main`**: a program following a branch head cannot be rebuilt the same
+way twice, and nothing tells it when it has fallen behind. The pin is moved by
+the **family sweep**, a scheduled workflow here that opens one pull request per
+application in `registry/apps.yaml` bumping the pin, refreshing the template-
+marked files and running that application's house rules; a red pull request is
+the lesson that needs a person, with the failing rule named.
+
+**Every application is in `registry/apps.yaml`**, added in the pull request that
+creates its repository: slug, repository, kind, visibility, category, a sentence,
+where its releases live, catalog flags, and where its problem reports become
+issues. The sweep, the report intake and the apps catalog all read that one file;
+`tools/check_registry.py` checks it in CI.
 
 **Changing the kit means checking the family.** Run the kit's tests, the
 template's, and the house-rules suite of every application that depends on it,
@@ -1055,6 +1075,26 @@ remember:
 | CI: bash declared, packaging inputs tracked, Qt libraries present, interface tests must not skip | each cost a release |
 | Release: the tag is on `main`; published assets verified | each was a manual step that got missed |
 | The update code names its release host only in `update.channel` | a private host would otherwise be unreachable from half the updater |
+
+**Since kit 1.5.0, a rule exists only if a check enforces it.** No sentence in
+this file about CI, releases or updates without a `housekeeping` function beside
+it; the first update through the release store installed and never reopened
+because that rule was prose and nowhere else. The checks added for it, all run by
+the template's `test_house_rules.py`:
+
+| Check | Rule |
+| --- | --- |
+| `changelog_faults` | the version has an entry whose summary is prose a user can read, free of repo jargon |
+| `ci_workflow_faults` | `ci.yml` calls the family's reusable workflow at a kit tag, or carries bash, Qt offscreen, `MS_REPO_PRIVATE`, the actually-ran step and ruff; and has a monthly `schedule:` so an untouched program is still tested |
+| `release_workflow_faults` | the tag is on `main`, `SHA256SUMS` is written and verified after publishing, `_version.py` is stamped, `SLUG` matches |
+| `installer_script_faults` | the Inno script has its own `AppId`, installs per user, closes the program before replacing it |
+| `manifest_faults` | `ms-app.json` agrees with the code and the kit pin is a tag, never `main` |
+| `template_drift_faults` | the copied template files carry the kit's current marker |
+| `dependency_faults` | every dependency is on the family's list (`allowed_dependencies.txt`) or justified under `[tool.ms-appkit]` |
+| `bare_urlopen_faults` | no `urlopen` anywhere in the program without the kit's certificate context |
+| `update_path_faults` | the program defines none of the kit's update functions and calls `start_update_check()` |
+| `readme_faults` | the scope block with its markers, an owner, a screenshot |
+| `family_support_email_faults` | a private program's reports go to `identity.FAMILY_SUPPORT_EMAIL` |
 
 Still yours: read a CI run to completion, never pipe pytest into `tail`, and
 look at the screenshots.

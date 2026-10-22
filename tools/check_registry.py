@@ -55,10 +55,10 @@ def faults(entries, schema: dict) -> list[str]:
                 found.append(f"{where}: {key} must be one of {spec['enum']}, not {value!r}")
             if "pattern" in spec and (not isinstance(value, str) or not re.fullmatch(spec["pattern"], value)):
                 found.append(f"{where}: {key} {value!r} does not match {spec['pattern']}")
-            if spec.get("type") == "string" and isinstance(value, str):
-                if len(value) < spec.get("minLength", 0) or len(value) > spec.get("maxLength", 10**9):
-                    found.append(f"{where}: {key} must be {spec.get('minLength', 0)} to "
-                                 f"{spec.get('maxLength', 'any')} characters")
+            if spec.get("type") == "string" and isinstance(value, str) and (
+                    len(value) < spec.get("minLength", 0) or len(value) > spec.get("maxLength", 10**9)):
+                found.append(f"{where}: {key} must be {spec.get('minLength', 0)} to "
+                             f"{spec.get('maxLength', 'any')} characters")
         catalog = entry.get("catalog")
         if isinstance(catalog, dict):
             for flag in ("listed", "public"):
@@ -94,7 +94,7 @@ def github_faults(entries) -> list[str]:
         for key in ("repo", ("issues", "repo")):
             repo = entry[key] if isinstance(key, str) else entry[key[0]][key[1]]
             result = subprocess.run(["gh", "api", f"repos/{repo}", "-q", ".private"],
-                                    capture_output=True, text=True)
+                                    check=False, capture_output=True, text=True)
             if result.returncode != 0:
                 found.append(f"{entry['slug']}: {repo} is not reachable ({result.stderr.strip()[:80]})")
             elif isinstance(key, str):

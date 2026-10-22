@@ -632,3 +632,388 @@ def private_config_faults(info) -> list[str]:
         faults.append("grace_days is a policy of at most 14 (section 1a); "
                       "change the skill before changing this")
     return faults
+
+
+# --- the family (kit 1.5.0) ----------------------------------------------------
+#
+# Everything below was a sentence in the skill before it was a check. The
+# first update through the release store (AirVibe Power Profiler, 2026-10-22)
+# installed and never reopened: the rule existed in prose and nowhere else.
+# Since then a rule exists only if a function here enforces it.
+
+#: The version of the files an application copies from template/. An
+#: application whose copies carry an older number is behind the kit; the
+#: family sweep refreshes them (template_drift_faults).
+TEMPLATE_VERSION = 1
+TEMPLATE_MARKER = re.compile(r"ms-appkit template v(\d+)")
+TEMPLATE_SLUG = "example-tool"           # the template is allowed its own placeholders
+#: The files template/ ships with a marker line, relative to the app root.
+TEMPLATE_MARKED = ("tests/test_house_rules.py", ".github/workflows/ci.yml")
+
+#: Words that belong in a commit message, not in what a user reads about a release.
+CHANGELOG_JARGON = ("CI", "PR", "pytest", "ruff", ".py", "workflow", "refactor",
+                    "merge", "lint")
+
+
+def _read(path: Path) -> str | None:
+    try:
+        return Path(path).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def changelog_summary(version: str, text: str) -> str | None:
+    """The prose under ``## [version]`` before its first ``###`` section, or
+    None when the version has no entry. The same shape tools/release_notes.py
+    reads, so what the release page leads with is what is checked."""
+    pattern = re.compile(rf"^## \[{re.escape(version)}\][^\n]*$(.*?)(?=^## \[|\Z)", re.M | re.S)
+    found = pattern.search(text)
+    if not found:
+        return None
+    body = found.group(1).strip()
+    return re.split(r"^### ", body, maxsplit=1, flags=re.M)[0].strip()
+
+
+def changelog_faults(root: Path, version: str) -> list[str]:
+    """CHANGELOG.md has an entry for this version that a user can read.
+
+    The release page and the What's new window lead with the prose under the
+    version heading. An entry that is only bullets, or that talks about pull
+    requests and lint, tells the person running the program nothing. A missing
+    entry means a release with no words at all.
+    """
+    text = _read(Path(root) / "CHANGELOG.md")
+    if text is None:
+        return ["CHANGELOG.md is missing; every release needs a line saying what changed"]
+    lead = changelog_summary(version, text)
+    if lead is None:
+        return [f"CHANGELOG.md has no entry for [{version}]"]
+    faults = []
+    if not lead:
+        return [f"[{version}] has no plain-language summary before its first ### section"]
+    if lead.lstrip().startswith(("-", "*")):
+        faults.append(f"[{version}]'s summary is a bullet list; write a sentence or two first")
+    for word in CHANGELOG_JARGON:
+        if re.search(rf"(?<![\w./]){re.escape(word)}(?![\w])", lead):
+            faults.append(f"[{version}]'s summary mentions {word!r}; say what changed for the user")
+    if re.search(r"#\d+", lead):
+        faults.append(f"[{version}]'s summary cites an issue or pull request number")
+    return faults
+
+
+def ci_workflow_faults(root: Path) -> list[str]:
+    """The build runs the family's checks the family's way, and runs on a clock.
+
+    Either the application calls the family's reusable workflow at a kit tag,
+    or its own ci.yml carries each of the lessons section 6 was written from.
+    A monthly scheduled run is required either way: a program nobody has
+    touched for a year still has to be found broken by a kit, Python or
+    runner change, rather than at its next release.
+    """
+    text = _read(Path(root) / ".github" / "workflows" / "ci.yml")
+    if text is None:
+        return [".github/workflows/ci.yml is missing"]
+    faults = []
+    if "schedule:" not in text:
+        faults.append("ci.yml has no schedule: trigger; a monthly run finds an untouched "
+                      "program broken by a kit or runner change before its next release")
+    if re.search(r"uses:\s*Machine-Saver-Inc/shared-skills/\.github/workflows/desktop-ci\.yml@ms-appkit/v",
+                 text):
+        return faults
+    wanted = {
+        "shell: bash": "defaults.run.shell is not bash; the Windows runner defaults to "
+                       "PowerShell and every step below is bash",
+        "QT_QPA_PLATFORM": "QT_QPA_PLATFORM is not set, so interface tests cannot run on a runner",
+        "MS_REPO_PRIVATE": "MS_REPO_PRIVATE is not passed from github.event.repository.private, "
+                           "so the visibility rule cannot run (section 1a)",
+        "passed": "there is no step proving the interface tests actually ran rather than "
+                  "being skipped (grep for '[0-9]+ passed')",
+        "ruff": "ruff is not run",
+    }
+    for needle, complaint in wanted.items():
+        if needle not in text:
+            faults.append(f"ci.yml: {complaint}")
+    return faults
+
+
+def release_workflow_faults(root: Path, slug: str = "") -> list[str]:
+    """A release can only ship what main has, what the tag says, and what was
+    verified after publishing (section 6 and 1a)."""
+    folder = Path(root) / ".github" / "workflows"
+    texts = [t for name in ("release.yml", "release-private.yml")
+             if (t := _read(folder / name)) is not None]
+    if not texts:
+        return [".github/workflows/release.yml is missing"]
+    text = "\n".join(texts)
+    faults = []
+    if "merge-base --is-ancestor" not in text:
+        faults.append("release.yml does not refuse a tag that is not on main "
+                      "(git merge-base --is-ancestor)")
+    if "sha256sum" not in text:
+        faults.append("release.yml publishes no SHA256SUMS")
+    if "sha256sum -c" not in text and "anonymous" not in text.lower():
+        faults.append("release.yml does not verify what it published (sha256sum -c of the "
+                      "downloaded files, or the anonymous-download refusal for a private store)")
+    if "_version.py" not in text:
+        faults.append("release.yml does not stamp _version.py from the tag, so a build can "
+                      "disagree with its tag")
+    if slug:
+        said = re.findall(r"^\s*SLUG:\s*([\w.-]+)", text, re.M)
+        if said and any(s != slug for s in said):
+            faults.append(f"release.yml says SLUG: {said[0]} but the program's SLUG is {slug}")
+    return faults
+
+
+KIT_PIN = re.compile(r"ms-appkit(\[[\w,]+\])?\s*@\s*git\+https://github\.com/Machine-Saver-Inc/"
+                     r"shared-skills(?:\.git)?(?:@([^#\s\"']+))?#subdirectory=packages/ms-appkit")
+
+
+def kit_pin(root: Path) -> str | None:
+    """The ref the application pins ms-appkit to, '' when it follows a branch
+    head with no ref at all, or None when the dependency line is missing."""
+    text = _read(Path(root) / "pyproject.toml")
+    if text is None:
+        return None
+    found = KIT_PIN.search(text)
+    if not found:
+        return None
+    return found.group(2) or ""
+
+
+def manifest_faults(root: Path, info) -> list[str]:
+    """ms-app.json says what this program is and what it was built from, and
+    agrees with the code and the kit pin.
+
+    Nothing recorded which kit or skill an application came from, so "which
+    programs are behind?" could only be answered from commit messages. The
+    manifest is that record, the registry and the catalog read it, and the
+    pin it names must be a kit tag: a program following a branch head cannot
+    be rebuilt the same way twice.
+    """
+    import json
+
+    path = Path(root) / "ms-app.json"
+    text = _read(path)
+    if text is None:
+        return ["ms-app.json is missing at the repository root (template/ms-app.json)"]
+    try:
+        data = json.loads(text)
+    except ValueError as exc:
+        return [f"ms-app.json is not valid JSON: {exc}"]
+    faults = []
+    for key, expected in (("slug", info.slug), ("name", info.name), ("repo", info.repo),
+                          ("visibility", info.visibility)):
+        if data.get(key) != expected:
+            faults.append(f"ms-app.json {key} is {data.get(key)!r}; the program says {expected!r}")
+    if data.get("kind") != "desktop":
+        faults.append("ms-app.json kind must be 'desktop' for an ms-appkit program")
+    skill = data.get("skill") or {}
+    if skill.get("name") != "ms-desktop-app" or not re.fullmatch(r"\d+\.\d+\.\d+", str(skill.get("version", ""))):
+        faults.append("ms-app.json skill must name ms-desktop-app and a version like 2.5.0")
+    kit = data.get("kit") or {}
+    pinned = kit_pin(root)
+    if pinned is None:
+        faults.append("pyproject.toml has no ms-appkit dependency line")
+    elif pinned in ("", "main") or not pinned.startswith("ms-appkit/v"):
+        faults.append(f"pyproject.toml pins ms-appkit to {pinned or 'no ref'!r}; pin a kit tag "
+                      "such as @ms-appkit/v1.5.0 (section 13)")
+    else:
+        version = pinned.split("/v", 1)[1]
+        if kit.get("name") != "ms-appkit" or kit.get("version") != version:
+            faults.append(f"ms-app.json kit is {kit!r}; pyproject.toml pins ms-appkit {version}")
+    return faults
+
+
+def bare_urlopen_faults(package_dir: Path) -> list[str]:
+    """No urlopen without the kit's certificate context.
+
+    The most expensive lesson in the family (section 4): Python's own trust
+    store is not Windows', and a bare urlopen fails on exactly the machines
+    that matter. The kit's ``update.net.open_url`` carries the right context;
+    anything else in the program must pass ``context=`` or use it.
+    """
+    faults = []
+    for path in sources(package_dir):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            called = getattr(node.func, "id", None) or getattr(node.func, "attr", None)
+            if called != "urlopen":
+                continue
+            if not any(k.arg == "context" for k in node.keywords):
+                faults.append(f"{path.relative_to(package_dir)}:{node.lineno} calls urlopen "
+                              "without context=; use ms_appkit.update.net.open_url")
+    return faults
+
+
+def readme_faults(root: Path) -> list[str]:
+    """The README carries the family's scope block and shows the program."""
+    text = _read(Path(root) / "README.md")
+    if text is None:
+        return ["README.md is missing"]
+    faults = []
+    if "machine-saver-scope:start" not in text or "machine-saver-scope:end" not in text:
+        faults.append("README.md lacks the machine-saver-scope markers around Scope, Ownership "
+                      "boundaries and Development tracking")
+    if "**Owner:**" not in text:
+        faults.append("README.md's scope block does not say **Owner:**")
+    if not re.search(r"!\[[^\]]*\]\([^)]+\.png\)", text):
+        faults.append("README.md shows no screenshot (section 12)")
+    return faults
+
+
+def family_support_email_faults(info) -> list[str]:
+    """A private program's reports go to the one address the family reads."""
+    from ms_appkit.identity import FAMILY_SUPPORT_EMAIL
+
+    if not info.is_private or info.private is None:
+        return []
+    if info.private.support_email != FAMILY_SUPPORT_EMAIL:
+        return [f"support_email is {info.private.support_email}; the family's is "
+                f"{FAMILY_SUPPORT_EMAIL} (identity.FAMILY_SUPPORT_EMAIL)"]
+    return []
+
+
+UPDATE_OWN_NAMES = ("apply_update", "windows_update_command", "relaunch", "download_asset",
+                    "verify_download")
+
+
+def update_path_faults(package_dir: Path) -> list[str]:
+    """The program updates itself the kit's way and no other.
+
+    Three lessons live in the kit's installer (how the helper is launched, no
+    dialog before closing, the mark of the web); a program with its own copy
+    of any of it has none of them. The window asks the kit to check, and that
+    is the whole of what an application does about updates.
+    """
+    faults = []
+    saw_check = False
+    for path in sources(package_dir):
+        text = path.read_text(encoding="utf-8")
+        tree = ast.parse(text)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name in UPDATE_OWN_NAMES:
+                faults.append(f"{path.relative_to(package_dir)}:{node.lineno} defines "
+                              f"{node.name}(); the kit's update path is not to be copied")
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                module = getattr(node, "module", "") or ""
+                names = [a.name for a in node.names]
+                if module.startswith("ms_appkit.update.installer") or (
+                    module == "ms_appkit.update" and "installer" in names):
+                    faults.append(f"{path.relative_to(package_dir)}:{node.lineno} imports the "
+                                  "kit's installer; only the kit's window runs it")
+        if "start_update_check(" in text:
+            saw_check = True
+    if not saw_check:
+        faults.append("no module calls start_update_check(); the window must ask the kit to "
+                      "check for updates when it opens (section 4)")
+    return faults
+
+
+def template_drift_faults(root: Path) -> list[str]:
+    """The files copied from template/ are the kit's current ones.
+
+    They carry a marker line; a copy with an older number has missed the
+    lessons added since, and the sweep refreshes it. A copy with no marker
+    predates the rule and is refreshed the same way.
+    """
+    faults = []
+    for relative in TEMPLATE_MARKED:
+        text = _read(Path(root) / relative)
+        if text is None:
+            continue                        # its own check says it is missing
+        found = TEMPLATE_MARKER.search(text)
+        if not found:
+            faults.append(f"{relative} carries no 'ms-appkit template vN' marker; copy the "
+                          "current one from the kit's template/")
+        elif int(found.group(1)) < TEMPLATE_VERSION:
+            faults.append(f"{relative} is template v{found.group(1)}; the kit's is "
+                          f"v{TEMPLATE_VERSION}. Copy the current one from template/")
+    return faults
+
+
+#: AppIds that must never ship: the template's placeholder and any GUID a
+#: shipped program already uses. Two programs with one AppId install over
+#: each other.
+KNOWN_APP_IDS = {
+    "{{REPLACE-WITH-A-NEW-GUID-FROM-uuidgen}}",
+    "{{6D1F4C2A-9B7E-4F3A-8C5D-2E1A7B9F0C44}",     # AirVibe Power Profiler
+}
+
+
+def installer_script_faults(root: Path, slug: str = "") -> list[str]:
+    """The Inno Setup script is this program's own, installs per user, and
+    closes the program before replacing it."""
+    folder = Path(root) / "packaging" / "windows"
+    scripts = sorted(folder.glob("*.iss")) if folder.is_dir() else []
+    if not scripts:
+        return ["packaging/windows/*.iss is missing"]
+    text = scripts[0].read_text(encoding="utf-8")
+    faults = []
+    found = re.search(r"^AppId=(\S+)", text, re.M)
+    if not found:
+        faults.append("the installer script has no AppId")
+    elif found.group(1) in KNOWN_APP_IDS and slug not in ("airvibe-power-profiler",
+                                                           TEMPLATE_SLUG):
+        faults.append(f"AppId {found.group(1)} is the template's or another program's; "
+                      "generate a new GUID for this program")
+    if not re.search(r"^PrivilegesRequired=lowest", text, re.M):
+        faults.append("the installer must install per user (PrivilegesRequired=lowest); "
+                      "a work machine is locked down")
+    if not re.search(r"^CloseApplications=yes", text, re.M):
+        faults.append("the installer must close the running program (CloseApplications=yes) "
+                      "or an update cannot replace its files")
+    return faults
+
+
+def _dependency_names(text: str) -> list[str]:
+    """The package names in pyproject's dependencies list, lower-cased."""
+    block = re.search(r"^dependencies\s*=\s*\[(.*?)^\]", text, re.M | re.S)
+    if not block:
+        return []
+    names = []
+    for item in re.findall(r"[\"']([^\"']+)[\"']", block.group(1)):
+        name = re.split(r"[\[\s@<>=!~;]", item.strip(), maxsplit=1)[0]
+        if name:
+            names.append(name.lower().replace("_", "-"))
+    return names
+
+
+def allowed_dependencies() -> set[str]:
+    path = Path(__file__).with_name("allowed_dependencies.txt")
+    return {line.strip().lower() for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.startswith("#")}
+
+
+def dependency_faults(root: Path) -> list[str]:
+    """Every dependency is one the family has agreed to, or is justified.
+
+    An unlisted package is declared under ``[tool.ms-appkit]`` as
+    ``extra-dependencies = { name = "why" }``; the next kit release moves it
+    to the family's list or says why not. The point is that a dependency is
+    a decision somebody made on purpose, visible in one place.
+    """
+    text = _read(Path(root) / "pyproject.toml")
+    if text is None:
+        return ["pyproject.toml is missing"]
+    allowed = allowed_dependencies()
+    justified = {}
+    table = re.search(r"^\[tool\.ms-appkit\](.*?)(?=^\[|\Z)", text, re.M | re.S)
+    if table:
+        inline = re.search(r"extra-dependencies\s*=\s*\{(.*?)\}", table.group(1), re.S)
+        if inline:
+            for name, why in re.findall(r"[\"']?([\w.-]+)[\"']?\s*=\s*[\"']([^\"']*)[\"']", inline.group(1)):
+                justified[name.lower().replace("_", "-")] = why.strip()
+    faults = []
+    for name in _dependency_names(text):
+        if name in allowed:
+            continue
+        if name in justified and justified[name]:
+            continue
+        if name in justified:
+            faults.append(f"{name} is declared under [tool.ms-appkit] without a reason")
+        else:
+            faults.append(f"{name} is not in the family's allowed dependencies; justify it under "
+                          "[tool.ms-appkit] extra-dependencies or propose it for the kit's list")
+    return faults

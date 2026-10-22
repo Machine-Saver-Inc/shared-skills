@@ -73,30 +73,22 @@ jobs:
           fi
           grep -qE "[0-9]+ passed" result.txt
 
-      - name: The skill states the version its header claims
+      - name: The skills and kits state the versions their headers claim
         if: runner.os == 'Linux'
         run: |
-          grep -q "Skill version" skills/ms-desktop-app/SKILL.md
-          python - <<'PY'
-          import re, pathlib
-          # No tomllib: it arrived in 3.11 and this matrix starts at 3.10.
-          def find(pattern, path):
-              found = re.search(pattern, pathlib.Path(path).read_text(), re.M)
-              assert found, f"{pattern} not found in {path}"
-              return found.group(1)
+          pip install pyyaml
+          python tools/check_versions.py
 
-          skill = find(r"^\*\*Skill version ([0-9.]+)\.\*\*",
-                       "skills/ms-desktop-app/SKILL.md")
-          kit = find(r'^version = "([0-9.]+)"',
-                     "packages/ms-appkit/pyproject.toml")
-          stamped = find(r'^__version__ = "([0-9.]+)"',
-                         "packages/ms-appkit/src/ms_appkit/_version.py")
-
-          changelog = pathlib.Path("CHANGELOG.md").read_text()
-          assert f"ms-desktop-app {skill}" in changelog, \
-              f"skill {skill} has no CHANGELOG entry"
-          assert f"ms-appkit {kit}" in changelog, f"kit {kit} has no CHANGELOG entry"
-          assert stamped == kit, \
-              f"_version.py says {stamped}, pyproject.toml says {kit}"
-          print(f"skill {skill}, kit {kit}")
-          PY
+  mobile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: The mobile kit's own tests
+        working-directory: packages/ms-mobilekit
+        run: npm test
+      - name: The mobile template honours the house rules
+        working-directory: packages/ms-mobilekit
+        run: node tools/check_template.mjs

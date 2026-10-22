@@ -5,9 +5,9 @@ description: "Scaffold, build, release and maintain any Machine Saver iPhone/And
 
 # Machine Saver mobile applications
 
-**Skill version 1.0.1.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
+**Skill version 1.1.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
 alongside **`ms-mobilekit`** — the JavaScript package that *is* the shell this
-skill describes. It is the mobile counterpart of `ms-desktop-app` **2.4.3** and
+skill describes. It is the mobile counterpart of `ms-desktop-app` **2.5.0** and
 follows its section numbers, so a reader of one knows where to look in the
 other. Read §0 first.
 
@@ -67,15 +67,15 @@ run). So the kit is not a dependency; it is fetched. Copy
 
 ```json
 "scripts": { "postinstall": "node tools/fetch_kit.mjs" },
-"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "main" }
+"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "ms-mobilekit/v1.1.0" }
 ```
 
 `npm install` downloads the shared-skills tarball at `ref`, extracts
 `packages/ms-mobilekit` into `node_modules/`, then runs `tools/vendor_kit.mjs`,
 which copies the kit's runtime into `www/vendor/ms-mobilekit/` so the app ships
 self-contained (Capacitor copies `www/` as-is; there is no bundler to resolve
-`node_modules` at runtime). Pin `ref` to a tag when the build must be
-reproducible.
+`node_modules` at runtime). `ref` is always a kit tag (`ms-mobilekit/vX.Y.Z`), never `main`; the family
+sweep in shared-skills moves it and runs the house rules (desktop skill §13).
 
 ```html
 <!-- www/index.html -->
@@ -551,7 +551,7 @@ fails when the rule is broken.
 
 ```
 shared-skills/
-├─ skills/ms-desktop-app/SKILL.md     desktop, 2.4.3
+├─ skills/ms-desktop-app/SKILL.md     desktop, 2.5.0
 ├─ skills/ms-mobile-app/SKILL.md      this file, 1.0.1
 ├─ packages/ms-appkit/                the desktop shell (Python)
 └─ packages/ms-mobilekit/             the mobile shell (JavaScript), 1.0.1
@@ -583,6 +583,9 @@ A lesson that applies to both gets a check in both.
 | `native.json` declares every capability with a usage string; the generated Info.plist / manifest carry it | an NFC read with no usage string crashes on iOS, silently on review |
 | No `fetch` without a timeout | a dead network hung the Read screen |
 | CI declares bash, proves inputs are tracked, runs the gate and screenshots; release refuses off-`main` tags, writes sums, composes the body | each cost a release |
+| `ms-app.json` agrees with the code and `msKit.ref` is a kit tag, never `main` (`checkManifest`) | nothing recorded which kit an app came from, and no build could be reproduced |
+| A report address is the family's (`checkSupportEmail`) | two apps used two mailboxes |
+| Copied template files carry the kit's current marker (`checkTemplateDrift`) | a lesson added to the template reached no existing app |
 | README has the four header sections and shows screenshots | the family's repos look alike |
 | Status examples ship in the app | every state reachable without hardware |
 | UI gate: no horizontal scroll, no clipping, ≥ 4.5:1 contrast, ≥ 44 px targets, 7 widths × 2 themes | gloves, sunlight, review rejections |

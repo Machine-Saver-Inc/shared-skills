@@ -1,5 +1,12 @@
+# ms-mobilekit template v1
 name: ci
-on: [push, pull_request]
+on:
+  push:
+  pull_request:
+  # An untouched app is still found broken by a kit or runner change, monthly.
+  schedule:
+    - cron: "23 6 1 * *"
+  workflow_dispatch:
 jobs:
   checks:
     runs-on: ubuntu-latest

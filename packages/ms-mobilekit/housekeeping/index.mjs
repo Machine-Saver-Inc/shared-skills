@@ -179,7 +179,56 @@ export function checkSimulator(root) {
   return [];
 }
 
-export const CHECKS = { checkVersion, checkChangelog, checkButtons, checkShell, checkIcons, checkNative, checkNetwork, checkCI, checkReadme, checkSimulator };
+// ---- 11. the manifest says what this app is and what it was built from, and the kit is pinned to a tag ----
+// Nothing recorded which kit an app came from, and apps followed `main`, so "who is behind?" had no
+// answer and no build could be reproduced. ms-app.json is the record; the family sweep bumps it.
+export const FAMILY_SUPPORT_EMAIL = 'software-support@machinesaver.net';
+export const TEMPLATE_VERSION = 1;
+export const TEMPLATE_MARKED = ['tests/house_rules.test.mjs', '.github/workflows/ci.yml'];
+
+export function checkManifest(root) {
+  const errs = []; const p = join(root, 'ms-app.json');
+  if (!ex(p)) return ['ms-app.json is missing at the repository root (copy template/ms-app.json)'];
+  let m; try { m = JSON.parse(read(p)); } catch (e) { return [`ms-app.json is not valid JSON: ${e.message}`]; }
+  const pkg = JSON.parse(read(join(root, 'package.json')));
+  const cfg = JSON.parse(read(join(root, 'capacitor.config.json')));
+  if (m.kind !== 'mobile') errs.push("ms-app.json kind must be 'mobile' for an ms-mobilekit app");
+  if (m.name !== cfg.appName) errs.push(`ms-app.json name "${m.name}" differs from capacitor appName "${cfg.appName}"`);
+  if (m.appId !== cfg.appId) errs.push(`ms-app.json appId "${m.appId}" differs from capacitor appId "${cfg.appId}"`);
+  if (!/^[a-z0-9][a-z0-9-]+$/.test(m.slug || '')) errs.push('ms-app.json slug must be lower-case words joined by hyphens');
+  if (!/^Machine-Saver-Inc\//.test(m.repo || '')) errs.push('ms-app.json repo must be a Machine-Saver-Inc repository');
+  if (!['public', 'private'].includes(m.visibility)) errs.push('ms-app.json visibility must be public or private');
+  if (!m.skill || m.skill.name !== 'ms-mobile-app' || !/^\d+\.\d+\.\d+$/.test(m.skill.version || '')) errs.push('ms-app.json skill must name ms-mobile-app and a version');
+  const ref = (pkg.msKit && pkg.msKit.ref) || 'main';
+  const tag = /^ms-mobilekit\/v(\d+\.\d+\.\d+)$/.exec(ref);
+  if (!tag) errs.push(`package.json msKit.ref is "${ref}"; pin a kit tag such as ms-mobilekit/v1.1.0, never main`);
+  else if (!m.kit || m.kit.name !== 'ms-mobilekit' || m.kit.version !== tag[1]) errs.push(`ms-app.json kit must be ms-mobilekit ${tag[1]}, the pinned tag`);
+  return errs;
+}
+
+// ---- 12. a private app's reports reach the one address the family reads ----
+export function checkSupportEmail(root) {
+  const errs = [];
+  for (const f of walk(join(root, 'www/js'), ['.js'])) {
+    const re = /email\s*:\s*['"]([^'"]+@[^'"]+)['"]/g; let m;
+    while ((m = re.exec(read(f)))) if (m[1] !== FAMILY_SUPPORT_EMAIL) errs.push(`${f}: reports go to ${m[1]}; the family's address is ${FAMILY_SUPPORT_EMAIL}`);
+  }
+  return errs;
+}
+
+// ---- 13. the files copied from the template are the kit's current ones ----
+export function checkTemplateDrift(root) {
+  const errs = [];
+  for (const rel of TEMPLATE_MARKED) {
+    const p = join(root, rel); if (!ex(p)) continue;
+    const m = /ms-mobilekit template v(\d+)/.exec(read(p));
+    if (!m) errs.push(`${rel} carries no "ms-mobilekit template vN" marker; copy the current one from the kit's template/`);
+    else if (Number(m[1]) < TEMPLATE_VERSION) errs.push(`${rel} is template v${m[1]}; the kit's is v${TEMPLATE_VERSION}. Copy the current one from template/`);
+  }
+  return errs;
+}
+
+export const CHECKS = { checkVersion, checkChangelog, checkButtons, checkShell, checkIcons, checkNative, checkNetwork, checkCI, checkReadme, checkSimulator, checkManifest, checkSupportEmail, checkTemplateDrift };
 
 export function runAll(root) {
   const out = [];
