@@ -1,8 +1,9 @@
 """Downloading and applying an update.
 
 The same three routes in every Machine Saver program: a Windows installer runs
-and the program restarts, an AppImage replaces itself in place, and a .deb is
-downloaded for the user to install because no program of ours asks for root.
+under a detached helper that starts the program again afterwards, an AppImage
+replaces itself in place, and a .deb is downloaded for the user to install
+because no program of ours asks for root.
 
 Kept free of Qt so the download, the checksum check and the decision about how
 to install can be tested without a running application.
@@ -150,24 +151,88 @@ def verify_download(path: Path, release: Release, opener=open_url,
         )
 
 
-def apply_update(path: Path, *, launcher: Callable = subprocess.Popen) -> ApplyResult:
-    """Install the verified download, as far as this platform allows."""
+INSTALLER_FLAGS = ("/SILENT", "/CLOSEAPPLICATIONS", "/NOCANCEL")
+
+
+def running_executable() -> Path | None:
+    """The frozen program we were launched from, or None when running from source."""
+    return Path(sys.executable) if is_frozen() else None
+
+
+def windows_update_command(installer: Path, target: Path | None) -> list[str]:
+    """A detached helper that runs the installer, waits for it, then starts
+    the new version.
+
+    Inno Setup's ``/RESTARTAPPLICATIONS`` only restarts programs registered
+    with the Windows Restart Manager, which a Qt program is not, so a program
+    that relied on it closed and never came back (AirVibe Power Profiler
+    0.2.0 -> 0.2.1, the family's first update through the store). The program
+    cannot relaunch itself either: it has to be gone before the installer can
+    replace its files. So a PowerShell that outlives both does it: wait for
+    the installer, then start the program. PowerShell is on every Windows.
+    """
+    quoted_flags = ",".join(f"'{flag}'" for flag in INSTALLER_FLAGS)
+    script = (f"Start-Process -FilePath '{installer}' -ArgumentList {quoted_flags} -Wait")
+    if target is not None:
+        script += f"; Start-Process -FilePath '{target}'"
+    return ["powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden",
+            "-Command", script]
+
+
+def unblock(path: Path) -> bool:
+    """Remove Windows' mark of the web from a downloaded file, if it has one.
+
+    A file saved by a browser carries a ``Zone.Identifier`` stream, and the
+    shell then asks "The publisher could not be verified. Are you sure?"
+    before running it, a dialog a hidden helper would wait behind for ever.
+    Files this program downloads itself carry no mark; one handed to it by
+    other means might. True when a mark was removed.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        os.remove(f"{path}:Zone.Identifier")
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError as exc:
+        log.warning("could not remove the mark of the web from %s: %s", path, exc)
+        return False
+
+
+def _detached() -> dict:
+    """Popen options that let the helper outlive this process, on Windows."""
+    if sys.platform != "win32":
+        return {}
+    return {"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+            "close_fds": True}
+
+
+def apply_update(path: Path, *, launcher: Callable = subprocess.Popen,
+                 target: Path | None = None) -> ApplyResult:
+    """Install the verified download, as far as this platform allows.
+
+    ``target`` is the program to start again once a Windows installer has
+    finished; by default the frozen executable this process was launched
+    from. From a source checkout there is nothing to restart, and the
+    installer runs on its own.
+    """
     name = path.name.lower()
 
     if name.endswith(".exe"):
+        restart = target if target is not None else running_executable()
+        if unblock(path):
+            log.info("removed the mark of the web from %s", path.name)
         try:
-            # Inno Setup: install without prompting, close this program first,
-            # and start it again afterwards.
-            launcher([
-                str(path), "/SILENT", "/CLOSEAPPLICATIONS", "/RESTARTAPPLICATIONS",
-                "/NOCANCEL",
-            ])
+            launcher(windows_update_command(path, restart), **_detached())
         except OSError as exc:
             raise UpdateError(f"The installer would not start: {exc}") from exc
         return ApplyResult(
             Applied.INSTALLER_RUNNING,
             "The installer is running. This program will close and reopen on the "
-            "new version.",
+            "new version." if restart is not None else
+            "The installer is running. This program will close; open it again "
+            "when the installer has finished.",
             path,
         )
 

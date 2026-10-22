@@ -1196,3 +1196,88 @@ def test_a_build_without_its_key_says_so_instead_of_asking_google():
 def test_a_tracked_stamped_secret_fails_the_build(tmp_path):
     repo = _repo(tmp_path, {"app/_client_secret.py": "CLIENT_SECRET = 'x'\n"})
     assert house.tracked_secret_faults(repo) == ["app/_client_secret.py: a credential file is tracked"]
+
+
+# --- applying a Windows installer: the program must come back (1.4.1) ------------
+
+
+def test_a_windows_installer_runs_under_a_helper_that_restarts_the_program(tmp_path):
+    """Inno's /RESTARTAPPLICATIONS restarts only Restart-Manager-registered
+    programs, which a Qt program is not: AirVibe Power Profiler 0.2.0 closed
+    for its first store update and never reopened. The helper outlives both
+    the program and the installer and starts the new version itself."""
+    from ms_appkit.update.installer import Applied, apply_update
+
+    launched = []
+
+    def launcher(command, **options):
+        launched.append((command, options))
+
+    installer = tmp_path / "Setup-1.2.3.exe"
+    installer.write_bytes(b"not the real installer")
+    exe = tmp_path / "Program" / "Program.exe"
+    result = apply_update(installer, launcher=launcher, target=exe)
+
+    assert result.outcome is Applied.INSTALLER_RUNNING and "reopen" in result.message
+    (command, options), = launched
+    assert command[0].lower().startswith("powershell")
+    script = command[-1]
+    assert f"Start-Process -FilePath '{installer}'" in script and "-Wait" in script
+    assert "'/SILENT'" in script and "'/CLOSEAPPLICATIONS'" in script and "'/NOCANCEL'" in script
+    assert "/RESTARTAPPLICATIONS" not in script, "the flag that did nothing is gone"
+    assert script.index("-Wait") < script.index(f"Start-Process -FilePath '{exe}'"), \
+        "the program starts only after the installer has finished"
+    import sys
+
+    if sys.platform == "win32":
+        import subprocess
+
+        assert options["creationflags"] & subprocess.DETACHED_PROCESS
+        assert options["close_fds"] is True
+
+
+def test_the_mark_of_the_web_is_removed_before_an_installer_runs(tmp_path):
+    """A browser-saved installer carries a Zone.Identifier stream and the shell
+    asks before running it; a hidden helper would wait behind that dialog for
+    ever (seen on 2026-10-22). Checked for real on Windows, a no-op elsewhere."""
+    import sys
+    from pathlib import Path
+
+    from ms_appkit.update.installer import apply_update, unblock
+
+    installer = tmp_path / "Setup.exe"
+    installer.write_bytes(b"x")
+    assert unblock(installer) is False, "nothing to remove"
+    if sys.platform == "win32":
+        Path(f"{installer}:Zone.Identifier").write_text("[ZoneTransfer]\nZoneId=3\n")
+        assert unblock(installer) is True
+        with pytest.raises(FileNotFoundError):
+            Path(f"{installer}:Zone.Identifier").read_text()
+        Path(f"{installer}:Zone.Identifier").write_text("[ZoneTransfer]\nZoneId=3\n")
+        apply_update(installer, launcher=lambda c, **o: None, target=tmp_path / "App.exe")
+        assert unblock(installer) is False, "apply_update removed it"
+
+
+def test_from_a_source_checkout_the_installer_runs_and_nothing_is_restarted(tmp_path, monkeypatch):
+    from ms_appkit.update import installer as module
+
+    monkeypatch.setattr(module, "is_frozen", lambda: False)
+    launched = []
+    installer = tmp_path / "Setup-1.2.3.exe"
+    installer.write_bytes(b"x")
+    result = module.apply_update(installer, launcher=lambda c, **o: launched.append(c))
+    assert "open it again" in result.message
+    assert "Start-Process -FilePath" in launched[0][-1]
+    assert launched[0][-1].count("Start-Process") == 1, "nothing to restart from source"
+
+
+def test_the_frozen_program_restarts_itself_by_default(tmp_path, monkeypatch):
+    from ms_appkit.update import installer as module
+
+    monkeypatch.setattr(module, "is_frozen", lambda: True)
+    monkeypatch.setattr(module.sys, "executable", str(tmp_path / "App" / "App.exe"))
+    launched = []
+    installer = tmp_path / "Setup.exe"
+    installer.write_bytes(b"x")
+    module.apply_update(installer, launcher=lambda c, **o: launched.append(c))
+    assert f"Start-Process -FilePath '{tmp_path / 'App' / 'App.exe'}'" in launched[0][-1]

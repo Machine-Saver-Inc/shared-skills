@@ -4,6 +4,37 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-22 - The program comes back after a Windows update
+
+### ms-appkit 1.4.1
+
+The family's first update through the release store (AirVibe Power Profiler
+0.2.0 → 0.2.1) downloaded, verified and installed correctly, and then the
+program never reopened. Inno Setup's `/RESTARTAPPLICATIONS` restarts only
+programs registered with the Windows Restart Manager, which a Qt program is
+not, and the program itself has to be gone before the installer can replace
+its files, so nothing was left to start it.
+
+- `update.installer.apply_update` now launches a detached PowerShell helper
+  that runs the installer (`/SILENT /CLOSEAPPLICATIONS /NOCANCEL`), waits for
+  it, and starts the program again (`windows_update_command`). From a source
+  checkout there is nothing to restart and the message says to open the
+  program again. `/RESTARTAPPLICATIONS` is gone.
+- `apply_update` removes Windows' mark of the web (the `Zone.Identifier`
+  stream) from the installer first. A browser-saved file carries one and the
+  shell then asks "The publisher could not be verified" before running it, a
+  dialog the hidden helper would wait behind for ever; the program's own
+  downloads carry none, but the check costs nothing.
+- Tests: the helper's command, its order (wait, then start), the detached
+  process flags, the source-checkout case, the frozen default target, and the
+  mark of the web removed (for real, on Windows).
+
+### ms-desktop-app 2.4.4
+
+- §4: the platform table and a new rule, *The program brings itself back*,
+  say how and why, and that a program inherits it by using `apply_update`
+  unchanged.
+
 ## 2026-10-02 (later) - First consumer's CI lessons
 
 ### ms-mobilekit 1.0.1
