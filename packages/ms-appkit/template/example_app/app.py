@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from example_app import APP_NAME, GITHUB_REPO, PRIVATE, SLUG, VISIBILITY, __version__
 from ms_appkit.bootstrap import run
+
+from example_app import APP_NAME, GITHUB_REPO, PRIVATE, SLUG, VISIBILITY, __version__
 
 
 def main() -> int:

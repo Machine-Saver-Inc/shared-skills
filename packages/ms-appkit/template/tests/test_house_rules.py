@@ -1,12 +1,16 @@
+# ms-appkit template v1
 """The house rules, run against this application.
 
 Copy this file into a new Machine Saver application unchanged except for the
-two names at the top. The checks themselves live in :mod:`ms_appkit.housekeeping`
-so that a lesson learned in one program becomes a gate in all of them at their
-next release, rather than being copied once and then drifting.
+names in the marked block. The checks themselves live in
+:mod:`ms_appkit.housekeeping` so that a lesson learned in one program becomes a
+gate in all of them at their next release, rather than being copied once and
+then drifting. The marker on the first line is how the kit knows this copy is
+current; the family sweep refreshes it.
 
-Add a test here only for a rule that is specific to this application. A rule
-that would hold for any Machine Saver tool belongs in the kit.
+Add a test below the ``app-specific`` line only for a rule that is specific to
+this application. A rule that would hold for any Machine Saver tool belongs in
+the kit.
 """
 
 from __future__ import annotations
@@ -21,32 +25,37 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import ms_appkit
 from ms_appkit import housekeeping as house
 
-# --- the two lines to change in a new application --------------------------
+# --- the names to change in a new application --------------------------------
+import example_app as package
+from example_app.ui.main_window import MainWindow
+
 ROOT = Path(__file__).resolve().parents[1]
-UI = ROOT / "example_app" / "ui"
 # ---------------------------------------------------------------------------
+
+PACKAGE = ROOT / package.__name__
+UI = PACKAGE / "ui"
 
 
 @pytest.fixture(scope="session", autouse=True)
 def identity():
-    from example_app import APP_NAME, GITHUB_REPO, PRIVATE, SLUG, VISIBILITY, __version__
-
     return ms_appkit.configure(
-        name=APP_NAME, repo=GITHUB_REPO, version=__version__, slug=SLUG,
-        visibility=VISIBILITY, private=PRIVATE,
+        name=package.APP_NAME, repo=package.GITHUB_REPO, version=package.__version__,
+        slug=package.SLUG, visibility=package.VISIBILITY, private=package.PRIVATE,
     )
 
 
 @pytest.fixture(scope="session")
 def qt():
     pytest.importorskip("PySide6.QtWidgets")
-    from PySide6.QtWidgets import QApplication
-
     from ms_appkit.style import STYLESHEET
+    from PySide6.QtWidgets import QApplication
 
     application = QApplication.instance() or QApplication([])
     application.setStyleSheet(STYLESHEET)
     return application
+
+
+# --- buttons, marks, navigation, footer ---------------------------------------
 
 
 def test_every_button_comes_from_the_shared_helper():
@@ -72,8 +81,6 @@ def test_no_screen_fills_the_action_row_backwards():
 
 
 def test_the_footer_is_on_every_screen(qt):
-    from example_app.ui.main_window import MainWindow
-
     window = MainWindow()
     assert not house.footer_faults(window)
     window.close()
@@ -81,8 +88,6 @@ def test_the_footer_is_on_every_screen(qt):
 
 def test_every_screen_has_a_name_a_report_can_use(qt):
     """A report that says "opened ?" costs a round trip to find out where."""
-    from example_app.ui.main_window import MainWindow
-
     window = MainWindow()
     for index in range(window.stack.count()):
         window.show_screen(index)
@@ -90,14 +95,54 @@ def test_every_screen_has_a_name_a_report_can_use(qt):
     window.close()
 
 
-def test_this_version_has_a_changelog_entry():
-    """No release goes out without a line saying what changed."""
-    from example_app import __version__
+# --- the release, the build and the record ------------------------------------
 
-    changelog = (ROOT / "CHANGELOG.md")
-    if not changelog.is_file():          # the template ships without one
-        pytest.skip("no CHANGELOG.md in the template")
-    assert f"[{__version__}]" in changelog.read_text(encoding="utf-8")
+
+def test_this_version_has_a_changelog_entry_a_user_can_read():
+    assert not house.changelog_faults(ROOT, package.__version__)
+
+
+def test_the_build_runs_the_family_s_checks_and_runs_on_a_clock():
+    assert not house.ci_workflow_faults(ROOT)
+
+
+def test_a_release_ships_only_what_main_has_and_verifies_it(identity):
+    assert not house.release_workflow_faults(ROOT, identity.slug)
+
+
+def test_the_manifest_says_what_this_is_and_pins_a_kit_tag(identity):
+    assert not house.manifest_faults(ROOT, identity)
+
+
+def test_the_installer_is_this_program_s_own_and_installs_per_user(identity):
+    assert not house.installer_script_faults(ROOT, identity.slug)
+
+
+def test_the_copied_template_files_are_current():
+    assert not house.template_drift_faults(ROOT)
+
+
+def test_every_dependency_is_agreed_or_justified():
+    assert not house.dependency_faults(ROOT)
+
+
+def test_the_readme_carries_the_scope_block_and_a_screenshot():
+    assert not house.readme_faults(ROOT)
+
+
+def test_the_lint_the_build_runs_passes_here():
+    assert not house.lint_faults(ROOT)
+
+
+# --- the network and the update path ----------------------------------------
+
+
+def test_nothing_opens_a_url_without_the_kit_s_certificates():
+    assert not house.bare_urlopen_faults(PACKAGE)
+
+
+def test_updates_go_the_kit_s_way_and_no_other():
+    assert not house.update_path_faults(PACKAGE)
 
 
 # --- public or private (skill section 1a) -------------------------------------
@@ -119,3 +164,12 @@ def test_no_credential_is_tracked_by_git():
 
 def test_a_private_program_signs_in_the_family_s_way(identity):
     assert not house.private_config_faults(identity)
+
+
+def test_a_private_program_s_reports_reach_the_family_s_address(identity):
+    assert not house.family_support_email_faults(identity)
+
+
+# --- app-specific ---------------------------------------------------------------
+# Rules that hold only for this application go below this line; the sweep
+# keeps everything above it in step with the kit.

@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "slug": "example-tool",
+  "name": "Example Tool",
+  "kind": "mobile",
+  "repo": "Machine-Saver-Inc/example-tool",
+  "visibility": "public",
+  "skill": { "name": "ms-mobile-app", "version": "1.1.0" },
+  "kit": { "name": "ms-mobilekit", "version": "1.1.0" },
+  "appId": "net.machinesaver.example",
+  "generated": "2026-10-22",
+  "last_sweep": "2026-10-22"
+}

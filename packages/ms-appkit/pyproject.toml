@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ms-appkit"
-version = "1.4.2"
+version = "1.5.0"
 description = "The shared shell every Machine Saver desktop application is built on."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -29,7 +29,8 @@ dev = ["pytest>=8", "ruff>=0.6"]
 where = ["src"]
 
 [tool.setuptools.package-data]
-ms_appkit = ["resources/*.png", "resources/icons/*.svg", "resources/icons/*"]
+ms_appkit = ["resources/*.png", "resources/icons/*.svg", "resources/icons/*",
+             "allowed_dependencies.txt"]
 
 # Stated, not inherited. With no [tool.ruff] section ruff falls back to its own
 # defaults, and those differ between versions -- a local run found nothing while

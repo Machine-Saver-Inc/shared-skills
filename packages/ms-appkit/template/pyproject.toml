@@ -1,0 +1,52 @@
+# ms-appkit template v1
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "example-tool"
+dynamic = ["version"]
+description = "One sentence saying what the program does for the person using it."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Machine Saver Inc" }]
+dependencies = [
+    # The shared shell, pinned to a kit tag; the family sweep moves the pin
+    # (skill section 13). A private program adds the [private] extra.
+    "ms-appkit @ git+https://github.com/Machine-Saver-Inc/shared-skills.git@ms-appkit/v1.5.0#subdirectory=packages/ms-appkit",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6", "pyinstaller>=6"]
+
+[project.scripts]
+example-tool = "example_app.app:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "example_app._version.__version__" }
+
+[tool.setuptools.packages.find]
+include = ["example_app*"]
+
+[tool.setuptools.package-data]
+example_app = ["resources/*.png"]
+
+# A dependency the family's list does not hold yet, with the reason in a line
+# (housekeeping.dependency_faults). The next kit release adopts it or says why not.
+[tool.ms-appkit]
+extra-dependencies = { }
+
+# Stated, not inherited: the family's rule set (skill section 6).
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["example_app"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,5 +1,22 @@
 # Changelog — ms-mobilekit
 
+## [1.1.0] — 2026-10-22
+
+Nothing changes on screen. The app is now part of a family that can be kept
+in step: it says what it was built from, pins the kit to a tag, and its copies
+of the kit's files are checked for drift.
+
+- `ms-app.json` in the template and `checkManifest`: slug, name, appId,
+  visibility, skill and kit versions agree with the code, and `msKit.ref` is a
+  kit tag (`ms-mobilekit/vX.Y.Z`), never `main`.
+- `checkSupportEmail`: a report address in `www/js` is the family's,
+  `software-support@machinesaver.net`.
+- `checkTemplateDrift`: `tests/house_rules.test.mjs` and `ci.yml` carry an
+  `ms-mobilekit template vN` marker matching the kit's; the family sweep
+  refreshes them. The template's `ci.yml` gains a monthly schedule.
+- `tools/check_template.mjs` runs every check over the template, in the
+  shared-skills CI.
+
 ## [1.0.1] — 2026-10-02
 
 Nothing changes on screen. The first consumer's first three CI runs each failed

@@ -1,0 +1,19 @@
+# Python packages a Machine Saver desktop program may depend on, one per line.
+#
+# A dependency is a decision the whole family lives with: it must be packaged
+# by PyInstaller, licensed for shipping, and still maintained in five years. A
+# program that needs something not listed here declares it under
+# [tool.ms-appkit] extra-dependencies in its pyproject.toml with a one-line
+# reason, and the next kit release either adds it here or says why not.
+# (housekeeping.dependency_faults)
+ms-appkit
+pyside6-essentials
+certifi
+keyring
+pyserial
+minimalmodbus
+pymodbus
+ppk2-api
+pyqtgraph
+numpy
+requests
