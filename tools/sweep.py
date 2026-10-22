@@ -29,9 +29,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Only files that are the kit's and nothing else are refreshed whole. A desktop
+# ci.yml is a dozen lines calling the family's reusable workflow, so it is one;
+# a mobile ci.yml carries the app's own tracked-file list and steps, so it is
+# not (the first dry run on the cellular app overwrote them: lesson kept).
 TEMPLATE_MARKED = {
     "desktop": ("tests/test_house_rules.py", ".github/workflows/ci.yml"),
-    "mobile": ("tests/house_rules.test.mjs", ".github/workflows/ci.yml"),
+    "mobile": ("tests/house_rules.test.mjs",),
 }
 APP_SPECIFIC = "# --- app-specific ---"
 
