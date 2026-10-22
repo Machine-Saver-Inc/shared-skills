@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def find(pattern: str, path: str) -> str:
     text = (ROOT / path).read_text(encoding="utf-8")
-    found = re.search(pattern, text, re.M)
+    found = re.search(pattern, text, re.MULTILINE)
     assert found, f"{pattern} not found in {path}"
     return found.group(1)
 
