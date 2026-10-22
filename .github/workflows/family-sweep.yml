@@ -63,6 +63,15 @@ jobs:
       run:
         shell: bash
     steps:
+      - name: The sweep needs its token
+        env:
+          TOKEN: ${{ secrets.FAMILY_SWEEP_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::FAMILY_SWEEP_TOKEN is not set on shared-skills; the sweep cannot read or write the application repositories. Add a fine-grained token (contents and pull requests: write on the Machine-Saver-Inc application repositories) as a repository secret."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
         with:
           path: shared-skills
