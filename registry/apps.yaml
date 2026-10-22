@@ -1,0 +1,46 @@
+# Every application built from a Machine Saver skill, one entry each.
+#
+# This file is the one place that says which applications exist. Three things
+# read it: the family sweep (which repositories get an upgrade pull request
+# when a kit is tagged), the report intake (which repository a problem report
+# becomes an issue in), and the apps catalog (what is shown at
+# apps.machinesaver.com). Add an entry in the same pull request that creates
+# the application's repository; registry/schema.json says what each field may
+# hold and tools/check_registry.py checks it in CI.
+#
+# kind: desktop (ms-appkit) | mobile (ms-mobilekit) | script (no kit)
+# releases: gcs (Machine Saver's release store, latest.json) | github | none
+# category: Installation | Manufacturing | Integration
+
+- slug: airvibe-cellular-app
+  name: AirVibe Cellular Installation
+  repo: Machine-Saver-Inc/airvibe-cellular-app
+  kind: mobile
+  visibility: private
+  category: Installation
+  description: Installs and claims an AirVibe Cellular on site, from the first power-up to the first upload.
+  releases: github
+  catalog: { listed: true, public: false }
+  issues: { repo: Machine-Saver-Inc/airvibe-cellular-app, labels: [from-app] }
+
+- slug: airvibe-power-profiler
+  name: AirVibe Power Profiler
+  repo: Machine-Saver-Inc/airvibe-power-profiler
+  kind: desktop
+  visibility: private
+  category: Manufacturing
+  description: Measures what an AirVibe draws through every power event on a Nordic Power Profiler Kit II and keeps the readings in Machine Saver's cloud.
+  releases: gcs
+  catalog: { listed: true, public: false }
+  issues: { repo: Machine-Saver-Inc/airvibe-power-profiler, labels: [from-app] }
+
+- slug: espec-temperature-chamber
+  name: Espec Temperature Chamber
+  repo: Machine-Saver-Inc/Espec_Temperature_Chamber
+  kind: script
+  visibility: private
+  category: Manufacturing
+  description: Drives the Espec chamber through a temperature soak over Modbus for burn-in.
+  releases: none
+  catalog: { listed: true, public: false }
+  issues: { repo: Machine-Saver-Inc/Espec_Temperature_Chamber, labels: [from-app] }

@@ -39,6 +39,11 @@ jobs:
       - name: Install the kit
         run: pip install -e "packages/ms-appkit[dev]"
 
+      - name: The application registry is well formed
+        run: |
+          pip install pyyaml
+          python tools/check_registry.py
+
       - name: Lint
         run: ruff check packages/ms-appkit/src packages/ms-appkit/tests packages/ms-appkit/template
 
