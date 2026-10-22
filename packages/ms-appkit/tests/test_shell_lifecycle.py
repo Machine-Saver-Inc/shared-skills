@@ -134,3 +134,25 @@ def test_helper_and_status_text_have_readable_contrast(dark, background):
         color = re.search(r"color:\s*(#[0-9a-f]+)", rule).group(1)
         low, high = sorted((luminance(color), luminance(background)))
         assert (high + .05) / (low + .05) >= 4.5, (role, dark)
+
+
+def test_applying_an_installer_does_not_wait_behind_a_dialog(window, monkeypatch, tmp_path):
+    """The installer is already running and needs this process gone; a modal
+    box held 0.2.2 -> 0.2.3 open until somebody pressed OK. The banner says
+    what is happening and the window closes at once."""
+    from ms_appkit import shell
+    from ms_appkit.update.installer import Applied, ApplyResult
+
+    window.busy = lambda: None
+    path = tmp_path / "installer.exe"
+    monkeypatch.setattr(shell, "apply_update", lambda p: ApplyResult(
+        Applied.INSTALLER_RUNNING, "The installer is running.", path))
+    boxes = Mock()
+    monkeypatch.setattr(shell.QMessageBox, "information", boxes)
+    closed = Mock()
+    monkeypatch.setattr(window, "close", closed)
+    window._apply(path)
+    boxes.assert_not_called()
+    assert "installer is running" in window.banner.label.text()
+    assert window._updating
+    closed.assert_called_once()

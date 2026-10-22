@@ -4,6 +4,28 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-22 (later) - The helper has to actually run
+
+### ms-appkit 1.4.2
+
+1.4.1's helper was right and never ran: a console program started with
+`DETACHED_PROCESS` from a windowless (PyInstaller `console=False`) program
+does not start at all on Windows 11, probed with pythonw. And the "Updating"
+message box was modal, so the program sat open until somebody pressed OK
+while the installer waited for it to be gone. Both seen on the bench going
+0.2.2 → 0.2.3.
+
+- The helper is started with `CREATE_NO_WINDOW` and its handles sent nowhere;
+  no `-WindowStyle Hidden`, since there is no console window to hide.
+- `AppWindow._apply` no longer shows a modal box: the banner says what is
+  happening (`UpdateBanner.say`) and the window closes at once.
+- Tests for both, and the kit test asserts the exact process flags.
+
+### ms-desktop-app 2.4.5
+
+- §4 rule 2 names the two traps: the process flags, and never blocking on a
+  dialog between launching the installer and closing.
+
 ## 2026-10-22 - The program comes back after a Windows update
 
 ### ms-appkit 1.4.1

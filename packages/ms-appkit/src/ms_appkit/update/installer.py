@@ -175,8 +175,7 @@ def windows_update_command(installer: Path, target: Path | None) -> list[str]:
     script = (f"Start-Process -FilePath '{installer}' -ArgumentList {quoted_flags} -Wait")
     if target is not None:
         script += f"; Start-Process -FilePath '{target}'"
-    return ["powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden",
-            "-Command", script]
+    return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script]
 
 
 def unblock(path: Path) -> bool:
@@ -201,11 +200,20 @@ def unblock(path: Path) -> bool:
 
 
 def _detached() -> dict:
-    """Popen options that let the helper outlive this process, on Windows."""
+    """Popen options for a helper that outlives this process and shows no window.
+
+    CREATE_NO_WINDOW, not DETACHED_PROCESS: a console program started
+    detached from a windowless (PyInstaller ``console=False``) program never
+    ran at all -- probed on Windows 11 with pythonw, a PowerShell told to
+    write a file wrote nothing -- while one given a hidden console runs and
+    outlives its parent, which is all that is wanted. The helper's handles go
+    nowhere, so it cannot block on a console that does not exist either.
+    """
     if sys.platform != "win32":
         return {}
-    return {"creationflags": subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
-            "close_fds": True}
+    return {"creationflags": subprocess.CREATE_NO_WINDOW, "close_fds": True,
+            "stdin": subprocess.DEVNULL, "stdout": subprocess.DEVNULL,
+            "stderr": subprocess.DEVNULL}
 
 
 def apply_update(path: Path, *, launcher: Callable = subprocess.Popen,

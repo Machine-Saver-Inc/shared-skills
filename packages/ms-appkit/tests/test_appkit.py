@@ -1227,13 +1227,17 @@ def test_a_windows_installer_runs_under_a_helper_that_restarts_the_program(tmp_p
     assert "/RESTARTAPPLICATIONS" not in script, "the flag that did nothing is gone"
     assert script.index("-Wait") < script.index(f"Start-Process -FilePath '{exe}'"), \
         "the program starts only after the installer has finished"
+    assert "-WindowStyle" not in command, "no window to hide when there is no console"
     import sys
 
     if sys.platform == "win32":
         import subprocess
 
-        assert options["creationflags"] & subprocess.DETACHED_PROCESS
+        # DETACHED_PROCESS never ran from a windowless program (probed with
+        # pythonw on Windows 11); CREATE_NO_WINDOW does, and outlives us.
+        assert options["creationflags"] == subprocess.CREATE_NO_WINDOW
         assert options["close_fds"] is True
+        assert options["stdin"] is options["stdout"] is options["stderr"] is subprocess.DEVNULL
 
 
 def test_the_mark_of_the_web_is_removed_before_an_installer_runs(tmp_path):
