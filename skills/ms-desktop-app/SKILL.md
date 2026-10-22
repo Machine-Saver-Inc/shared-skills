@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.4.3.** Published at
+**Skill version 2.4.4.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -609,7 +609,7 @@ A private program's releases live in Google Cloud Storage instead (§1a);
 
 | Platform | Install |
 | --- | --- |
-| Windows `.exe` | installer `/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS`, then quit |
+| Windows `.exe` | a **detached helper** (PowerShell) runs the installer `/SILENT /CLOSEAPPLICATIONS /NOCANCEL`, waits for it, then starts the program again; the program quits as soon as the helper is launched |
 | AppImage | replace the file at `$APPIMAGE` via `os.replace`, keep the exec bit, relaunch |
 | `.deb` | show the one `apt` command — **never** seek root |
 
@@ -641,19 +641,29 @@ hosts that were failing.
 ### The rest
 
 1. **Compare versions numerically.** `1.9.0` sorts above `1.10.0` as strings.
-2. **Never update during work in progress.** Re-offer when it finishes.
+2. **The program brings itself back.** On Windows the installer cannot
+   replace files the program is sitting on, so the program has to be gone, and
+   nothing then restarts it unless something outliving both does: the kit
+   launches a detached helper that waits for the installer and starts the new
+   version (`installer.windows_update_command`). Never rely on Inno Setup's
+   `/RESTARTAPPLICATIONS`: it restarts only programs registered with the
+   Windows Restart Manager, which a Qt program is not, and the family's first
+   store update (AirVibe Power Profiler 0.2.0 → 0.2.1) closed and never
+   reopened because of it. A new program inherits this by using
+   `apply_update` unchanged; never run the installer yourself.
+3. **Never update during work in progress.** Re-offer when it finishes.
    Implement `busy()` for every hardware job and call `refresh_busy_state()`
    when each job starts or finishes. The kit defers a release found while busy
    and checks again immediately before applying a downloaded update.
-3. **A failed check is not "up to date".** Three outcomes: newer, confirmed
+4. **A failed check is not "up to date".** Three outcomes: newer, confirmed
    current, could not tell. Startup must not block: log it, show it where asked.
-4. **Unverifiable means untrusted.** Mismatch *or* unfetchable `SHA256SUMS`
+5. **Unverifiable means untrusted.** Mismatch *or* unfetchable `SHA256SUMS`
    means refuse and change nothing.
-5. **Explain network failures, do not quote them.** Certificate / timeout / DNS
+6. **Explain network failures, do not quote them.** Certificate / timeout / DNS
    / rate-limited, plain sentence first, raw text underneath.
-6. **Wire the button to the code.** Leaving it on `webbrowser.open` shipped
+7. **Wire the button to the code.** Leaving it on `webbrowser.open` shipped
    twice.
-7. **Always offer "Open the release page"**, so a machine the updater cannot
+8. **Always offer "Open the release page"**, so a machine the updater cannot
    serve is one click from the file.
 
 ### What's new is a window, not a message box
