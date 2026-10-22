@@ -148,12 +148,9 @@ jobs:
           git checkout -B "$branch"
           git add -A
           if git diff --cached --quiet; then echo "nothing to change"; exit 0; fi
-          git commit -q -m "Family sweep: $KIT $VERSION
-
-The kit pin, the template-marked files and ms-app.json are brought to $KIT $VERSION;
-the house rules ran in the sweep (see the pull request body).
-
-Co-Authored-By: Machine Saver family sweep <software-support@machinesaver.net>"
+          git commit -q -m "Family sweep: $KIT $VERSION" \
+            -m "The kit pin, the template-marked files and ms-app.json are brought to $KIT $VERSION; the house rules ran in the sweep (see the pull request body)." \
+            -m "Co-Authored-By: Machine Saver family sweep <software-support@machinesaver.net>"
           git push -f origin "$branch"
           state=$([ "$CODE" = 0 ] && echo "House rules pass; merge when convenient." || echo "House rules FAIL; a person is needed. The failing rules are below.")
           body=$(printf '%s\n\n%s\n' "$state" "$(cat ../sweep-report.md)")
