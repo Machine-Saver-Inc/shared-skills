@@ -1029,9 +1029,10 @@ marked files and running that application's house rules; a red pull request is
 the lesson that needs a person, with the failing rule named.
 
 **Every application is in `registry/apps.yaml`**, added in the pull request that
-creates its repository: slug, repository, kind, visibility, category, a sentence,
-where its releases live, catalog flags, and where its problem reports become
-issues. The sweep, the report intake and the apps catalog all read that one file;
+creates its repository: slug, repository, kind, which kit it is built on (`none`
+for a script or an application written before the kits: listed in the catalog,
+left alone by the sweep), visibility, category, a sentence, where its releases
+live, catalog flags, and where its problem reports become issues. The sweep, the report intake and the apps catalog all read that one file;
 `tools/check_registry.py` checks it in CI.
 
 **Changing the kit means checking the family.** Run the kit's tests, the

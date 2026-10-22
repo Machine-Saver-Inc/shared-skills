@@ -7,13 +7,15 @@
   "items": {
     "type": "object",
     "additionalProperties": false,
-    "required": ["slug", "name", "repo", "kind", "visibility", "category", "description", "releases", "catalog", "issues"],
+    "required": ["slug", "name", "repo", "kind", "kit", "visibility", "category", "description", "releases", "catalog", "issues"],
     "properties": {
       "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,62}$",
                 "description": "The application's stable key: its SLUG in code, its folder in the release store." },
       "name": { "type": "string", "minLength": 3, "maxLength": 60 },
       "repo": { "type": "string", "pattern": "^Machine-Saver-Inc/[A-Za-z0-9_.-]+$" },
       "kind": { "enum": ["desktop", "mobile", "script"] },
+      "kit": { "enum": ["ms-appkit", "ms-mobilekit", "none"],
+               "description": "Which kit the application is built on; none for a script or an application written before the kits (listed in the catalog, never swept)." },
       "visibility": { "enum": ["public", "private"] },
       "category": { "enum": ["Installation", "Manufacturing", "Integration"] },
       "description": { "type": "string", "minLength": 20, "maxLength": 200,

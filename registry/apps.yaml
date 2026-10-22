@@ -8,7 +8,9 @@
 # the application's repository; registry/schema.json says what each field may
 # hold and tools/check_registry.py checks it in CI.
 #
-# kind: desktop (ms-appkit) | mobile (ms-mobilekit) | script (no kit)
+# kind: desktop | mobile | script
+# kit: ms-appkit | ms-mobilekit | none (a script, or an application written before
+#      the kits: the catalog lists it, the sweep leaves it alone)
 # releases: gcs (Machine Saver's release store, latest.json) | github | none
 # category: Installation | Manufacturing | Integration
 
@@ -16,6 +18,7 @@
   name: AirVibe Cellular Installation
   repo: Machine-Saver-Inc/airvibe-cellular-app
   kind: mobile
+  kit: ms-mobilekit
   visibility: private
   category: Installation
   description: Installs and claims an AirVibe Cellular on site, from the first power-up to the first upload.
@@ -27,6 +30,7 @@
   name: AirVibe Power Profiler
   repo: Machine-Saver-Inc/airvibe-power-profiler
   kind: desktop
+  kit: ms-appkit
   visibility: private
   category: Manufacturing
   description: Measures what an AirVibe draws through every power event on a Nordic Power Profiler Kit II and keeps the readings in Machine Saver's cloud.
@@ -34,13 +38,14 @@
   catalog: { listed: true, public: false }
   issues: { repo: Machine-Saver-Inc/airvibe-power-profiler, labels: [from-app] }
 
-- slug: espec-temperature-chamber
-  name: Espec Temperature Chamber
-  repo: Machine-Saver-Inc/Espec_Temperature_Chamber
-  kind: script
-  visibility: private
+- slug: espec-burn-in
+  name: Espec Burn-In
+  repo: Machine-Saver-Inc/espec-temperature-cycling
+  kind: desktop
+  kit: none
+  visibility: public
   category: Manufacturing
-  description: Drives the Espec chamber through a temperature soak over Modbus for burn-in.
-  releases: none
-  catalog: { listed: true, public: false }
-  issues: { repo: Machine-Saver-Inc/Espec_Temperature_Chamber, labels: [from-app] }
+  description: Runs the 48-hour PCB burn-in temperature cycle in an Espec chamber through its Watlow F4 controller and reports the result.
+  releases: github
+  catalog: { listed: true, public: true }
+  issues: { repo: Machine-Saver-Inc/espec-temperature-cycling, labels: [from-app] }
