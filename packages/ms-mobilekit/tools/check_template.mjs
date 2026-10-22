@@ -4,9 +4,14 @@
 //     node tools/check_template.mjs
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { CHECKS } from '../housekeeping/index.mjs';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..', 'template');
+const here = dirname(fileURLToPath(import.meta.url));
+const root = join(here, '..', 'template');
+// A real app vendors the kit in postinstall; the template is checked the same
+// way it would ship, with the kit beside it (www/vendor/ is gitignored).
+execFileSync(process.execPath, [join(here, 'vendor_kit.mjs'), root], { stdio: 'inherit' });
 let failures = 0;
 for (const [name, check] of Object.entries(CHECKS)) {
   let errs;
