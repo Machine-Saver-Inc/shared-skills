@@ -44,6 +44,13 @@ def identity():
     )
 
 
+@pytest.fixture(autouse=True)
+def isolated_home(tmp_path, monkeypatch):
+    """Windows built here read and write nothing of the tester's: settings,
+    log and anything under the home folder land in a temporary one."""
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+
+
 @pytest.fixture(scope="session")
 def qt():
     pytest.importorskip("PySide6.QtWidgets")
