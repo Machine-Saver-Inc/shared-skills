@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.4.4.** Published at
+**Skill version 2.4.5.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -649,8 +649,12 @@ hosts that were failing.
    `/RESTARTAPPLICATIONS`: it restarts only programs registered with the
    Windows Restart Manager, which a Qt program is not, and the family's first
    store update (AirVibe Power Profiler 0.2.0 → 0.2.1) closed and never
-   reopened because of it. A new program inherits this by using
-   `apply_update` unchanged; never run the installer yourself.
+   reopened because of it. Two traps inside this, both paid for: a helper
+   started with `DETACHED_PROCESS` from a windowless program never runs at
+   all (use `CREATE_NO_WINDOW`), and nothing modal may sit between launching
+   the installer and closing the window, or the program waits for OK while
+   the installer waits for the program. A new program inherits all of this
+   by using `apply_update` unchanged; never run the installer yourself.
 3. **Never update during work in progress.** Re-offer when it finishes.
    Implement `busy()` for every hardware job and call `refresh_busy_state()`
    when each job starts or finishes. The kit defers a release found while busy

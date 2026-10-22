@@ -169,6 +169,11 @@ class UpdateBanner(QFrame):
         self.label.setText(f"Version {release.version} is available.")
         self.show()
 
+    def say(self, sentence: str) -> None:
+        """A sentence in the strip, with no action: what is happening now."""
+        self.label.setText(sentence)
+        self.show()
+
     def _show_notes(self) -> None:
         if self._release:
             NotesWindow(self._release, self).exec()

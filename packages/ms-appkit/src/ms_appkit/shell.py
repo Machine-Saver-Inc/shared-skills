@@ -334,7 +334,12 @@ class AppWindow(QMainWindow):
         if result.outcome is Applied.MANUAL:
             QMessageBox.information(self, "Downloaded", result.message)
             return
-        QMessageBox.information(self, "Updating", result.message)
+        # Not a modal box: the installer is already running and waits for this
+        # process to be gone, and a box that waits for OK holds the update up
+        # until somebody comes back to the bench (seen on 0.2.2 -> 0.2.3). The
+        # banner carries the sentence instead, and the window closes at once.
+        self.banner.say(result.message)
+        log.info("update applied: %s", result.message)
         if result.outcome is Applied.RESTARTING:
             relaunch(result.path)
         # The installer needs this process gone before it can replace the files
