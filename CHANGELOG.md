@@ -4,6 +4,21 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-23 (evening) - Two checks that misread the first older program
+
+### ms-appkit 1.6.1
+
+Espec Burn-In, the first program moved onto the kit rather than written from
+its template, showed two house rules reading files wrongly.
+
+- `dependency_faults` read a requirement with an environment marker
+  (`python_version < '3.12'`) as dependencies called ", " and "3.12": the
+  pattern accepted either quote mark and paired them across the marker. It now
+  drops comments and reads each string by its own quote mark.
+- `spec_faults` refused a spec that names its modules with
+  `collect_submodules("pkg")`, which covers the package and everything under
+  it, including the stamped key; that form now counts.
+
 ## 2026-10-23 - One Report a problem form on the phone
 
 ### ms-mobilekit 1.2.0 / ms-mobile-app 1.2.0
