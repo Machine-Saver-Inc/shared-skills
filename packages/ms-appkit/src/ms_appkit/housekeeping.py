@@ -644,7 +644,7 @@ def private_config_faults(info) -> list[str]:
 #: The version of the files an application copies from template/. An
 #: application whose copies carry an older number is behind the kit; the
 #: family sweep refreshes them (template_drift_faults).
-TEMPLATE_VERSION = 1
+TEMPLATE_VERSION = 2
 TEMPLATE_MARKER = re.compile(r"ms-appkit template v(\d+)")
 TEMPLATE_SLUG = "example-tool"           # the template is allowed its own placeholders
 #: The files template/ ships with a marker line, relative to the app root.
@@ -757,11 +757,37 @@ def release_workflow_faults(root: Path, slug: str = "") -> list[str]:
     if "_version.py" not in text:
         faults.append("release.yml does not stamp _version.py from the tag, so a build can "
                       "disagree with its tag")
+    if "_client_secret.py" in text and "frozen_check" not in text:
+        faults.append("release.yml stamps the sign-in key but never proves the frozen build "
+                      "carries it (python -m ms_appkit.frozen_check after PyInstaller)")
     if slug:
         said = re.findall(r"^\s*SLUG:\s*([\w.-]+)", text, re.M)
         if said and any(s != slug for s in said):
             faults.append(f"release.yml says SLUG: {said[0]} but the program's SLUG is {slug}")
     return faults
+
+
+def spec_faults(root: Path, package: str, private: bool = False) -> list[str]:
+    """The PyInstaller spec names what the program loads by name (section 3).
+
+    PyInstaller follows ``import`` statements only. The stamped sign-in key
+    and the certificate bundle are reached some other way, so a spec that
+    does not list them builds a program that opens and then cannot sign in,
+    which is what every Power Profiler release up to 0.2.5 was (report 5).
+    """
+    specs = sorted(Path(root).glob("packaging/*.spec"))
+    if not specs:
+        return ["packaging/*.spec is missing"]
+    text = "\n".join(_read(s) or "" for s in specs)
+    found = re.search(r"hiddenimports\s*=\s*\[(.*?)\]", text, re.S)
+    if not found:
+        return ["the spec has no hiddenimports list"]
+    named = set(re.findall(r"[\"']([\w.]+)[\"']", found.group(1)))
+    wanted = [package, "certifi"]
+    if private:
+        wanted.append(f"{package}._client_secret")
+    return [f"hiddenimports does not name {name}, so the frozen build may not carry it"
+            for name in wanted if name not in named]
 
 
 KIT_PIN = re.compile(r"ms-appkit(\[[\w,]+\])?\s*@\s*git\+https://github\.com/Machine-Saver-Inc/"

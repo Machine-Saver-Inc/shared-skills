@@ -78,6 +78,10 @@ jobs:
       - name: Build with PyInstaller
         run: pyinstaller --noconfirm --clean packaging/example_app.spec
 
+      # The key is loaded by name, so only the archive itself can say it is there.
+      - name: The frozen build carries its sign-in key
+        run: python -m ms_appkit.frozen_check dist/ExampleTool/ExampleTool.exe example_app._client_secret
+
       # Inno Setup is NOT preinstalled on the GitHub Windows runners.
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y

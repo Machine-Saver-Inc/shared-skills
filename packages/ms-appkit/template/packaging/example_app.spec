@@ -30,11 +30,12 @@ a = Analysis(
     # Every function-level import, named here so the frozen build cannot end
     # up without it (skill sections 3 and 1a).
     hiddenimports=[
-        "example_app", "certifi", "ms_appkit.signin", "ms_appkit.auth",
-        "ms_appkit.secrets", "keyring", "keyring.backends.Windows",
-        "keyring.backends.SecretService",
-        # The Kit's driver is imported only when a Kit is opened (devices/ppk2.py).
-        "ppk2_api", "ppk2_api.ppk2_api", "serial", "serial.tools", "serial.tools.list_ports",
+        # The sign-in key is stamped into _client_secret.py at release time and
+        # loaded by name, so the packager ships it only when told to. Every
+        # Power Profiler release up to 0.2.5 went out without it (report 5).
+        "example_app", "example_app._client_secret", "certifi",
+        "ms_appkit.signin", "ms_appkit.auth", "ms_appkit.secrets",
+        "keyring", "keyring.backends.Windows", "keyring.backends.SecretService",
     ],
     excludes=EXCLUDES,
     noarchive=False,

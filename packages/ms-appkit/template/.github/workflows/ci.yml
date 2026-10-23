@@ -1,4 +1,4 @@
-# ms-appkit template v1
+# ms-appkit template v2
 name: CI
 
 # The family's CI lives once, in shared-skills, and is called here at a kit
@@ -14,6 +14,6 @@ on:
 
 jobs:
   ci:
-    uses: Machine-Saver-Inc/shared-skills/.github/workflows/desktop-ci.yml@ms-appkit/v1.5.0
+    uses: Machine-Saver-Inc/shared-skills/.github/workflows/desktop-ci.yml@ms-appkit/v1.5.1
     with:
       package: example_app
