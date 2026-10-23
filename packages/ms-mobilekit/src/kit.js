@@ -129,8 +129,12 @@ export function theme(btn, key = 'ms-theme') {
   apply();
 }
 
+// ---------- the app's identity, for the kit's own dialogs (the report needs the slug) ----------
+export const appConfig = {};
+
 // ---------- shell: wire the page ----------
-export function shell({ app, version, home = 'home' }) {
+export function shell({ app, version, home = 'home', slug, visibility }) {
+  Object.assign(appConfig, { app, version, slug, visibility });
   document.querySelectorAll('.ms-tab[data-go]').forEach(t => t.addEventListener('click', () => screens.go(t.dataset.go)));
   document.querySelectorAll('[data-go]:not(.ms-tab)').forEach(el => el.addEventListener('click', () => screens.go(el.dataset.go)));
   enhance();
@@ -144,7 +148,7 @@ export function shell({ app, version, home = 'home' }) {
   if (title) { let t; const show = () => { const n = document.createElement('div'); n.className = 'ms-note'; n.style.cssText = 'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:9;font-family:var(--ms-mono)'; n.textContent = `${app} ${version}`; document.body.appendChild(n); setTimeout(() => n.remove(), 2500); };
     title.addEventListener('pointerdown', () => { t = setTimeout(show, 600); }); ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => title.addEventListener(ev, () => clearTimeout(t))); }
   screens.go(home);
-  return { app, version, screens, trail };
+  return { app, version, slug, visibility, screens, trail };
 }
 
 export { marks };

@@ -4,6 +4,24 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-23 - One Report a problem form on the phone
+
+### ms-mobilekit 1.2.0 / ms-mobile-app 1.2.0
+
+The mobile kit's Report a problem is now the family's form
+(`registry/report-form.json`, vendored as `src/report_form.json`): the same
+questions as the desktop kit and apps.machinesaver.com, a screenshot pasted or
+files attached, and **Send to Machine Saver** posting JSON to the report
+intake, which files the issue. No GitHub page or mail client any more; a
+failure leaves the report on the clipboard with the support address.
+
+- `checkReportForm` in `ms-mobilekit/housekeeping`: the vendored form is
+  unchanged, the app opens no GitHub or mailto link and draws no dialog of its
+  own, the footer calls `openReport` with the manifest's slug. Template v2.
+- `shell({ slug, visibility })` gives the kit the app's identity.
+- Mobile skill §5 rewritten; the register row *Send by email* becomes *Send to
+  Machine Saver* (mark `send`).
+
 ## 2026-10-23 - The key has to be in the build
 
 ### ms-appkit 1.5.1 / ms-desktop-app 2.5.1

@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver iPhone/And
 
 # Machine Saver mobile applications
 
-**Skill version 1.1.1.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
+**Skill version 1.2.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
 alongside **`ms-mobilekit`** — the JavaScript package that *is* the shell this
 skill describes. It is the mobile counterpart of `ms-desktop-app` **2.5.1** and
 follows its section numbers, so a reader of one knows where to look in the
@@ -67,7 +67,7 @@ run). So the kit is not a dependency; it is fetched. Copy
 
 ```json
 "scripts": { "postinstall": "node tools/fetch_kit.mjs" },
-"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "ms-mobilekit/v1.1.1" }
+"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "ms-mobilekit/v1.2.0" }
 ```
 
 `npm install` downloads the shared-skills tarball at `ref`, extracts
@@ -231,7 +231,7 @@ mobile set: `home`, `nfc`, `sound`, `play`, `share`, `camera`, `bluetooth`,
 | **Sounds** (tab) | the device's tone library | `sound` | `volume-2` | tab |
 | **Play** | play one tone | `play` | `play` | secondary |
 | **Share** | hand the report / result to another app | `share` | `share-2` | secondary |
-| **Send by email** | mail the report (private repo) | `mail` | `mail` | primary |
+| **Send to Machine Saver** | post the report to the intake | `send` | `send` | primary |
 | **Try again** | retry the failed read | `retry` | `rotate-cw` | primary |
 | **Read again** | start another read | `nfc` | `nfc` | primary |
 | **Open the store** | go to the listing | `store` | `store` | secondary |
@@ -346,13 +346,37 @@ error, explain it, do not quote it.
 
 ## 5. Report a problem
 
-`ms-mobilekit/report` does this; an application supplies `context()` and a
-target (`repo` for a public repo, `email` for a private one).
+`ms-mobilekit/report` does this; an application supplies `context()` and its
+identity (`slug` and `visibility` as in `ms-app.json`, given to `shell()`).
 
-**The dialog:** bug or improvement, a summary, a description, an editable
-preview, and **Open GitHub to post it** *or* **Send by email**, plus **Share**
-(the OS share sheet, when present), **Copy to clipboard**, **Cancel** — all from
-the helper.
+**One form for the family.** The dialog is drawn from `report_form.json`, the
+kit's copy of `registry/report-form.json` in shared-skills; the desktop kit and
+apps.machinesaver.com draw the same file, so the questions, the limits and
+every sentence are the same on a phone, a PC and the web. Nothing on the dialog
+is written in code: a change of wording is a change to the registry file,
+vendored into both kits by `tools/check_report_form.py`.
+
+**The dialog:** *What is it?* (Something is broken / An improvement or
+question), *App version* prefilled, *In one line* (140 characters), *What
+happened, and what you expected*, *Your email* (optional, for a reply), and
+*Screenshots and files*: a file picker, a drop zone, and **paste** — a
+screenshot on the clipboard becomes `paste-1.png`, the next `paste-2.png`.
+Each file shows a thumbnail where it is an image, its size, and a way off the
+list. Up to 5 files, 5 MB each, 10 MB in all, by extension; a refused file is
+named with the form's *That file was not added:* wording and nothing is sent.
+The automatically collected details sit behind a fold as an editable box: what
+the box says is what goes, appended to the body.
+
+**Send to Machine Saver** (primary, mark `send`) posts JSON with the
+attachments base64-encoded to the report intake, `intake_url + /v1/reports`,
+with the app's slug; the intake files the GitHub issue. A private repository
+is told *Report #N received*; a public one gets the link. When the intake
+cannot be reached the whole report is put on the clipboard and the dialog says
+so, naming the support address — no GitHub page, no mail client. **Share**
+(the OS share sheet, when present), **Copy to clipboard** and **Cancel** stay
+as secondary actions. Inside Capacitor the post goes through the native HTTP
+plugin (`CapacitorHttp`), because the intake answers CORS only for
+apps.machinesaver.com; served in a browser it uses `fetch`.
 
 **Gather:** app and version; platform (ios / android / web) and device string;
 the screen; what it is connected to; the settings record; what it last saw
@@ -367,15 +391,18 @@ everything passes through: the button helper and `screens.go()`.
 **Name a screen before you show it.** `data-screen` on every `.ms-screen`, or
 the first line of every report reads *opened ?*. Checked.
 
-**Pitfalls carried across:** a pre-filled issue URL over ~6000 chars is refused,
-so the kit trims the body and always copies the full report first; the state
-block is one contiguous Markdown table; the context gatherer is wrapped so it
-can never stop the report opening; never post on the user's behalf.
+**Pitfalls carried across:** the state block is one contiguous Markdown table;
+the context gatherer is wrapped so it can never stop the report opening; the
+post carries a 10 s timeout and is made once (the intake retries on its side);
+the report is copied to the clipboard before any failure is shown, so it is
+never lost.
 
-**Mobile-specific:** a private repo cannot receive a public issue — use
-`email`. Serial numbers and ICCIDs are not personal data but *are* identifying;
-keep reports going to Machine Saver, not to a public tracker, unless the repo is
-deliberately public.
+**Mobile-specific:** serial numbers and ICCIDs are not personal data but *are*
+identifying; the intake files them in the app's own repository, private or
+public as `ms-app.json` says, never on a public tracker by accident.
+`checkReportForm` fails a build whose code opens GitHub or a mail client for a
+report, draws its own dialog, edits the vendored form, or builds the footer
+without `onReport`.
 
 ---
 
@@ -595,6 +622,7 @@ A lesson that applies to both gets a check in both.
 | CI declares bash, proves inputs are tracked, runs the gate and screenshots; release refuses off-`main` tags, writes sums, composes the body | each cost a release |
 | `ms-app.json` agrees with the code and `msKit.ref` is a kit tag, never `main` (`checkManifest`) | nothing recorded which kit an app came from, and no build could be reproduced |
 | A report address is the family's (`checkSupportEmail`) | two apps used two mailboxes |
+| Report a problem is the kit's form: `report_form.json` vendored unchanged, no GitHub or mailto link, no dialog of the app's own, the footer calls `openReport` with the manifest's slug (`checkReportForm`) | three forms asked three sets of questions, and a mail client dropped the screenshot |
 | Copied template files carry the kit's current marker (`checkTemplateDrift`) | a lesson added to the template reached no existing app |
 | README has the four header sections and shows screenshots | the family's repos look alike |
 | Status examples ship in the app | every state reachable without hardware |
