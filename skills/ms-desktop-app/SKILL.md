@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.7.1.** Published at
+**Skill version 2.7.2.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -497,7 +497,8 @@ same role, in every application. The left column is also the vocabulary: say
 | **Check again** | re-scan for devices | `refresh` | `refresh-cw` | secondary |
 | **Change port** | go back to device selection | `connect` | `plug` | secondary |
 | **Try again** | retry the failed operation | `retry` | `rotate-cw` | primary |
-| **Open past results** | open the results folder | `folder` | `folder-open` | secondary |
+| **Open past results** | show the tests this program has recorded, in the program, to open one | `folder` | `folder-open` | secondary |
+| **Open the results folder** | open the folder the results are kept in, in the file manager | `folder` | `folder-open` | secondary |
 | **Start …** | begin the app's main job | `start` | `play` | primary |
 | **Stop …** | end the job early | `stop` | `circle-stop` | danger |
 | **Sign in with Google** | start a private program's sign-in (§1a) | `user` | `user` | primary |
