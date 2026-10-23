@@ -79,6 +79,18 @@ def faults(entries, schema: dict) -> list[str]:
                         "script": ("none",)}.get(entry.get("kind"), ())
         if "kit" in entry and allowed_kits and entry["kit"] not in allowed_kits:
             found.append(f"{where}: a {entry['kind']} application's kit must be one of {list(allowed_kits)}, not {entry['kit']!r}")
+        # A private desktop program's downloads sit behind a machinesaver.net
+        # sign-in in the release store; a public one's on GitHub, where anyone
+        # can fetch them. Anything else either hides a public program or
+        # publishes a private one.
+        if entry.get("kind") == "desktop" and entry.get("visibility") == "private" \
+                and entry.get("releases") != "gcs":
+            found.append(f"{where}: a private desktop program releases to the Machine Saver "
+                         "release store; releases must be gcs")
+        if entry.get("kind") == "desktop" and entry.get("visibility") == "public" \
+                and entry.get("releases") == "gcs":
+            found.append(f"{where}: a public desktop program releases on GitHub; the release "
+                         "store needs a machinesaver.net sign-in")
         if entry.get("kind") == "script" and entry.get("releases") not in ("none", "github"):
             found.append(f"{where}: a script has no release store; releases must be none or github")
         slug = entry.get("slug")

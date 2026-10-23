@@ -4,6 +4,22 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-23 (late) - A new program is private by default
+
+### ms-desktop-app 2.7.1
+
+The skill called public the default, so a program scaffolded without thought
+released on GitHub, outside the Machine Saver release store that
+apps.machinesaver.com and the other private programs use. A new program is now
+private, releasing to the store, unless there is a stated reason for it to be
+used outside Machine Saver. Section 1a and the scaffolding questions say so,
+the template says how to start private (it ships public only because this
+repository is public and must not carry the family's sign-in settings), and the
+public/private table's Report a problem row now describes the family's form.
+`tools/check_registry.py` refuses a private desktop program that does not
+release to the store, and a public one that does. Skill text and registry check
+only; no kit change.
+
 ## 2026-10-23 (night) - An update tidies up, and a program left open hears of one
 
 ### ms-appkit 1.7.0 / ms-desktop-app 2.7.0

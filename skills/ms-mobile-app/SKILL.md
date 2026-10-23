@@ -7,7 +7,7 @@ description: "Scaffold, build, release and maintain any Machine Saver iPhone/And
 
 **Skill version 1.2.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
 alongside **`ms-mobilekit`** — the JavaScript package that *is* the shell this
-skill describes. It is the mobile counterpart of `ms-desktop-app` **2.7.0** and
+skill describes. It is the mobile counterpart of `ms-desktop-app` **2.7.1** and
 follows its section numbers, so a reader of one knows where to look in the
 other. Read §0 first.
 
