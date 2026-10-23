@@ -140,10 +140,19 @@ jobs:
         id: sweep
         env:
           QT_QPA_PLATFORM: offscreen
-          MS_REPO_PRIVATE: "true"
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          REPO: ${{ matrix.app.repo }}
           KIND: ${{ matrix.app.kind }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
+          # The visibility house rule compares what the program declares with
+          # what GitHub says. The sweep used to pass "true" for every app,
+          # which was right for the two private ones and wrong the day the
+          # first public application (Espec Burn-In) joined: a false red on a
+          # true public. Ask GitHub, the source of that fact.
+          MS_REPO_PRIVATE=$(gh api "repos/$REPO" --jq .private)
+          export MS_REPO_PRIVATE
+          echo "repository private: $MS_REPO_PRIVATE"
           pip install pyyaml
           set +e
           python shared-skills/tools/sweep.py app --kind "$KIND" --tag "$TAG" --kit-checkout shared-skills \
@@ -179,8 +188,13 @@ jobs:
           git push -f origin "$branch"
           state=$([ "$CODE" = 0 ] && echo "House rules pass; merge when convenient." || echo "House rules FAIL; a person is needed. The failing rules are below.")
           body=$(printf '%s\n\n%s\n' "$state" "$(cat ../sweep-report.md)")
-          if gh pr view "$branch" --repo "$REPO" > /dev/null 2>&1; then
-            gh pr edit "$branch" --repo "$REPO" --body "$body"
+          # Looked up by head branch through the list endpoint. "gh pr view
+          # <branch>" answered nothing under the App token, so the sweep tried
+          # to open a second pull request and failed on "already exists".
+          number=$(gh pr list --repo "$REPO" --head "$branch" --base main --state open \
+                     --json number --jq '.[0].number // empty')
+          if [ -n "$number" ]; then
+            gh pr edit "$number" --repo "$REPO" --body "$body"
           else
             gh pr create --repo "$REPO" --head "$branch" --base main \
               --title "Family sweep: $KIT $VERSION" --body "$body"
