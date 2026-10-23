@@ -248,7 +248,8 @@ export function checkReportForm(root) {
   for (const f of js) {
     const src = read(f);
     if (/\b(issueUrl|mailtoUrl)\s*\(/.test(src)) errs.push(`${f}: calls issueUrl/mailtoUrl — reports go to the intake through the kit's openReport, never to GitHub or a mail client`);
-    if (/github\.com\/[^'"\s]*\/issues\/new|mailto:/.test(src)) errs.push(`${f}: builds a GitHub issue or mailto link — reports go through the kit's openReport`);
+    // a mailto for something else (a diagnostics share) is allowed; one on a line about a report is not
+    if (/github\.com\/[^'"\s]*\/issues\/new/.test(src) || src.split('\n').some(l => /mailto:/.test(l) && /report/i.test(l))) errs.push(`${f}: builds a GitHub issue or mailto link for a report — reports go through the kit's openReport`);
     if (/createElement\(['"]dialog['"]\)/.test(src) && /report/i.test(src)) errs.push(`${f}: draws its own report dialog — the form is the kit's (openReport)`);
   }
   if (!/\bopenReport\s*\(/.test(all)) errs.push("www/js never calls the kit's openReport — the footer's Report a problem has nowhere to go");
