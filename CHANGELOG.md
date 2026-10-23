@@ -4,6 +4,24 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-23 - The key has to be in the build
+
+### ms-appkit 1.5.1 / ms-desktop-app 2.5.1
+
+The first report through apps.machinesaver.com (Power Profiler report 5) said a
+fresh download could not sign in: "built without its sign-in key". The release
+workflow had stamped the key correctly; the packager had left it out, because
+the key module is loaded by name and PyInstaller only follows `import`
+statements. Every Power Profiler release up to 0.2.5 shipped that way.
+
+- `housekeeping.spec_faults`: the spec's `hiddenimports` must name the package,
+  `certifi` and, for a private program, `<package>._client_secret`.
+- `ms_appkit.frozen_check`: reads the built archive and fails when a named
+  module is missing; the private release template runs it after PyInstaller,
+  and `release_workflow_faults` refuses a release that stamps the key without it.
+- Template house-rules test v2 carries the new rule; the sweep refreshes it.
+- The template spec no longer lists the Power Profiler's own serial drivers.
+
 ## 2026-10-22 (follow-ups) - What the first sweep taught
 
 ### ms-mobilekit 1.1.1 / ms-mobile-app 1.1.1

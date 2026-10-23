@@ -1,4 +1,4 @@
-"""The family checks (kit 1.5.0): each one proved red on a broken copy of the
+"""The family checks (kit 1.5.x): each one proved red on a broken copy of the
 template and green on the template itself.
 
 The rule for this file is the rule for the kit: a check that cannot be made
@@ -95,7 +95,7 @@ def test_the_ci_check_wants_the_family_s_steps_and_a_schedule(app):
     assert not house.ci_workflow_faults(app), "the template calls the reusable workflow at a tag"
     edit(ci, "  schedule:\n    - cron: \"17 6 1 * *\"\n", "")
     assert any("schedule" in f for f in house.ci_workflow_faults(app))
-    edit(ci, "@ms-appkit/v1.5.0", "@main")
+    edit(ci, f"@ms-appkit/v{ms_appkit.__version__}", "@main")
     assert any("bash" in f for f in house.ci_workflow_faults(app)), \
         "a call at a branch head is not the family's workflow; the own-steps rules apply"
     # A program with its own steps passes when it carries every lesson.
@@ -123,6 +123,27 @@ def test_the_release_check_wants_main_the_tag_and_a_verified_upload(app):
     assert any("_version.py" in f for f in house.release_workflow_faults(app))
     release.unlink()
     assert house.release_workflow_faults(app) == [".github/workflows/release.yml is missing"]
+
+
+def test_the_release_check_wants_proof_the_key_is_in_the_build(app):
+    private = app / ".github" / "workflows" / "release-private.yml"
+    (app / ".github" / "workflows" / "release.yml").unlink()
+    assert not house.release_workflow_faults(app, "example-tool")
+    edit(private, "python -m ms_appkit.frozen_check", "echo skipped")
+    assert any("frozen_check" in f for f in house.release_workflow_faults(app, "example-tool"))
+
+
+def test_the_spec_check_wants_the_key_and_the_certificates_named(app):
+    assert not house.spec_faults(app, "example_app", private=True)
+    assert not house.spec_faults(app, "example_app", private=False)
+    spec = app / "packaging" / "example_app.spec"
+    edit(spec, '"example_app._client_secret", ', "")
+    assert not house.spec_faults(app, "example_app", private=False)
+    assert any("_client_secret" in f for f in house.spec_faults(app, "example_app", private=True))
+    edit(spec, '"certifi",', "")
+    assert any("certifi" in f for f in house.spec_faults(app, "example_app"))
+    spec.unlink()
+    assert house.spec_faults(app, "example_app") == ["packaging/*.spec is missing"]
 
 
 def test_the_private_release_workflow_passes_too(app):
@@ -154,7 +175,7 @@ def test_the_manifest_check_wants_agreement_and_a_kit_tag(app, info):
     assert any("slug" in f for f in house.manifest_faults(app, info))
     data["slug"] = "example-tool"
     manifest.write_text(json.dumps(data), encoding="utf-8")
-    edit(app / "pyproject.toml", "@ms-appkit/v1.5.0#", "@main#")
+    edit(app / "pyproject.toml", f"@ms-appkit/v{ms_appkit.__version__}#", "@main#")
     assert any("pin a kit tag" in f for f in house.manifest_faults(app, info))
     edit(app / "pyproject.toml", "@main#", "#")
     assert any("no ref" in f for f in house.manifest_faults(app, info))
@@ -165,18 +186,18 @@ def test_the_manifest_check_wants_agreement_and_a_kit_tag(app, info):
 
 
 def test_the_kit_pin_is_read_from_the_dependency_line(app):
-    assert house.kit_pin(app) == "ms-appkit/v1.5.0"
+    assert house.kit_pin(app) == f"ms-appkit/v{ms_appkit.__version__}"
     edit(app / "pyproject.toml", "ms-appkit @ git", "ms-appkit[private] @ git")
-    assert house.kit_pin(app) == "ms-appkit/v1.5.0", "the private extra is still the kit"
+    assert house.kit_pin(app) == f"ms-appkit/v{ms_appkit.__version__}", "the private extra is still the kit"
     (app / "pyproject.toml").write_text("[project]\ndependencies = []\n", encoding="utf-8")
     assert house.kit_pin(app) is None
 
 
 def test_the_template_drift_check_reads_the_marker(app):
     assert not house.template_drift_faults(app)
-    edit(app / "tests" / "test_house_rules.py", "# ms-appkit template v1", "# ms-appkit template v0")
+    edit(app / "tests" / "test_house_rules.py", f"# ms-appkit template v{house.TEMPLATE_VERSION}", "# ms-appkit template v0")
     assert any("is template v0" in f for f in house.template_drift_faults(app))
-    edit(app / ".github" / "workflows" / "ci.yml", "# ms-appkit template v1\n", "")
+    edit(app / ".github" / "workflows" / "ci.yml", f"# ms-appkit template v{house.TEMPLATE_VERSION}\n", "")
     assert any("no 'ms-appkit template vN' marker" in f for f in house.template_drift_faults(app))
 
 

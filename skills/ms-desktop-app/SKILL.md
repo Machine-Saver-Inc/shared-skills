@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.5.0.** Published at
+**Skill version 2.5.1.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -411,6 +411,8 @@ steps:
 | The declared visibility matches the repository's | `housekeeping.visibility_faults`, from `MS_REPO_PRIVATE`; skips only outside CI |
 | No `.env`, key file, stamped `_client_secret.py` or credential-shaped string is tracked | `housekeeping.tracked_secret_faults`, over `git ls-files` |
 | A private program's sign-in settings are the family's | `housekeeping.private_config_faults` — a real client ID, a domain support address, grace ≤ 14 days |
+| The spec names the stamped key, the package and `certifi` under `hiddenimports` | `housekeeping.spec_faults`, since 1.5.1 |
+| A release that stamps the key proves the frozen build carries it | `housekeeping.release_workflow_faults` wants `ms_appkit.frozen_check` after PyInstaller, since 1.5.1 |
 | A private program builds no window before sign-in succeeds | the kit's tests drive `bootstrap.run` itself with the sign-in declined |
 | No update code names a host outside `update.channel` | the kit's tests, since 1.2.0 |
 | Tokens never reach the log, the report or `settings.json` | `diagnostics.redact` removes every Google credential shape; the kit's tests prove it and prove `settings.json` stays clean |
@@ -601,7 +603,15 @@ Each step makes the next testable.
 `QtHelp`, `QtTest`, `QtSql`, plus `matplotlib`, `scipy`, `pandas`, `tkinter`,
 `IPython`, `PIL` when unused. Reference: ~209 MB → 39 MB installer.
 
-**Name every function-level import in `hiddenimports`.**
+**Name every function-level import in `hiddenimports`, and everything loaded by
+name.** PyInstaller follows `import` statements only. The stamped
+`<app>._client_secret` is reached through `importlib`, so a spec that does not
+name it builds a program that opens and then says it was built without its
+key; every Power Profiler release up to 0.2.5 was that program (report 5, the
+first through apps.machinesaver.com). `housekeeping.spec_faults` refuses the
+spec, and the private release runs `python -m ms_appkit.frozen_check <exe>
+<app>._client_secret` after PyInstaller, because only the archive itself can
+say what is in it.
 
 ---
 
