@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.6.0.** Published at
+**Skill version 2.7.0.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -628,7 +628,7 @@ A private program's releases live in Google Cloud Storage instead (§1a);
 
 | Platform | Install |
 | --- | --- |
-| Windows `.exe` | a **detached helper** (PowerShell) runs the installer `/SILENT /CLOSEAPPLICATIONS /NOCANCEL`, waits for it, then starts the program again; the program quits as soon as the helper is launched |
+| Windows `.exe` | a **detached helper** (PowerShell) runs the installer `/SILENT /CLOSEAPPLICATIONS /NOCANCEL`, waits for it, deletes the download folder if the installer succeeded, then starts the program again; the program quits as soon as the helper is launched |
 | AppImage | replace the file at `$APPIMAGE` via `os.replace`, keep the exec bit, relaunch |
 | `.deb` | show the one `apt` command — **never** seek root |
 
@@ -688,6 +688,25 @@ hosts that were failing.
    twice.
 8. **Always offer "Open the release page"**, so a machine the updater cannot
    serve is one click from the file.
+9. **Check again while the program stays open.** A burn-in or a measurement
+   left running for days heard about a release only at launch. Since kit
+   1.7.0 `start_update_check()` also starts a timer: every twelve hours
+   (`shell.RECHECK_INTERVAL_S`, measured on a monotonic clock that a
+   15-minute tick reads) it checks again, quietly, if **Check for updates
+   automatically** is on at that moment. A release found during a job waits
+   for `busy()` to clear, as at launch. A release somebody pressed **Later**
+   on is not offered again by the timer or by a job finishing; a newer one
+   is, and so is the same one when they press **Check for updates** in the
+   footer.
+10. **Leave nothing in the temp folder.** Every download goes into a
+    `<slug>-update-*` folder in the system temp folder
+    (`installer.download_prefix()`). The helper deletes that folder once the
+    installer exits with code 0; a failed install keeps the file so it can
+    be run by hand. When the window opens, `remove_leftover_downloads()`
+    deletes any such folder in which nothing has changed for a day (an
+    interrupted update, a refused checksum). It deletes nothing else: not a
+    folder of another name, not one elsewhere, not a link, never one this
+    process is downloading into (`installer.IN_USE`).
 
 ### What's new is a window, not a message box
 
@@ -982,6 +1001,9 @@ Skip for a tool that finishes in seconds.
 
 **Needs:** sleep inhibition; a single-instance lock; state flushed every sample;
 resume on launch; a hard cap on anything that can extend the work indefinitely.
+A truthful `busy()`: the kit rechecks for updates every twelve hours while the
+window is open (§4, rule 9), and `busy()` is what keeps that from interrupting
+a run.
 
 **Write results as they happen.** Stopping early — or losing power — must keep
 everything up to that point. The evidence of the fault is usually in the run
@@ -1115,6 +1137,8 @@ remember:
 | CI: bash declared, packaging inputs tracked, Qt libraries present, interface tests must not skip | each cost a release |
 | Release: the tag is on `main`; published assets verified | each was a manual step that got missed |
 | The update code names its release host only in `update.channel` | a private host would otherwise be unreachable from half the updater |
+| The helper deletes its download folder after a successful install, and the window clears `<slug>-update-*` folders a day old, nothing else (§4, rule 10) | every update left its installer in the temp folder for good. The kit's tests (`test_update_upkeep.py`, since 1.7.0) run the helper's script for real with a stand-in installer, and prove a foreign folder, a fresh one and the one in use survive |
+| A program left open checks again every twelve hours, honouring the setting and `busy()`, and never re-offers a release put off with Later (§4, rule 9) | a burn-in left open for days never heard of a release. The kit's tests drive the timer on a fake clock, since 1.7.0 |
 
 **Since kit 1.5.0, a rule exists only if a check enforces it.** No sentence in
 this file about CI, releases or updates without a `housekeeping` function beside

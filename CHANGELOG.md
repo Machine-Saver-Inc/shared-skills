@@ -4,6 +4,33 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-23 (night) - An update tidies up, and a program left open hears of one
+
+### ms-appkit 1.7.0 / ms-desktop-app 2.7.0
+
+Two gaps in the updater. Every update left its installer in a `<slug>-update-*`
+folder in the temp folder for good. And the check ran once, at launch, so a
+program left open for a multi-day burn-in never heard of a release.
+
+- The helper deletes the download folder once the installer exits with code
+  0, before it starts the new version; a failed install keeps the file. It
+  deletes only a folder the kit made (`installer.is_download_folder`). Paths
+  are now quoted for PowerShell, so an apostrophe in a user's folder no
+  longer breaks the helper.
+- When the window opens, `installer.remove_leftover_downloads()` deletes any
+  `<slug>-update-*` folder in the temp folder in which nothing has changed
+  for a day. Never a link, never another program's folder, never the one
+  this process is downloading into.
+- `start_update_check()` also starts a timer that checks again every twelve
+  hours (`shell.RECHECK_INTERVAL_S`), reading the automatic-check setting at
+  every tick. A release found during a job waits for `busy()` as before.
+- **Later** is remembered for that release: neither the timer nor a job
+  finishing brings the banner back for it. A newer release, the footer's
+  **Check for updates** or a restart does. `UpdateBanner.dismissed` carries it.
+- Skill §4 rules 9 and 10, §11 and the enforcement table say so; the kit's
+  tests are `tests/test_update_upkeep.py`. No program needs a change: the
+  family sweep's pin move is the whole upgrade.
+
 ## 2026-10-23 (later) - The sweep meets its first public application
 
 ### family-sweep workflow

@@ -21,6 +21,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -72,6 +73,76 @@ def is_frozen() -> bool:
     return getattr(sys, "frozen", False)
 
 
+#: How old a leftover download folder must be before the program clears it.
+#: An update that is still going is minutes old; one a day old was interrupted.
+LEFTOVER_AGE_S = 24 * 60 * 60
+
+#: Download folders this process made. Never cleared while it is running.
+IN_USE: set[Path] = set()
+
+
+def download_prefix() -> str:
+    """The start of every download folder's name: ``<slug>-update-``."""
+    return f"{app().slug}-update-"
+
+
+def is_download_folder(folder: Path, temp: Path | None = None) -> bool:
+    """Whether the kit made this folder: ``<slug>-update-<random>`` in the temp folder.
+
+    The only folders the kit ever deletes. Anything else -- a file the user
+    chose, another program's download, a folder of ours somewhere else -- is
+    left alone.
+    """
+    try:
+        parent = folder.parent.resolve()
+        temp = Path(temp if temp is not None else tempfile.gettempdir()).resolve()
+    except OSError:
+        return False
+    name = folder.name
+    return (parent == temp and name.startswith(download_prefix())
+            and len(name) > len(download_prefix()))
+
+
+def _newest_change(folder: Path) -> float:
+    newest = folder.stat().st_mtime
+    for path in folder.rglob("*"):
+        try:
+            newest = max(newest, path.stat(follow_symlinks=False).st_mtime)
+        except OSError:
+            continue
+    return newest
+
+
+def remove_leftover_downloads(now: float | None = None) -> list[Path]:
+    """Delete download folders an interrupted update left behind. Returns them.
+
+    Run once when the window opens. The helper deletes its folder after a
+    successful install; this catches the rest -- a closed installer, a failed
+    one, a download whose checksum was refused. Only ``<slug>-update-*``
+    folders, only when nothing in them has changed for a day, never one this
+    process is using, never a link.
+    """
+    temp = Path(tempfile.gettempdir())
+    moment = time.time() if now is None else now
+    removed = []
+    for folder in sorted(temp.glob(f"{download_prefix()}*")):
+        try:
+            if (folder.is_symlink() or getattr(os.path, "isjunction", lambda p: False)(folder)
+                    or not folder.is_dir() or folder.resolve() in IN_USE):
+                continue
+            if not is_download_folder(folder, temp):
+                continue
+            if moment - _newest_change(folder) < LEFTOVER_AGE_S:
+                continue
+            shutil.rmtree(folder)
+        except OSError as exc:
+            log.warning("could not remove the old download %s: %s", folder, exc)
+            continue
+        log.info("removed an old update download: %s", folder.name)
+        removed.append(folder)
+    return removed
+
+
 def download_asset(
     release: Release,
     destination: Path | None = None,
@@ -88,8 +159,9 @@ def download_asset(
         )
     name, url = chosen
     source = channel or channels.current()
-    folder = destination or Path(tempfile.mkdtemp(prefix=f"{app().slug}-update-"))
+    folder = destination or Path(tempfile.mkdtemp(prefix=download_prefix()))
     folder.mkdir(parents=True, exist_ok=True)
+    IN_USE.add(folder.resolve())
     target = folder / name
 
     try:
@@ -170,11 +242,23 @@ def windows_update_command(installer: Path, target: Path | None) -> list[str]:
     cannot relaunch itself either: it has to be gone before the installer can
     replace its files. So a PowerShell that outlives both does it: wait for
     the installer, then start the program. PowerShell is on every Windows.
+
+    When the installer exits cleanly the helper also deletes the folder it was
+    downloaded into, if the kit made that folder (:func:`is_download_folder`);
+    every update before 1.7.0 left its installer in the temp folder for good.
+    A failed install keeps the file, so it can be run by hand.
     """
-    quoted_flags = ",".join(f"'{flag}'" for flag in INSTALLER_FLAGS)
-    script = (f"Start-Process -FilePath '{installer}' -ArgumentList {quoted_flags} -Wait")
+    def quoted(value) -> str:
+        # A single-quoted PowerShell string; a quote inside is doubled.
+        return "'" + str(value).replace("'", "''") + "'"
+
+    flags = ",".join(quoted(flag) for flag in INSTALLER_FLAGS)
+    script = f"$run = Start-Process -FilePath {quoted(installer)} -ArgumentList {flags} -Wait -PassThru"
+    if is_download_folder(installer.parent):
+        script += (f"; if ($run.ExitCode -eq 0) {{ Remove-Item -LiteralPath "
+                   f"{quoted(installer.parent)} -Recurse -Force -ErrorAction SilentlyContinue }}")
     if target is not None:
-        script += f"; Start-Process -FilePath '{target}'"
+        script += f"; Start-Process -FilePath {quoted(target)}"
     return ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script]
 
 
