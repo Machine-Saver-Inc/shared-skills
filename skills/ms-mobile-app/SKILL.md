@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver iPhone/And
 
 # Machine Saver mobile applications
 
-**Skill version 1.2.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
+**Skill version 1.3.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`,
 alongside **`ms-mobilekit`** — the JavaScript package that *is* the shell this
 skill describes. It is the mobile counterpart of `ms-desktop-app` **2.7.1** and
 follows its section numbers, so a reader of one knows where to look in the
@@ -46,7 +46,7 @@ proved to go red against its own violation.
 | Desktop rule | Mobile | Why |
 | --- | --- | --- |
 | Footer on every screen | **Tab bar** on every screen; the signature (Report a problem · Created by Machine Saver · version · Check for updates) lives on **Home** and on **More**, one tap from anywhere | 60 px of footer on a 390 px-wide phone is a quarter of the content; a tab bar *is* the always-present bar, and More is the family's fixed place for the signature |
-| Check for updates → download → install | Check → **"Update now" opens the store listing** (or TestFlight) | A phone cannot install a build itself; the store does, and signs it |
+| Check at launch and while open → download → verify → install → tidy up | **The same**, as far as the phone allows: the check runs by itself at launch, on return to the foreground and when the connection returns, hourly at most, from the family's mobile release store. **Android**: Update now downloads the signed APK with progress, verifies it against the published checksum and hands it to the system installer, which replaces the old version; the download is deleted at the next launch. **iPhone**: Update now opens TestFlight or the App Store and says so. **Web**: the release page | iOS lets nothing but the store install; Android lets an app hand a signed APK to its installer, and that is the whole gap |
 | Settings file in `~/.<app>/` | `localStorage` through `ms-mobilekit/settings`, **exported whole into every report** | No user-visible filesystem; the report is where a settings file would have been read over a shoulder |
 | Results in `Documents/<App>/` | **Share sheet** (`navigator.share`) and, when native, the Files app via a Capacitor plugin | There is no desktop to find a folder on |
 | Log file, log tail in the report | **Action trail + "last thing seen"** in the report; no persistent log | Nothing on a phone reads a log; the trail is what diagnosed the last three reports |
@@ -67,7 +67,7 @@ run). So the kit is not a dependency; it is fetched. Copy
 
 ```json
 "scripts": { "postinstall": "node tools/fetch_kit.mjs" },
-"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "ms-mobilekit/v1.2.0" }
+"msKit": { "repo": "Machine-Saver-Inc/shared-skills", "ref": "ms-mobilekit/v1.3.0" }
 ```
 
 `npm install` downloads the shared-skills tarball at `ref`, extracts
@@ -96,7 +96,7 @@ sweep in shared-skills moves it and runs the house rules (desktop skill §13).
 
 ```js
 // www/js/app.js — the whole entry point
-import { shell, signature, openReport, checkForUpdate } from '../vendor/ms-mobilekit/index.js';
+import { shell, signature, openReport, watchForUpdates, installUpdate, feedUrl } from '../vendor/ms-mobilekit/index.js';
 import { VERSION } from './version.js';
 const ms = shell({ app: 'AirVibe Cellular', version: VERSION, home: 'home' });
 window.ms = ms;   // the UI gate and screenshot tool drive the app through this
@@ -163,9 +163,12 @@ listens to `popstate`; a screen opened with `screens.go()` is a history entry.
 Version 1.3.0 is available.    [What's new]  [Update now]  [Later]
 ```
 
-Same wording as desktop. **Update now** opens the store listing for this
-platform (TestFlight during test); **What's new** shows the release body, which
-is why the body must lead with the changes (§7).
+Same wording as desktop. **Update now** calls the kit's `installUpdate`: on
+Android the banner then says where the download is (`Downloading version
+1.3.0… 40% of 6.1 MB`, `Checking the download…`, `Opening the installer…`); on
+iPhone it says it is opening TestFlight or the App Store; on the web it opens
+the release page. **What's new** shows the feed's notes, which are the
+CHANGELOG entry, which is why the entry must lead with the changes (§7).
 
 ### Button roles
 
@@ -316,31 +319,95 @@ and the rules testable in CI.
 
 ---
 
-## 4. Updating: check, and send them to the store
+## 4. Updating: the app checks by itself, and installs where the phone allows
 
-`ms-mobilekit/update` does the part a phone allows. Against the GitHub Releases
-API (a public repo needs no token) or, for a private repo, a `version.json` the
-app publishes next to its privacy policy on machinesaver.com.
+The desktop bar is: check at launch and while the program stays open, download,
+verify against the published checksum, install silently, delete the installer.
+`ms-mobilekit/update` meets it as far as each platform allows and says plainly
+where it cannot.
 
-| Platform | "Update now" does |
-| --- | --- |
-| iOS (store) | opens the App Store listing |
-| iOS (TestFlight) | opens the TestFlight link |
-| Android | opens the Play listing; a sideloaded test phone gets the release page |
-| Web | reloads |
+### The version source is the family's mobile release store
+
+```
+https://storage.googleapis.com/machinesaver-mobile-releases/<slug>/latest.json
+```
+
+One small file per app, written **last** by the app's `release.yml` (§6) with
+`tools/publish_feed.mjs`: version, tag, the CHANGELOG entry as notes, the
+release page, and per platform where to install from —
+`android.apk` + `android.sha256` + `android.size` (only when the APK is
+signed), `android.store`, `ios.testflight`, `ios.store` (from `package.json`
+`msStores`). The feed and the files beside it are **world-readable**; the
+bucket is written keylessly by the release workflow through the organisation's
+Workload Identity provider, the same way the desktop store is.
+
+**Why not GitHub.** An app repository is private, so the Releases API answers
+404 to an anonymous phone — the first consumer's check said "could not tell"
+on every phone for three weeks (shared-skills issue 9). A token in a phone is
+a token lost. A public "feed" repository would need a cross-repository token
+in every app's release workflow. The desktop bucket itself cannot hold the
+feed: it enforces public-access prevention because its installers are for
+machinesaver.net accounts, and a phone has no such sign-in. So: a sibling
+bucket, `machinesaver-mobile-releases`, public, mobile only. What this
+publishes to the world is the app's APK — the same build the Play listing
+would publish — and nothing else.
+
+### The check runs by itself
+
+```js
+const updates = watchForUpdates({ version: VERSION, feed: feedUrl('airvibe-cellular-app'), onResult: (r, { forced }) => {
+  if (r.status === 'newer') show(banner({ version: r.latest, onWhatsNew: () => alert(r.notes), onUpdate: (e, el) => installUpdate(r, { onStatus: (s) => el.say(s) }) }));
+  else if (forced) say(describeOutcome(r, VERSION));
+} });
+signature({ …, onCheck: () => updates.check(true) });   // the footer button forces it
+```
+
+At launch (after the first idle second), whenever the app returns to the
+foreground (Capacitor's `appStateChange` and the page's `visibilitychange`),
+and when the connection returns; **only when online; at most once an hour**
+(the timestamp lives in `localStorage`; a failed check leaves none, so the next
+return tries again). Three outcomes, as on desktop: **newer** shows the banner;
+**current** and **could not tell** are said only when the person pressed the
+button — nobody wants "you are current" every time they switch apps.
+`explainNetworkError` turns a failure into a sentence; a 404 is "This app has
+no published version yet", never "up to date".
+
+| Platform | "Update now" does | Then |
+| --- | --- | --- |
+| Android, signed APK in the feed | downloads it into the app's cache (`@capacitor/file-transfer`, progress in the banner), reads it back and compares its SHA-256 with the feed's, hands it to the system installer (`@capacitor-community/file-opener`, `application/vnd.android.package-archive`) | the installer replaces the old version in place and keeps its data; the next launch — the new version's first — deletes the download folder. If the phone has never allowed this app to install, Android asks once; the banner says so |
+| Android, mismatched checksum | deletes the file, installs nothing, says so | — |
+| Android, no signed APK (keystore secrets not set) or the Play listing exists | opens the Play listing when the feed has one, else the release page, and says why | — |
+| iPhone | opens the TestFlight link, else the App Store listing, and says so | Apple installs; nothing else is possible |
+| Web | opens the release page | — |
 
 1. **Compare versions numerically.** `compareVersions` — `1.10.0` beats `1.9.0`.
-2. **A failed check is not "up to date".** Three outcomes: newer, current,
-   could not tell. `explainNetworkError` turns the failure into a sentence.
+2. **A failed check is not "up to date".** Three outcomes. A download that does
+   not match its checksum is not installed and is not kept.
 3. **Every `fetch` carries `AbortSignal.timeout`.** A bare fetch on a phone with
    one bar of signal hangs the screen. The housekeeping check refuses one.
-4. **Never check during the job.** Check on Home, after the first idle second.
-5. **Always offer "Open the release page"**, so a phone the store cannot serve
-   (an MDM-locked work phone) is one tap from the file.
+4. **The Android build a phone installs must be signed with one key, release
+   after release.** Android refuses an unsigned APK outright and refuses one
+   signed with a different key than the installed copy ("App not installed").
+   `release.yml` signs with the keystore in the repository secrets and lists
+   the APK in the feed only then; without the secrets it publishes the unsigned
+   file and the feed carries no install link. A phone that installed the
+   sideloaded APK and later takes the app from Play must uninstall first: Play
+   App Signing uses another key.
+5. **`REQUEST_INSTALL_PACKAGES` is declared in `native.json`** (capability
+   `update`, with a usage string). Google Play restricts that permission to
+   apps with a reason; a build for the Play listing may drop the capability,
+   since there Update now opens the listing.
+6. **Never check during the job.** The automatic check waits for the first
+   idle second and never interrupts a screen; the banner sits under the title.
 
 Certificates: not the family's problem on mobile — the OS trust store is used
 and is current. Keep the lesson anyway: if a check ever fails with a certificate
 error, explain it, do not quote it.
+
+`checkUpdateFeed` enforces all of this: `watchForUpdates` with the manifest
+slug's feed, `installUpdate` on the banner, `onCheck` on the signature, no
+GitHub API, the permission declared, and a `release.yml` that signs in
+keylessly and uploads the files before the feed.
 
 ---
 
@@ -422,11 +489,18 @@ scroll, clipped text, contrast under 4.5:1, and any tap target under 44 px.
 
 1. **Refuse a tag not on `main`.** 2. Stamp `version.js` and `package.json`
 from the tag. 3. `cap add android` if absent, **`apply_native.mjs`** (writes
-`native.json` into the manifest), `cap sync`. 4. Build the unsigned AAB and APK.
-5. `SHA256SUMS`. 6. Body from `release_notes.mjs` (§7). 7. Publish.
-8. **Download the published asset and verify it** — with the workflow token
-(`gh release download`), because an app repo is usually private and an
-anonymous `curl` gets a 404 there.
+`native.json` into the manifest), `cap sync`. 4. Build the AAB (unsigned; Play
+App Signing signs it) and the APK. 5. **Sign the APK** with the keystore in
+`ANDROID_KEYSTORE_BASE64` / `ANDROID_KEYSTORE_PASSWORD` / `ANDROID_KEY_ALIAS` /
+`ANDROID_KEY_PASSWORD` when they exist (`zipalign`, `apksigner sign`,
+`apksigner verify`); otherwise publish the unsigned file with a warning.
+6. `SHA256SUMS`, body from `release_notes.mjs` (§7), `latest.json` from
+`publish_feed.mjs` (§4). 7. Publish the GitHub release. 8. Sign in to Google
+keylessly (`google-github-actions/auth` with `id-token: write`; the repository
+variables `MS_RELEASE_WIF_PROVIDER` and `MS_RELEASE_SA`, no secret; their own names, since a mobile app often has a cloud project of its own), upload the files
+to `gs://machinesaver-mobile-releases/<slug>/v<version>/`, **then the feed**.
+9. **Read the feed back anonymously** as a phone would, and check the APK
+against `SHA256SUMS`. Uploading is not the same as being downloadable.
 
 **Write workflow YAML in block form.** A one-line `with: { name: x-${{ matrix.node }} }`
 is a nested map to YAML, the file is invalid, and nothing runs. The first
@@ -589,12 +663,12 @@ account.)
 ```
 shared-skills/
 ├─ skills/ms-desktop-app/SKILL.md     desktop, 2.5.0
-├─ skills/ms-mobile-app/SKILL.md      this file, 1.0.1
+├─ skills/ms-mobile-app/SKILL.md      this file, 1.3.0
 ├─ packages/ms-appkit/                the desktop shell (Python)
-└─ packages/ms-mobilekit/             the mobile shell (JavaScript), 1.0.1
-   ├─ src/                            kit.css, kit.js, report.js, update.js, settings.js, icons/
+└─ packages/ms-mobilekit/             the mobile shell (JavaScript), 1.3.0
+   ├─ src/                            kit.css, kit.js, report.js, update.js (feed, automatic check, install), settings.js, icons/
    ├─ housekeeping/index.mjs          the checks
-   ├─ tools/                          vendor_kit, apply_native, ui_gate, static, release_notes, version_check
+   ├─ tools/                          vendor_kit, apply_native, ui_gate, static, release_notes, version_check, publish_feed
    ├─ template/                       a runnable three-tab app to copy (incl. tools/fetch_kit.mjs)
    └─ tests/                          the kit's own
 ```
@@ -619,6 +693,7 @@ A lesson that applies to both gets a check in both.
 | Icons are the kit's, with the Lucide licence shipped; none copied into the app | two hand-drawn ones shipped illegible |
 | `native.json` declares every capability with a usage string; the generated Info.plist / manifest carry it | an NFC read with no usage string crashes on iOS, silently on review |
 | No `fetch` without a timeout | a dead network hung the Read screen |
+| The app checks for updates by itself from the store feed for its slug, Update now calls `installUpdate`, the footer button forces a check, Android declares the install permission, and `release.yml` signs in keylessly and writes the feed last (`checkUpdateFeed`) | the first consumer checked only on a button press, asked GitHub for a private repository and got 404 on every phone, and Update now opened a web page |
 | CI declares bash, proves inputs are tracked, runs the gate and screenshots; release refuses off-`main` tags, writes sums, composes the body | each cost a release |
 | `ms-app.json` agrees with the code and `msKit.ref` is a kit tag, never `main` (`checkManifest`) | nothing recorded which kit an app came from, and no build could be reproduced |
 | A report address is the family's (`checkSupportEmail`) | two apps used two mailboxes |

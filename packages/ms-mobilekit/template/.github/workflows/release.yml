@@ -1,8 +1,26 @@
 name: release
+# A tag push builds the Android files, publishes them on the GitHub release
+# and in the family's mobile release store, and writes the store's update feed
+# LAST, so a phone is never offered a version whose file is not there yet.
+#
+# Two repository variables (not secrets) let the job sign in to Google
+# keylessly: MS_RELEASE_WIF_PROVIDER (the org's Workload Identity provider) and
+# MS_RELEASE_SA (release-uploader@ms-desktop-apps.iam.gserviceaccount.com). Their
+# own names, because a mobile app often has a cloud project of its own whose
+# GCP_* variables serve another workflow.
+#
+# The APK a phone can install must be signed with one key, release after
+# release. Add ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+# ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD as repository secrets and the
+# job signs; without them it publishes the unsigned APK and the feed carries no
+# install link, so the app offers the release page instead and says so.
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
+env:
+  BUCKET: machinesaver-mobile-releases
+  SLUG: example-tool
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -11,6 +29,7 @@ jobs:
         shell: bash
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,30 +48,64 @@ jobs:
           V="${GITHUB_REF_NAME#v}"
           sed -i "s/VERSION = '.*'/VERSION = '$V'/" www/js/version.js
           npm version "$V" --no-git-tag-version --allow-same-version
+          echo "VERSION=$V" >> "$GITHUB_ENV"
       - run: npm install --no-audit --no-fund && npm run version:check
       - name: Android project
         run: |
           [ -d android ] || npx cap add android
           node node_modules/ms-mobilekit/tools/apply_native.mjs
           npx cap sync android
-      - name: Build (unsigned; Play App Signing signs on upload)
+      - name: Build (the AAB is unsigned; Play App Signing signs it on upload)
         run: cd android && ./gradlew bundleRelease assembleRelease --no-daemon
-      - name: Collect
+      - name: Sign the APK when the keystore secrets exist
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          mkdir -p dist && cp android/app/build/outputs/bundle/release/app-release.aab dist/
-          cp android/app/build/outputs/apk/release/app-release-unsigned.apk dist/ || true
-          cd dist && sha256sum * > SHA256SUMS
-      - run: npm run release-notes > dist/BODY.md
+          mkdir -p dist
+          cp android/app/build/outputs/bundle/release/app-release.aab dist/
+          unsigned=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          if [ -n "$KS_B64" ]; then
+            tools=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+            echo "$KS_B64" | base64 -d > /tmp/release.keystore
+            "$tools/zipalign" -p 4 "$unsigned" /tmp/aligned.apk
+            "$tools/apksigner" sign --ks /tmp/release.keystore --ks-pass env:KS_PASS --ks-key-alias "$KEY_ALIAS" --key-pass env:KEY_PASS --out "dist/$SLUG-$VERSION.apk" /tmp/aligned.apk
+            "$tools/apksigner" verify "dist/$SLUG-$VERSION.apk"
+            rm -f /tmp/release.keystore
+            echo "signed $SLUG-$VERSION.apk"
+          else
+            cp "$unsigned" dist/ || true
+            echo "::warning::no ANDROID_KEYSTORE_BASE64: the APK is unsigned, so the feed will carry no install link"
+          fi
+      - name: Checksums and the feed
+        run: |
+          cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS && cd ..
+          npm run release-notes > dist/BODY.md
+          node node_modules/ms-mobilekit/tools/publish_feed.mjs --dist dist --base "https://storage.googleapis.com/$BUCKET/$SLUG/v$VERSION" > latest.json
+          cat latest.json
       - uses: softprops/action-gh-release@v2
         with:
           body_path: dist/BODY.md
           files: dist/*
-      - name: Verify the published asset downloads (with the workflow token; works for private repos too)
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.MS_RELEASE_WIF_PROVIDER }}
+          service_account: ${{ vars.MS_RELEASE_SA }}
+      - uses: google-github-actions/setup-gcloud@v2
+      - name: Publish to the store, feed last
         run: |
-          sleep 10
-          gh release download "$GITHUB_REF_NAME" --pattern app-release.aab --dir /tmp/verify
-          sha256sum /tmp/verify/app-release.aab
+          gcloud storage cp dist/* "gs://$BUCKET/$SLUG/v$VERSION/"
+          gcloud storage cp latest.json "gs://$BUCKET/$SLUG/latest.json"
+      - name: A phone can read the feed and the file matches its checksum
+        run: |
+          mkdir check && cd check
+          curl -sSf "https://storage.googleapis.com/$BUCKET/$SLUG/latest.json" -o latest.json
+          node -e "const j=require('./latest.json'); if (j.version!==process.env.VERSION) { console.error('feed says', j.version); process.exit(1) }"
+          curl -sSf "https://storage.googleapis.com/$BUCKET/$SLUG/v$VERSION/SHA256SUMS" -o SHA256SUMS
+          apk=$(node -e "const j=require('./latest.json'); console.log(j.android.apk ? decodeURIComponent(j.android.apk.split('/').pop()) : '')")
+          if [ -n "$apk" ]; then curl -sSf "https://storage.googleapis.com/$BUCKET/$SLUG/v$VERSION/$apk" -o "$apk" && sha256sum -c SHA256SUMS --ignore-missing; else echo "no installable APK in this release"; fi
   # iOS: archives need macOS + signing secrets (APPLE_CERT_P12, APPLE_CERT_PASSWORD, APPLE_PROVISION, ASC_API_KEY).
-  # Until they exist, build locally: npx cap open ios -> Product -> Archive -> TestFlight. See SKILL section 6.
+  # Until they exist, build locally: npx cap open ios -> Product -> Archive -> TestFlight, and put the
+  # TestFlight link in package.json msStores.testflight so the feed carries it. See SKILL section 6.

@@ -1,19 +1,23 @@
-import { shell, button, primary, actionBar, signature, banner, screens, openReport, checkForUpdate } from '../vendor/ms-mobilekit/index.js';
+import { shell, button, primary, actionBar, signature, banner, screens, openReport, watchForUpdates, installUpdate, feedUrl, describeOutcome } from '../vendor/ms-mobilekit/index.js';
 import { VERSION } from './version.js';
 
 const APP = 'Example Tool';
-const REPO = 'Machine-Saver-Inc/example-tool';   // where Check for updates looks
 
-// slug and visibility as in ms-app.json: the report is filed against that repository by the intake
+// slug and visibility as in ms-app.json: the report is filed against that repository by the intake,
+// and the update feed is the store's latest.json for that slug
 const ms = shell({ app: APP, version: VERSION, home: 'home', slug: 'example-tool', visibility: 'public' });
 window.ms = ms;                                   // the UI gate and screenshot tool drive the app through this
 
 const report = () => openReport({ app: APP, version: VERSION, context: () => ({ screen: screens.current, connected: 'nothing', settings: {} }) });
-const check = async () => {
-  const r = await checkForUpdate({ version: VERSION, source: `https://github.com/${REPO}` });
-  if (r.status === 'newer') document.getElementById('banner').replaceChildren(banner({ version: r.latest, onWhatsNew: () => alert(r.notes), onUpdate: () => window.open(r.url, '_blank') }));
-  else document.getElementById('status').textContent = r.status === 'current' ? `You have the latest version (${VERSION}).` : r.reason;
-};
+
+// Checks by itself at launch, on return to the foreground and when the connection returns, hourly at most.
+// The banner shows on "newer"; the other two outcomes are said only when the footer button asked.
+const updates = watchForUpdates({ version: VERSION, feed: feedUrl('example-tool'), onResult: (r, { forced }) => {
+  if (r.status === 'newer') document.getElementById('banner').replaceChildren(banner({ version: r.latest, onWhatsNew: () => alert(r.notes),
+    onUpdate: (e, el) => installUpdate(r, { onStatus: (s) => el.say(s) }) }));
+  else if (forced) document.getElementById('status').textContent = describeOutcome(r, VERSION);
+} });
+const check = () => updates.check(true);
 for (const id of ['signature-home', 'signature-more']) document.getElementById(id).replaceChildren(signature({ app: APP, version: VERSION, onReport: report, onCheck: check }));
 
 document.getElementById('job-actions').replaceChildren(actionBar({

@@ -22,11 +22,11 @@ reproducible build.
 | `src/kit.css` | tokens, the three button roles with every state, shell layout, tab bar, signature, banner |
 | `src/kit.js` | `shell`, `screens`, `button/primary/danger`, `actionBar`, `signature`, `banner`, `theme`, `trail`, `icon` |
 | `src/report.js` | `openReport`, `sendReport`, `buildReport`, `acceptFiles`, `filesFromPaste`; the form is `report_form.json` |
-| `src/update.js` | `checkForUpdate`, `compareVersions`, `explainNetworkError` |
+| `src/update.js` | `feedUrl`, `checkForUpdate`, `watchForUpdates`, `installUpdate`, `describeOutcome`, `compareVersions`, `explainNetworkError` |
 | `src/settings.js` | `settings(key, defaults)` with `export()` for reports |
 | `src/icons/` | 74 Lucide marks, `LICENSE`, `SOURCE.md`, `marks.json` |
 | `housekeeping/` | the checks an app's `tests/house_rules.test.mjs` runs |
-| `tools/` | `vendor_kit`, `apply_native`, `ui_gate`, `static`, `release_notes`, `version_check` |
+| `tools/` | `vendor_kit`, `apply_native`, `ui_gate`, `static`, `release_notes`, `version_check`, `publish_feed` |
 | `template/` | a runnable three-tab app to copy |
 
 Run the kit's tests with `npm test`; run the template's house rules from
