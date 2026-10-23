@@ -4,6 +4,21 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-23 (late night) - Past results open in the program
+
+### ms-desktop-app 2.7.2
+
+Nothing changes in a kit. The button register said **Open past results**
+opens the results folder; the first program to be asked for more (the Power
+Profiler, report 17) showed that people expect it to open the tests in the
+program, with their trace. The register now says so, and the folder keeps a
+button of its own.
+
+- **Open past results**: show the tests this program has recorded, in the
+  program, to open one. Mark `folder`, secondary.
+- **Open the results folder**: new; open the folder the results are kept in,
+  in the file manager. Mark `folder`, secondary.
+
 ## 2026-10-23 (late) - A new program is private by default
 
 ### ms-desktop-app 2.7.1
