@@ -42,7 +42,7 @@
   name: Espec Burn-In
   repo: Machine-Saver-Inc/espec-temperature-cycling
   kind: desktop
-  kit: none
+  kit: ms-appkit
   visibility: public
   category: Manufacturing
   description: Runs the 48-hour PCB burn-in temperature cycle in an Espec chamber through its Watlow F4 controller and reports the result.
