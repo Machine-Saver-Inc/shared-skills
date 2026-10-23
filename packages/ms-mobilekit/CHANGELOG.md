@@ -1,5 +1,38 @@
 # Changelog — ms-mobilekit
 
+## [1.2.0] — 2026-10-23
+
+Report a problem is now the same form as on a Machine Saver PC program and on
+apps.machinesaver.com, and the report goes straight to Machine Saver: paste a
+screenshot or attach files, press **Send to Machine Saver**, and the report is
+filed for the team with its number shown. No GitHub page and no mail client
+open any more; if Machine Saver cannot be reached the whole report is left on
+the clipboard with the support address.
+
+- `src/report.js` draws the dialog from `src/report_form.json`, the kit's copy
+  of `registry/report-form.json` (every label, hint and sentence; no wording in
+  code). File picker, drop zone and paste (`paste-1.png`, `paste-2.png`, …),
+  thumbnails, sizes, a remove control; the limits (5 files, 5 MB each, 10 MB,
+  by extension) are enforced before anything is sent, with the form's
+  `refused_prefix` wording. The collected details (platform, screen, trail,
+  last seen, settings) stay as an editable box, appended to the body.
+- `sendReport` posts JSON with base64 attachments to `intake_url + /v1/reports`
+  with the app's slug; `received_private` / `received_public` by the
+  repository's visibility; `failed` with the support address otherwise. Inside
+  Capacitor it uses the native `CapacitorHttp` plugin (the intake's CORS is
+  for apps.machinesaver.com only); in a browser, `fetch` with a 10 s timeout.
+- `shell()` takes `slug` and `visibility` (as in `ms-app.json`) so the kit's
+  dialogs know the app; `openReport` reads them from there or from its options.
+- `issueUrl` and `mailtoUrl` are gone; `buildReport` returns the title as
+  typed and the details separately.
+- Housekeeping `checkReportForm`: the vendored `report_form.json` is the kit's
+  byte for byte; `www/js` calls neither `issueUrl`/`mailtoUrl` nor builds an
+  issue or mailto link, draws no dialog of its own, builds the signature with
+  `onReport`, calls `openReport`, and passes the manifest's slug. Proved red
+  then green in `tests/housekeeping.test.mjs`. Template v2 carries it.
+- `tests/report.test.mjs`: limits refused, paste becomes a file, the JSON
+  shape posted, success and failure wording, all with a fake fetch.
+
 ## [1.1.1] — 2026-10-22
 
 Nothing changes on screen. `checkCI` now insists on a `schedule:` trigger, as
