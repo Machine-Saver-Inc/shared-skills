@@ -4,6 +4,22 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-23 (later) - The sweep meets its first public application
+
+### family-sweep workflow
+
+Nothing changes in a kit or on any screen. The first sweep over Espec Burn-In,
+the family's first public application on the kit, went red on a rule it did
+not break, and the Power Profiler's job failed on a pull request that already
+existed. Both were the sweep's own faults, now fixed.
+
+- The visibility house rule is given the repository's real visibility from
+  GitHub instead of a hard-coded "private", which was only ever true of the
+  first two applications.
+- An existing sweep pull request is found by its head branch through the list
+  endpoint and updated; the by-branch view that failed under the App token is
+  gone.
+
 ## 2026-10-23 (evening) - Two checks that misread the first older program
 
 ### ms-appkit 1.6.1
