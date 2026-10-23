@@ -24,7 +24,7 @@ in one place, so that a lesson learned in one of them lands in all of them.
 | | |
 | --- | --- |
 | [`skills/ms-desktop-app/`](skills/ms-desktop-app/) | The skill an agent reads before scaffolding or changing one of these tools. Currently **2.6.0**. |
-| [`packages/ms-appkit/`](packages/ms-appkit/) | The Python package that *is* the shared shell. Currently **1.6.0**. |
+| [`packages/ms-appkit/`](packages/ms-appkit/) | The Python package that *is* the shared shell. Currently **1.6.1**. |
 | [`skills/ms-mobile-app/`](skills/ms-mobile-app/) | The skill an agent reads before scaffolding or changing a Machine Saver iPhone/Android app. Currently **1.2.0**. |
 | [`packages/ms-mobilekit/`](packages/ms-mobilekit/) | The JavaScript package that *is* the shared mobile shell. Currently **1.2.0**. |
 

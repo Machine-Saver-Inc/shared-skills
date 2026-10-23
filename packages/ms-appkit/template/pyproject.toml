@@ -13,7 +13,7 @@ authors = [{ name = "Machine Saver Inc" }]
 dependencies = [
     # The shared shell, pinned to a kit tag; the family sweep moves the pin
     # (skill section 13). A private program adds the [private] extra.
-    "ms-appkit @ git+https://github.com/Machine-Saver-Inc/shared-skills.git@ms-appkit/v1.6.0#subdirectory=packages/ms-appkit",
+    "ms-appkit @ git+https://github.com/Machine-Saver-Inc/shared-skills.git@ms-appkit/v1.6.1#subdirectory=packages/ms-appkit",
 ]
 
 [project.optional-dependencies]

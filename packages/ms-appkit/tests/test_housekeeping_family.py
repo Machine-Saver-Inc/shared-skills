@@ -125,6 +125,29 @@ def test_the_release_check_wants_main_the_tag_and_a_verified_upload(app):
     assert house.release_workflow_faults(app) == [".github/workflows/release.yml is missing"]
 
 
+def test_the_dependency_check_reads_environment_markers(app):
+    """Espec Burn-In's markers were read as dependencies called ", " and "3.12"."""
+    edit(app / "pyproject.toml", "dependencies = [",
+         "dependencies = [\n    # a comment with a 'quoted' word\n"
+         "    \"PySide6-Essentials>=6.6,!=6.12.0; python_version < '3.12'\",\n"
+         "    'pyserial>=3.5',")
+    assert not house.dependency_faults(app)
+    edit(app / "pyproject.toml", "'pyserial>=3.5',", "\"leftpad>=1; python_version < '3.12'\",")
+    assert [f.split(" ")[0] for f in house.dependency_faults(app)] == ["leftpad"]
+
+
+def test_the_spec_check_accepts_collected_submodules(app):
+    spec = app / "packaging" / "example_app.spec"
+    text = spec.read_text(encoding="utf-8")
+    start = text.index("    hiddenimports=[")
+    end = text.index("    ],", start) + len("    ],")
+    spec.write_text(text[:start] + '    hiddenimports=collect_submodules("example_app") + ["certifi"],'
+                    + text[end:], encoding="utf-8")
+    assert not house.spec_faults(app, "example_app", private=True)
+    edit(spec, 'collect_submodules("example_app")', 'collect_submodules("other_app")')
+    assert any("example_app._client_secret" in f for f in house.spec_faults(app, "example_app", private=True))
+
+
 def test_the_report_path_check_refuses_a_program_s_own_report_route(app):
     package = app / "example_app"
     assert not house.report_path_faults(package)

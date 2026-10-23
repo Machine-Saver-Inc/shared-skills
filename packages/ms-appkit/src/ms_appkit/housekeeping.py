@@ -815,15 +815,24 @@ def spec_faults(root: Path, package: str, private: bool = False) -> list[str]:
     if not specs:
         return ["packaging/*.spec is missing"]
     text = "\n".join(_read(s) or "" for s in specs)
-    found = re.search(r"hiddenimports\s*=\s*\[(.*?)\]", text, re.S)
+    # Up to the next keyword argument of Analysis(...), so a list, a call to
+    # collect_submodules, or both added together are all read.
+    found = re.search(r"hiddenimports\s*=\s*(.*?)(?:,\s*\n\s*\w+\s*=|\n\))", text, re.S)
     if not found:
         return ["the spec has no hiddenimports list"]
     named = set(re.findall(r"[\"']([\w.]+)[\"']", found.group(1)))
+    # collect_submodules("pkg") names pkg and everything under it, including a
+    # stamped key that exists at build time; it is the stronger form.
+    collected = set(re.findall(r"collect_submodules\(\s*[\"']([\w.]+)[\"']", text))
     wanted = [package, "certifi"]
     if private:
         wanted.append(f"{package}._client_secret")
+
+    def covered(name: str) -> bool:
+        return name in named or any(name == c or name.startswith(c + ".") for c in collected)
+
     return [f"hiddenimports does not name {name}, so the frozen build may not carry it"
-            for name in wanted if name not in named]
+            for name in wanted if not covered(name)]
 
 
 KIT_PIN = re.compile(r"ms-appkit(\[[\w,]+\])?\s*@\s*git\+https://github\.com/Machine-Saver-Inc/"
@@ -1034,8 +1043,17 @@ def _dependency_names(text: str) -> list[str]:
     block = re.search(r"^dependencies\s*=\s*\[(.*?)^\]", text, re.M | re.S)
     if not block:
         return []
+    # One left-to-right scan of strings and comments, each string read with
+    # its own quote mark: a double-quoted requirement may carry an environment
+    # marker with single quotes inside (python_version < '3.12'), the kit's own
+    # address has a '#' inside it, and a comment may hold an apostrophe. A
+    # pattern accepting either quote mark read Espec Burn-In's markers as
+    # dependencies called ", " and "3.12".
     names = []
-    for item in re.findall(r"[\"']([^\"']+)[\"']", block.group(1)):
+    for double, single in re.findall(r"\"([^\"]*)\"|'([^']*)'|#[^\n]*", block.group(1)):
+        item = double or single
+        if not item:
+            continue
         name = re.split(r"[\[\s@<>=!~;]", item.strip(), maxsplit=1)[0]
         if name:
             names.append(name.lower().replace("_", "-"))
