@@ -8,7 +8,7 @@ name: Family sweep
 # a lesson that needs a person, with the failing rule named in the body. The
 # run itself is the dashboard of who is behind.
 #
-# Needs FAMILY_SWEEP_TOKEN: a fine-grained token (or a GitHub App token) with
+# Acts as the family's GitHub App (FAMILY_SWEEP_APP_ID / FAMILY_SWEEP_APP_KEY) with
 # contents: write and pull-requests: write on the organisation's application
 # repositories. Without it the sweep can read but not open pull requests.
 

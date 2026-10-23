@@ -110,17 +110,27 @@ jobs:
           body_path: release-body.md
 
       # Tell the sweep. It opens one pull request per registered application.
-      # This needs FAMILY_SWEEP_TOKEN: an event raised with the workflow's own
-      # GITHUB_TOKEN never starts another workflow, by GitHub's rule, so with
-      # no token the sweep simply waits for its weekly run.
+      # An event raised with the workflow's own GITHUB_TOKEN never starts
+      # another workflow, by GitHub's rule, so this acts as the family's GitHub
+      # App (FAMILY_SWEEP_APP_ID / FAMILY_SWEEP_APP_KEY, the same credentials
+      # the sweep uses). Without them the release fails loudly here rather
+      # than leaving every application a week behind without a word: on
+      # 2026-10-23 the old personal token was retired and ms-appkit 1.6.0
+      # released with no sweep at all.
+      - name: A token from the family's GitHub App
+        id: app
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.FAMILY_SWEEP_APP_ID }}
+          private-key: ${{ secrets.FAMILY_SWEEP_APP_KEY }}
+          owner: Machine-Saver-Inc
+          repositories: shared-skills
+
       - name: Start the family sweep
-        if: ${{ env.HAS_TOKEN == 'true' }}
         env:
-          HAS_TOKEN: ${{ secrets.FAMILY_SWEEP_TOKEN != '' }}
-          GH_TOKEN: ${{ secrets.FAMILY_SWEEP_TOKEN }}
+          GH_TOKEN: ${{ steps.app.outputs.token }}
           KIT: ${{ steps.which.outputs.kit }}
           VERSION: ${{ steps.which.outputs.version }}
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/dispatches" \
-            -f event_type=kit-released \
-            -F "client_payload[kit]=$KIT" -F "client_payload[version]=$VERSION"
+          gh api "repos/$GITHUB_REPOSITORY/dispatches"             -f event_type=kit-released             -F "client_payload[kit]=$KIT" -F "client_payload[version]=$VERSION"
+          echo "the sweep was asked to run for $KIT $VERSION"
