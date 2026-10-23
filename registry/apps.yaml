@@ -43,9 +43,9 @@
   repo: Machine-Saver-Inc/espec-desktop-app
   kind: desktop
   kit: ms-appkit
-  visibility: public
+  visibility: private
   category: Manufacturing
   description: Runs the 48-hour PCB burn-in temperature cycle in an Espec chamber through its Watlow F4 controller and reports the result.
-  releases: github
-  catalog: { listed: true, public: true }
+  releases: gcs
+  catalog: { listed: true, public: false }
   issues: { repo: Machine-Saver-Inc/espec-desktop-app, labels: [from-app] }
