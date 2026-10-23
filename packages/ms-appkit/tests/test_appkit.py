@@ -1049,12 +1049,16 @@ def test_the_sign_in_screen_uses_the_family_s_buttons(qt):
     dialog.close()
 
 
-def test_a_private_report_button_says_where_it_goes(qt, private_program):
+def test_a_private_report_goes_to_the_intake_and_a_failure_names_support(qt, private_program, monkeypatch):
+    from ms_appkit import report_form
     from ms_appkit.report_dialog import ReportDialog
 
     dialog = ReportDialog({})
-    assert dialog.post.text().strip() == "Email it to support"
-    assert "software-support@machinesaver.net" in dialog.note.text()
+    assert dialog.post.text().strip() == "Send to Machine Saver", "the same button as every program"
+    assert dialog.status.isHidden()
+    dialog._not_sent("no route to host")
+    assert "software-support@machinesaver.net" in dialog.status.text()
+    assert report_form.received_wording(report_form.Sent(number=3, url="")) == "Thank you. Report #3 received."
     dialog.close()
 
 

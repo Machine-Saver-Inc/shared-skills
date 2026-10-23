@@ -644,7 +644,7 @@ def private_config_faults(info) -> list[str]:
 #: The version of the files an application copies from template/. An
 #: application whose copies carry an older number is behind the kit; the
 #: family sweep refreshes them (template_drift_faults).
-TEMPLATE_VERSION = 2
+TEMPLATE_VERSION = 3
 TEMPLATE_MARKER = re.compile(r"ms-appkit template v(\d+)")
 TEMPLATE_SLUG = "example-tool"           # the template is allowed its own placeholders
 #: The files template/ ships with a marker line, relative to the app root.
@@ -764,6 +764,42 @@ def release_workflow_faults(root: Path, slug: str = "") -> list[str]:
         said = re.findall(r"^\s*SLUG:\s*([\w.-]+)", text, re.M)
         if said and any(s != slug for s in said):
             faults.append(f"release.yml says SLUG: {said[0]} but the program's SLUG is {slug}")
+    return faults
+
+
+REPORT_OWN_NAMES = ("ReportDialog", "issue_url", "mail_url", "report_problem")
+
+
+def report_path_faults(package_dir: Path) -> list[str]:
+    """Reports go the kit's way: the family's form, sent to the intake (section 5).
+
+    A program that draws its own report dialog, builds a GitHub issue address
+    or an email for a report, or overrides the window's report_problem has a
+    form that will drift from the web's and the mobile apps', cannot carry a
+    pasted screenshot, and will not change when the family's form does.
+    """
+    faults = []
+    for path in sources(package_dir):
+        text = path.read_text(encoding="utf-8")
+        where = path.relative_to(package_dir)
+        tree = ast.parse(text)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ClassDef) and (
+                    node.name == "ReportDialog"
+                    or any(getattr(b, "id", getattr(b, "attr", "")) == "ReportDialog" for b in node.bases)):
+                faults.append(f"{where}:{node.lineno} defines its own report dialog; the kit's "
+                              "ReportDialog is the family's form")
+            if isinstance(node, ast.FunctionDef) and node.name in ("report_problem", "issue_url", "mail_url"):
+                faults.append(f"{where}:{node.lineno} defines {node.name}(); the kit's window "
+                              "opens the report dialog and the kit sends the report")
+            if isinstance(node, ast.ImportFrom) and node.module == "ms_appkit.diagnostics":
+                for alias in node.names:
+                    if alias.name in ("issue_url", "mail_url"):
+                        faults.append(f"{where}:{node.lineno} imports {alias.name}; a report is "
+                                      "sent to the intake, not opened in a browser")
+        if re.search(r"issues/new|mailto:", text):
+            faults.append(f"{where}: builds a GitHub issue or mailto address; the kit's report "
+                          "dialog sends to Machine Saver's intake instead")
     return faults
 
 

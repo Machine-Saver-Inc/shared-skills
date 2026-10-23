@@ -5,8 +5,8 @@
   "kind": "desktop",
   "repo": "Machine-Saver-Inc/example-tool",
   "visibility": "public",
-  "skill": { "name": "ms-desktop-app", "version": "2.5.1" },
-  "kit": { "name": "ms-appkit", "version": "1.5.1" },
+  "skill": { "name": "ms-desktop-app", "version": "2.6.0" },
+  "kit": { "name": "ms-appkit", "version": "1.6.0" },
   "package": "example_app",
   "generated": "2026-10-22",
   "last_sweep": "2026-10-22"

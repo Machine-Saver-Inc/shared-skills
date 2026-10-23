@@ -125,6 +125,23 @@ def test_the_release_check_wants_main_the_tag_and_a_verified_upload(app):
     assert house.release_workflow_faults(app) == [".github/workflows/release.yml is missing"]
 
 
+def test_the_report_path_check_refuses_a_program_s_own_report_route(app):
+    package = app / "example_app"
+    assert not house.report_path_faults(package)
+    own = package / "my_report.py"
+    own.write_text("from ms_appkit.report_dialog import ReportDialog\n"
+                   "class MyReport(ReportDialog):\n    pass\n", encoding="utf-8")
+    assert any("own report dialog" in f for f in house.report_path_faults(package))
+    own.write_text("from ms_appkit.diagnostics import mail_url\n", encoding="utf-8")
+    assert any("imports mail_url" in f for f in house.report_path_faults(package))
+    own.write_text('URL = "https://github.com/x/y/issues/new?title=a"\n', encoding="utf-8")
+    assert any("issue or mailto" in f for f in house.report_path_faults(package))
+    own.write_text("def report_problem(self):\n    pass\n", encoding="utf-8")
+    assert any("report_problem()" in f for f in house.report_path_faults(package))
+    own.unlink()
+    assert not house.report_path_faults(package)
+
+
 def test_the_release_check_wants_proof_the_key_is_in_the_build(app):
     private = app / ".github" / "workflows" / "release-private.yml"
     (app / ".github" / "workflows" / "release.yml").unlink()
@@ -179,8 +196,8 @@ def test_the_manifest_check_wants_agreement_and_a_kit_tag(app, info):
     assert any("pin a kit tag" in f for f in house.manifest_faults(app, info))
     edit(app / "pyproject.toml", "@main#", "#")
     assert any("no ref" in f for f in house.manifest_faults(app, info))
-    edit(app / "pyproject.toml", "shared-skills.git#", "shared-skills.git@ms-appkit/v1.6.0#")
-    assert any("pins ms-appkit 1.6.0" in f for f in house.manifest_faults(app, info))
+    edit(app / "pyproject.toml", "shared-skills.git#", "shared-skills.git@ms-appkit/v9.9.9#")
+    assert any("pins ms-appkit 9.9.9" in f for f in house.manifest_faults(app, info))
     manifest.unlink()
     assert house.manifest_faults(app, info)[0].startswith("ms-app.json is missing")
 
