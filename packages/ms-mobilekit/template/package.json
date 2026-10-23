@@ -17,8 +17,11 @@
     "serve": "npx --yes http-server www -p 8080"
   },
   "dependencies": {
+    "@capacitor-community/file-opener": "^7.0.0",
     "@capacitor/android": "^7.0.0",
     "@capacitor/core": "^7.0.0",
+    "@capacitor/file-transfer": "^1.0.12",
+    "@capacitor/filesystem": "^7.0.0",
     "@capacitor/ios": "^7.0.0"
   },
   "devDependencies": {
@@ -30,6 +33,11 @@
   },
   "msKit": {
     "repo": "Machine-Saver-Inc/shared-skills",
-    "ref": "ms-mobilekit/v1.2.0"
+    "ref": "ms-mobilekit/v1.3.0"
+  },
+  "msStores": {
+    "android": null,
+    "ios": null,
+    "testflight": null
   }
 }

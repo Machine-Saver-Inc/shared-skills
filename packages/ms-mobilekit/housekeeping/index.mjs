@@ -8,7 +8,8 @@ import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { marks, lucide } from '../src/icons.js';
 import { FAMILY_SUPPORT_EMAIL } from '../src/report.js';
-export { FAMILY_SUPPORT_EMAIL };
+import { MOBILE_RELEASE_STORE } from '../src/update.js';
+export { FAMILY_SUPPORT_EMAIL, MOBILE_RELEASE_STORE };
 
 const read = (p) => readFileSync(p, 'utf8');
 const ex = (p) => existsSync(p);
@@ -186,7 +187,7 @@ export function checkSimulator(root) {
 // ---- 11. the manifest says what this app is and what it was built from, and the kit is pinned to a tag ----
 // Nothing recorded which kit an app came from, and apps followed `main`, so "who is behind?" had no
 // answer and no build could be reproduced. ms-app.json is the record; the family sweep bumps it.
-export const TEMPLATE_VERSION = 2;
+export const TEMPLATE_VERSION = 3;
 // Only the house-rules test is the kit's file whole; ci.yml carries the app's own
 // tracked-file list and steps, and checkCI judges its contents instead.
 export const TEMPLATE_MARKED = ['tests/house_rules.test.mjs'];
@@ -264,7 +265,51 @@ export function checkReportForm(root) {
   return errs;
 }
 
-export const CHECKS = { checkVersion, checkChangelog, checkButtons, checkShell, checkIcons, checkNative, checkNetwork, checkCI, checkReadme, checkSimulator, checkManifest, checkSupportEmail, checkTemplateDrift, checkReportForm };
+// ---- 15. the app checks for updates by itself, from the family's feed, and can install one ----
+// The first consumer's check ran only when the footer button was pressed, asked
+// GitHub's API for a private repository (404 → "could not tell" on every phone)
+// and "Update now" opened a web page. The rule: the shell calls watchForUpdates
+// with the store feed for the manifest's slug (launch, foreground, online,
+// hourly at most), the footer button forces it, the banner's Update now calls
+// installUpdate, Android declares the install permission, and release.yml
+// writes the feed to the store, last.
+export function checkUpdateFeed(root) {
+  const errs = [];
+  const js = walk(join(root, 'www/js'), ['.js']);
+  const all = js.map(read).join('\n');
+  let slug = null;
+  try { slug = JSON.parse(read(join(root, 'ms-app.json'))).slug; } catch (e) { /* checkManifest reports the broken file */ }
+  if (!/\bwatchForUpdates\s*\(/.test(all)) errs.push("www/js never calls the kit's watchForUpdates — the check must run by itself at launch and on return to the foreground, not only from the footer button");
+  if (slug) {
+    const literal = `${MOBILE_RELEASE_STORE}/${slug}/latest.json`;
+    if (!all.includes(`feedUrl('${slug}')`) && !all.includes(`feedUrl("${slug}")`) && !all.includes(literal)) errs.push(`www/js never passes feed: feedUrl('${slug}') — the version source is ${literal}`);
+  }
+  if (/api\.github\.com|releases\/latest/.test(all)) errs.push('www/js asks GitHub for the latest release — a private repository answers 404 to a phone; read the store feed');
+  if (!/\binstallUpdate\s*\(/.test(all)) errs.push("www/js never calls the kit's installUpdate — Update now must download, verify and install on Android, and open TestFlight or the App Store on iPhone");
+  if (!/signature\(\{[^}]*onCheck\s*:/.test(all)) errs.push('the signature is built without onCheck — the footer button must still force a check');
+  const native = join(root, 'native.json');
+  if (ex(native)) {
+    try {
+      const n = JSON.parse(read(native));
+      const perms = Object.values(n.capabilities || {}).flatMap(c => (c.android && c.android.permissions) || []);
+      if (!perms.includes('android.permission.REQUEST_INSTALL_PACKAGES')) errs.push('native.json declares no capability with android.permission.REQUEST_INSTALL_PACKAGES — without it Android refuses to open the downloaded build');
+    } catch (e) { /* checkNative reports the broken file */ }
+  }
+  const rel = join(root, '.github/workflows/release.yml');
+  if (!ex(rel)) errs.push('.github/workflows/release.yml is missing — nothing writes the update feed');
+  else {
+    const r = read(rel);
+    if (!/publish_feed/.test(r)) errs.push('release.yml never runs tools/publish_feed.mjs — no latest.json, so no phone ever hears of a release');
+    if (!/machinesaver-mobile-releases/.test(r)) errs.push('release.yml does not upload to the mobile release store (gs://machinesaver-mobile-releases)');
+    if (!/google-github-actions\/auth/.test(r) || !/id-token:\s*write/.test(r)) errs.push('release.yml must sign in to Google keylessly (google-github-actions/auth with id-token: write); no key belongs in an app repository');
+    const feedUp = r.indexOf('gcloud storage cp latest.json'); const filesUp = r.search(/gcloud storage cp\s+(dist|out)\//);
+    if (feedUp < 0) errs.push('release.yml never uploads latest.json to the store (gcloud storage cp latest.json …)');
+    else if (filesUp >= 0 && feedUp < filesUp) errs.push('release.yml uploads latest.json before the build files — the feed is written last');
+  }
+  return errs;
+}
+
+export const CHECKS = { checkVersion, checkChangelog, checkButtons, checkShell, checkIcons, checkNative, checkNetwork, checkCI, checkReadme, checkSimulator, checkManifest, checkSupportEmail, checkTemplateDrift, checkReportForm, checkUpdateFeed };
 
 export function runAll(root) {
   const out = [];

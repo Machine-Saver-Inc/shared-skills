@@ -1,5 +1,68 @@
 # Changelog — ms-mobilekit
 
+## [1.3.0] — 2026-10-23
+
+The app now looks for a newer version by itself: when it opens, whenever you
+come back to it, and when the connection returns, at most once an hour and
+never when offline. When there is one, the banner appears. On an Android phone
+**Update now** downloads the new version, shows the progress, checks the file
+against its published checksum and opens the phone's installer, which replaces
+the old version and keeps your data; the downloaded file is removed the next
+time the app opens. On an iPhone **Update now** opens TestFlight or the App
+Store and says so. The **Check for updates** button still asks at once and
+answers with one of three sentences: a newer version, the latest version, or
+could not tell (and why). Until now the check ran only from the button and, for
+a private app, always said it could not tell.
+
+- The version source is the family's mobile release store,
+  `https://storage.googleapis.com/machinesaver-mobile-releases/<slug>/latest.json`,
+  one small world-readable file per app that the app's `release.yml` writes
+  last with `tools/publish_feed.mjs` (version, tag, notes, release page,
+  `android.apk` + `sha256` + `size` when the APK is signed, `android.store`,
+  `ios.testflight`, `ios.store` from `package.json` `msStores`). The GitHub
+  Releases API is gone from the kit: a private repository answers 404 to a
+  phone (shared-skills issue 9). Skill §4 says why the store, and why a
+  sibling bucket rather than the desktop one.
+- `watchForUpdates({ version, feed, onResult })`: launch (after the first idle
+  second), `visibilitychange`, Capacitor `appStateChange`, `online`; hourly at
+  most through a `localStorage` timestamp that a failed check does not set;
+  skipped offline; `check(true)` from the footer button always asks.
+  `onResult(result, { forced })` so the app shows the banner on newer and the
+  other two sentences only when asked. `describeOutcome` gives the sentence.
+- `installUpdate(result, { onStatus })`: Android downloads with
+  `@capacitor/file-transfer` into the app's cache (`ms-updates/`), reads the
+  file back, compares its SHA-256 with the feed's, and hands it to the system
+  installer through `@capacitor-community/file-opener`; a mismatch deletes the
+  file and installs nothing; `cleanUpDownloads` empties the folder at every
+  launch. iPhone opens TestFlight or the App Store; the web the release page.
+  A browser, or a feed with no signed APK, falls back to the release page and
+  says why. The plugins are reached through the Capacitor bridge, so the kit
+  stays a plain module with no imports of its own.
+- `banner()` passes the banner element to `onUpdate` and gives it `say()`, so
+  the install's sentences replace the buttons while it runs.
+- `tools/publish_feed.mjs` builds `latest.json` from `version.js`,
+  `CHANGELOG.md`, `package.json`, `ms-app.json` and `dist/SHA256SUMS`, and
+  lists the APK only when it is signed (a file named `unsigned` is skipped).
+- Template: `release.yml` signs the APK when `ANDROID_KEYSTORE_BASE64`,
+  `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`
+  exist, signs in to Google keylessly (`GCP_WIF_PROVIDER`, `GCP_RELEASE_SA`),
+  uploads the files to the store and the feed last, then reads the feed back
+  anonymously and checks the APK against `SHA256SUMS`; `native.json` declares
+  the `update` capability with `android.permission.REQUEST_INSTALL_PACKAGES`;
+  `package.json` adds the three plugins and `msStores`. Template v3.
+- Housekeeping `checkUpdateFeed`: `www/js` calls `watchForUpdates` with
+  `feedUrl('<slug>')` for the manifest's slug, calls `installUpdate`, builds
+  the signature with `onCheck`, never asks GitHub's API; `native.json`
+  declares the install permission; `release.yml` runs `publish_feed`, uploads
+  to `machinesaver-mobile-releases` through `google-github-actions/auth` with
+  `id-token: write`, files before feed. Proved red then green in
+  `tests/housekeeping.test.mjs`.
+- `tests/update.test.mjs`: the three outcomes, the install path per platform,
+  the automatic check's triggers and hourly limit with a fake page, the
+  Android install with fake plugins (progress, checksum mismatch refused and
+  deleted, failed download explained, browser fallback), and the feed the tool
+  writes being what the phone installs from.
+
 ## [1.2.0] — 2026-10-23
 
 Report a problem is now the same form as on a Machine Saver PC program and on
