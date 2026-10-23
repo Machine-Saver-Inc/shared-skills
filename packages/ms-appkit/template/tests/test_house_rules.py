@@ -1,4 +1,4 @@
-# ms-appkit template v2
+# ms-appkit template v3
 """The house rules, run against this application.
 
 Copy this file into a new Machine Saver application unchanged except for the
@@ -154,6 +154,10 @@ def test_nothing_opens_a_url_without_the_kit_s_certificates():
 
 def test_updates_go_the_kit_s_way_and_no_other():
     assert not house.update_path_faults(PACKAGE)
+
+
+def test_reports_go_the_kit_s_way_to_machine_saver_s_intake():
+    assert not house.report_path_faults(PACKAGE)
 
 
 # --- public or private (skill section 1a) -------------------------------------
