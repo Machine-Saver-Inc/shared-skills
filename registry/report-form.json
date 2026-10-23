@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "about": "The one Report a problem form, read by the desktop kit (ms-appkit), the mobile kit (ms-mobilekit) and the apps catalog. A change here is a change in all three; the kits carry a vendored copy that their tests compare with this file, and the catalog build fetches it with the registry.",
+  "intake_url": "https://ms-report-intake-599226657617.us-central1.run.app",
+  "kinds": [
+    { "value": "bug", "label": "Something is broken" },
+    { "value": "improvement", "label": "An improvement or question" }
+  ],
+  "fields": {
+    "kind": { "label": "What is it?" },
+    "app_version": { "label": "App version" },
+    "title": { "label": "In one line", "max_length": 140, "placeholder": "e.g. Recording stops after the first power event" },
+    "body_markdown": { "label": "What happened, and what you expected", "placeholder": "Steps you took, what you saw, anything the app said." },
+    "email": { "label": "Your email", "note": "optional, for a reply" },
+    "files": { "label": "Screenshots and files", "note": "optional", "prompt": "Paste a screenshot, drop files here, or choose files." }
+  },
+  "attachments": {
+    "max_files": 5,
+    "max_file_mb": 5,
+    "max_total_mb": 10,
+    "extensions": ["png", "jpg", "jpeg", "gif", "webp", "pdf", "txt", "log", "json", "csv", "zip"],
+    "hint": "Up to 5 files, 5 MB each, 10 MB in all: png, jpg, gif, webp, pdf, txt, log, json, csv or zip."
+  },
+  "wording": {
+    "heading": "Report a problem with {app}",
+    "intro": "What you write here goes straight to the team that maintains the app. Leave out passwords and customer data.",
+    "details_note": "The details below are collected automatically and go with the report, including which screens you opened and which buttons you pressed. Edit anything you like; what is sent is what this box says.",
+    "send": "Send to Machine Saver",
+    "copy": "Copy to clipboard",
+    "cancel": "Cancel",
+    "sending": "Sending…",
+    "received_private": "Thank you. Report #{number} received.",
+    "received_public": "Thank you. Your report is #{number}.",
+    "failed": "Machine Saver could not be reached, so nothing was sent. The whole report is on your clipboard; paste it into an email to {support_email}.",
+    "refused_prefix": "That file was not added: "
+  }
+}
