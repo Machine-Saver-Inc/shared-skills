@@ -139,6 +139,7 @@ class UpdateBanner(QFrame):
     """
 
     update_requested = Signal(object)
+    dismissed = Signal(object)     # the Release somebody pressed Later on
 
     def __init__(self) -> None:
         super().__init__()
@@ -160,9 +161,9 @@ class UpdateBanner(QFrame):
         update.clicked.connect(self._open_release)
         layout.addWidget(update)
 
-        later = button("Later", "later")
-        later.clicked.connect(self.hide)
-        layout.addWidget(later)
+        self.later = button("Later", "later")
+        self.later.clicked.connect(self._later)
+        layout.addWidget(self.later)
 
     def offer(self, release: Release) -> None:
         self._release = release
@@ -173,6 +174,11 @@ class UpdateBanner(QFrame):
         """A sentence in the strip, with no action: what is happening now."""
         self.label.setText(sentence)
         self.show()
+
+    def _later(self) -> None:
+        self.hide()
+        if self._release:
+            self.dismissed.emit(self._release)
 
     def _show_notes(self) -> None:
         if self._release:

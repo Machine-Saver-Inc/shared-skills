@@ -35,10 +35,11 @@ learn twice.
 from __future__ import annotations
 
 import logging
+import time
 import webbrowser
 from datetime import datetime
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QTimer
 from PySide6.QtWidgets import (
     QMainWindow,
     QMessageBox,
@@ -55,7 +56,13 @@ from ms_appkit.report_dialog import ReportDialog
 from ms_appkit.trail import TRAIL
 from ms_appkit.update import channel as channels
 from ms_appkit.update.checker import CheckOutcome, Release, outcome_kind
-from ms_appkit.update.installer import Applied, UpdateError, apply_update, relaunch
+from ms_appkit.update.installer import (
+    Applied,
+    UpdateError,
+    apply_update,
+    relaunch,
+    remove_leftover_downloads,
+)
 from ms_appkit.update.ui import DownloadWorker, UpdateBanner, UpdateWorker
 
 log = logging.getLogger(__name__)
@@ -64,6 +71,12 @@ log = logging.getLogger(__name__)
 # that somebody who opens the tool, does one thing and closes it still hears
 # about a release.
 CHECK_DELAY_MS = 4000
+
+# A burn-in or a measurement left open for days still hears of a release. The
+# timer wakes far more often than that and compares a clock, so a missed or
+# late wake-up costs one poll, not a day.
+RECHECK_INTERVAL_S = 12 * 60 * 60
+RECHECK_POLL_MS = 15 * 60 * 1000
 
 
 class AppWindow(QMainWindow):
@@ -78,6 +91,10 @@ class AppWindow(QMainWindow):
         self.settings = settings_mod.load(defaults)
         self._screen_names: dict[int, str] = {}
         self._pending_release: Release | None = None
+        self._dismissed: str | None = None       # the version somebody said Later to
+        self._clock = time.monotonic
+        self._last_check_at: float | None = None
+        self._recheck_timer: QTimer | None = None
         self._check: UpdateWorker | None = None
         self._download: DownloadWorker | None = None
         self._updating = False
@@ -90,6 +107,7 @@ class AppWindow(QMainWindow):
 
         self.banner = UpdateBanner()
         self.banner.update_requested.connect(self.download_update)
+        self.banner.dismissed.connect(lambda release: setattr(self, "_dismissed", release.version))
         outer.addWidget(self.banner)
 
         self.stack = QStackedWidget()
@@ -109,6 +127,14 @@ class AppWindow(QMainWindow):
         )
         self.refresh_version_line()
         self.refresh_account_line()
+        self._clear_old_downloads()
+
+    def _clear_old_downloads(self) -> None:
+        """Installers an interrupted update left in the temp folder (skill section 4)."""
+        try:
+            remove_leftover_downloads()
+        except Exception as exc:  # noqa: BLE001 - tidying never stops the program opening
+            log.warning("could not clear old update downloads: %s", exc)
 
     # -- signing in (private programs only, skill section 1a) ----------------
     def refresh_account_line(self) -> None:
@@ -186,16 +212,30 @@ class AppWindow(QMainWindow):
 
     # -- updates -------------------------------------------------------------
     def start_update_check(self, delay_ms: int = CHECK_DELAY_MS) -> None:
-        """Check shortly after the window opens, if the user wants that.
+        """Check shortly after the window opens, and every twelve hours after,
+        whenever the user wants that.
 
         Call this at the end of a subclass's ``__init__``. It is not automatic:
-        a program may have something it needs to do first.
+        a program may have something it needs to do first. The setting is read
+        at every tick, so switching it on or off in Settings takes effect
+        without a restart.
         """
+        if self._recheck_timer is None:
+            self._recheck_timer = QTimer(self)
+            self._recheck_timer.setInterval(RECHECK_POLL_MS)
+            self._recheck_timer.timeout.connect(self._recheck_if_due)
+            self._recheck_timer.start()
         if not self.settings.get("check_for_updates", True):
             return
-        from PySide6.QtCore import QTimer
-
         QTimer.singleShot(delay_ms, self._check_quietly)
+
+    def _recheck_if_due(self) -> None:
+        if not self.settings.get("check_for_updates", True):
+            return
+        if (self._last_check_at is not None
+                and self._clock() - self._last_check_at < RECHECK_INTERVAL_S):
+            return
+        self._check_quietly()
 
     def _check_quietly(self) -> None:
         self._run_check(announce=False)
@@ -214,6 +254,7 @@ class AppWindow(QMainWindow):
     def _run_check(self, announce: bool) -> None:
         if self._closing or (self._check is not None and self._check.isRunning()):
             return
+        self._last_check_at = self._clock()
         self._check = UpdateWorker()
         self._check.done.connect(
             lambda outcome: self._on_check_done(outcome, announce),
@@ -226,6 +267,8 @@ class AppWindow(QMainWindow):
         self._record_check(ok=outcome.reached)
         if kind == "update" and outcome.release is not None:
             self._pending_release = outcome.release
+            if announce:
+                self._dismissed = None      # asked by hand: show it, Later or not
             self.refresh_busy_state()
             return
         if not announce:
@@ -249,10 +292,16 @@ class AppWindow(QMainWindow):
             webbrowser.open(channels.current().releases_page)
 
     def refresh_busy_state(self) -> None:
-        """Call when a job starts or finishes; re-offer a deferred release."""
+        """Call when a job starts or finishes; re-offer a deferred release.
+
+        A release somebody pressed Later on stays put away: neither a job
+        finishing nor the twelve-hourly check brings the banner back for it. A
+        newer release, a check asked for by hand, or a restart does.
+        """
         if self.busy():
             self.banner.hide()
-        elif self._pending_release is not None and not self._closing:
+        elif (self._pending_release is not None and not self._closing
+              and self._pending_release.version != self._dismissed):
             self.banner.offer(self._pending_release)
 
     def _record_check(self, ok: bool = True) -> None:
