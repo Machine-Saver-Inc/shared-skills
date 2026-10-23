@@ -75,6 +75,10 @@ def faults(entries, schema: dict) -> list[str]:
                 found.append(f"{where}: issues.labels must be up to five non-empty strings")
         else:
             found.append(f"{where}: issues must be a mapping")
+        allowed_kits = {"desktop": ("ms-appkit", "none"), "mobile": ("ms-mobilekit", "none"),
+                        "script": ("none",)}.get(entry.get("kind"), ())
+        if "kit" in entry and allowed_kits and entry["kit"] not in allowed_kits:
+            found.append(f"{where}: a {entry['kind']} application's kit must be one of {list(allowed_kits)}, not {entry['kit']!r}")
         if entry.get("kind") == "script" and entry.get("releases") not in ("none", "github"):
             found.append(f"{where}: a script has no release store; releases must be none or github")
         slug = entry.get("slug")

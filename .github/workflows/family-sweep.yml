@@ -47,7 +47,7 @@ jobs:
           import json, os, yaml
           apps = yaml.safe_load(open("registry/apps.yaml", encoding="utf-8"))
           only = os.environ.get("ONLY", "")
-          chosen = [a for a in apps if a["kind"] in ("desktop", "mobile") and (not only or a["slug"] == only)]
+          chosen = [a for a in apps if a.get("kit", "none") != "none" and (not only or a["slug"] == only)]
           print("apps=" + json.dumps([{"slug": a["slug"], "repo": a["repo"], "kind": a["kind"]} for a in chosen]))
           PY
 
