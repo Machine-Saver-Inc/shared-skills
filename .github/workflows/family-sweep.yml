@@ -48,7 +48,7 @@ jobs:
           apps = yaml.safe_load(open("registry/apps.yaml", encoding="utf-8"))
           only = os.environ.get("ONLY", "")
           chosen = [a for a in apps if a.get("kit", "none") != "none" and (not only or a["slug"] == only)]
-          print("apps=" + json.dumps([{"slug": a["slug"], "repo": a["repo"], "kind": a["kind"]} for a in chosen]))
+          print("apps=" + json.dumps([{"slug": a["slug"], "repo": a["repo"], "kind": a["kind"], "visibility": a["visibility"]} for a in chosen]))
           PY
 
   sweep:
@@ -140,7 +140,9 @@ jobs:
         id: sweep
         env:
           QT_QPA_PLATFORM: offscreen
-          MS_REPO_PRIVATE: "true"
+          # The registry's word for it; the app's visibility rule compares it with
+          # what the program says. Hard-coded true failed the first public app.
+          MS_REPO_PRIVATE: ${{ matrix.app.visibility == 'private' }}
           KIND: ${{ matrix.app.kind }}
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
