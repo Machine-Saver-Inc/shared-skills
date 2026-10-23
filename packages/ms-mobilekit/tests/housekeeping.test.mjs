@@ -77,9 +77,11 @@ test("Report a problem is the kit's form, vendored unchanged, sent through openR
     cpSync(join(kit, 'src/report_form.json'), vendored);
     assert.deepEqual(checkReportForm(root), []);
     // the app builds a GitHub issue or mailto link, or its own dialog
-    writeFileSync(join(root, 'www/js/extra.js'), "const u = issueUrl('x/y', r); location.href = 'mailto:a@b.c';\n");
+    writeFileSync(join(root, 'www/js/extra.js'), "const u = issueUrl('x/y', r); location.href = 'mailto:a@b.c?subject=' + report.title;\n");
     let errs = checkReportForm(root);
-    assert.ok(errs.some((e) => e.includes('issueUrl/mailtoUrl')) && errs.some((e) => e.includes('mailto')));
+    assert.ok(errs.some((e) => e.includes('issueUrl/mailtoUrl')) && errs.some((e) => e.includes('mailto link for a report')));
+    writeFileSync(join(root, 'www/js/extra.js'), "location.href = 'mailto:a@b.c?subject=diagnostics';\n");
+    assert.deepEqual(checkReportForm(root), [], 'a mailto for something other than a report is allowed');
     writeFileSync(join(root, 'www/js/extra.js'), "const d = document.createElement('dialog'); d.innerHTML = '<h2>Report a problem</h2>';\n");
     assert.ok(checkReportForm(root).some((e) => e.includes('own report dialog')));
     rmSync(join(root, 'www/js/extra.js'));
