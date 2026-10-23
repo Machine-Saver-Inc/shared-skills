@@ -4,8 +4,10 @@ name: release
 # LAST, so a phone is never offered a version whose file is not there yet.
 #
 # Two repository variables (not secrets) let the job sign in to Google
-# keylessly: GCP_WIF_PROVIDER (the org's Workload Identity provider) and
-# GCP_RELEASE_SA (release-uploader@ms-desktop-apps.iam.gserviceaccount.com).
+# keylessly: MS_RELEASE_WIF_PROVIDER (the org's Workload Identity provider) and
+# MS_RELEASE_SA (release-uploader@ms-desktop-apps.iam.gserviceaccount.com). Their
+# own names, because a mobile app often has a cloud project of its own whose
+# GCP_* variables serve another workflow.
 #
 # The APK a phone can install must be signed with one key, release after
 # release. Add ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
@@ -89,8 +91,8 @@ jobs:
           files: dist/*
       - uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-          service_account: ${{ vars.GCP_RELEASE_SA }}
+          workload_identity_provider: ${{ vars.MS_RELEASE_WIF_PROVIDER }}
+          service_account: ${{ vars.MS_RELEASE_SA }}
       - uses: google-github-actions/setup-gcloud@v2
       - name: Publish to the store, feed last
         run: |

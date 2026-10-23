@@ -497,7 +497,7 @@ App Signing signs it) and the APK. 5. **Sign the APK** with the keystore in
 6. `SHA256SUMS`, body from `release_notes.mjs` (§7), `latest.json` from
 `publish_feed.mjs` (§4). 7. Publish the GitHub release. 8. Sign in to Google
 keylessly (`google-github-actions/auth` with `id-token: write`; the repository
-variables `GCP_WIF_PROVIDER` and `GCP_RELEASE_SA`, no secret), upload the files
+variables `MS_RELEASE_WIF_PROVIDER` and `MS_RELEASE_SA`, no secret; their own names, since a mobile app often has a cloud project of its own), upload the files
 to `gs://machinesaver-mobile-releases/<slug>/v<version>/`, **then the feed**.
 9. **Read the feed back anonymously** as a phone would, and check the APK
 against `SHA256SUMS`. Uploading is not the same as being downloadable.

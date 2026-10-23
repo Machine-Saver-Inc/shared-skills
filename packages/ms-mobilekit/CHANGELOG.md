@@ -45,7 +45,7 @@ a private app, always said it could not tell.
   lists the APK only when it is signed (a file named `unsigned` is skipped).
 - Template: `release.yml` signs the APK when `ANDROID_KEYSTORE_BASE64`,
   `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`
-  exist, signs in to Google keylessly (`GCP_WIF_PROVIDER`, `GCP_RELEASE_SA`),
+  exist, signs in to Google keylessly (`MS_RELEASE_WIF_PROVIDER`, `MS_RELEASE_SA`),
   uploads the files to the store and the feed last, then reads the feed back
   anonymously and checks the APK against `SHA256SUMS`; `native.json` declares
   the `update` capability with `android.permission.REQUEST_INSTALL_PACKAGES`;
