@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.5.1.** Published at
+**Skill version 2.6.0.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -412,6 +412,7 @@ steps:
 | No `.env`, key file, stamped `_client_secret.py` or credential-shaped string is tracked | `housekeeping.tracked_secret_faults`, over `git ls-files` |
 | A private program's sign-in settings are the family's | `housekeeping.private_config_faults` — a real client ID, a domain support address, grace ≤ 14 days |
 | The spec names the stamped key, the package and `certifi` under `hiddenimports` | `housekeeping.spec_faults`, since 1.5.1 |
+| Reports use the family's form and go to the intake; no program draws its own dialog or opens a browser or email for a report | `housekeeping.report_path_faults`, since 1.6.0; the kit's tests prove the dialog pastes, limits and sends |
 | A release that stamps the key proves the frozen build carries it | `housekeeping.release_workflow_faults` wants `ms_appkit.frozen_check` after PyInstaller, since 1.5.1 |
 | A private program builds no window before sign-in succeeds | the kit's tests drive `bootstrap.run` itself with the sign-in declined |
 | No update code names a host outside `update.channel` | the kit's tests, since 1.2.0 |
@@ -719,9 +720,26 @@ nothing else. What follows is why.
 
 Everything needed is on the user's screen and nowhere else.
 
-**The dialog:** bug or improvement first (it sets the label), a summary, a
-description, a preview, and **Open GitHub to post it** / **Copy to clipboard** /
-**Cancel** — all three from the shared helper, or two render as bare words.
+**The dialog is the family's form**, and the family's form is one file:
+`registry/report-form.json` in shared-skills, carried in the kit as
+`resources/report_form.json`, read by the mobile kit and by the form on
+apps.machinesaver.com. What is asked, how files are limited and what every
+button and reply says all come from that file, so a change to the form is one
+change, carried to every program by the sweep. The fields: what is it (bug or
+improvement), the version, one line, what happened and what was expected,
+an optional email for a reply, and screenshots and files: pasted with Ctrl+V or
+**Paste a screenshot** (named `paste-1.png` like the web form's), dropped on
+the dialog, or picked with **Choose files**; the intake's limits (5 files,
+5 MB each, 10 MB together, a fixed list of types) are explained before anything
+is sent. Then the editable preview, and **Send to Machine Saver** / **Copy to
+clipboard** / **Cancel**, all from the shared helper. Sending posts JSON with
+base64 attachments to the report intake off the interface thread; the reply is
+"Report #N received" (private) or the issue link (public); on any failure the
+text is already on the clipboard and the dialog says so with the support
+address. Nothing opens a browser or an email program any more.
+`housekeeping.report_path_faults` refuses a program that draws its own dialog,
+imports `issue_url`/`mail_url`, builds an `issues/new` or `mailto:` address, or
+overrides `report_problem`. `MS_REPORT_INTAKE=off` keeps tests from sending.
 
 **Gather:** version; packaged or from source; OS and architecture; Python and Qt;
 the screen; what it is connected to; the app's settings; what it was doing and
@@ -741,13 +759,13 @@ afterwards arrives too late and the first line of every report reads *opened ?*.
 
 **The preview is editable, and what it says is what gets posted.**
 
-**Pitfalls:** redact home paths to `~` (the repo is public); a pre-filled issue
-URL over ~6000 chars is refused, so drop the log and always copy the full report
-to the clipboard — but never cut the middle out of text a person wrote, send the
-title and ask them to paste; never post on the user's behalf; wrap the handler so
-gathering context can never stop the report opening; build the state block as one
-contiguous Markdown table (a blank line stops GitHub rendering it);
-`QIcon(QImage)` yields a null icon silently — go through `QPixmap.fromImage`.
+**Pitfalls:** redact home paths to `~`; copy the full report to the clipboard
+before sending so a network failure loses nothing; never cut the middle out of
+text a person wrote; wrap the handler so gathering context can never stop the
+report opening; build the state block as one contiguous Markdown table (a blank
+line stops GitHub rendering it); `QIcon(QImage)` yields a null icon silently —
+go through `QPixmap.fromImage`; Ctrl+V in a text box must still paste text, so
+only a picture on the clipboard becomes a file.
 
 Keep the report builder Qt-free so its output can be asserted in tests.
 

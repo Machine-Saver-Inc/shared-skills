@@ -4,6 +4,29 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-23 (later) - One Report a problem form for the family
+
+### ms-appkit 1.6.0 / ms-desktop-app 2.6.0
+
+A person reporting a problem from a desktop program saw a different form from
+the one on apps.machinesaver.com, could not paste a screenshot, and the report
+opened a browser or an email program instead of reaching Machine Saver. Now the
+dialog is the family's form, read from `registry/report-form.json` (carried in
+the kit as `resources/report_form.json`; `tools/check_report_form.py` keeps the
+copies identical): the same two kinds, the same six questions in the same
+words, screenshots pasted with Ctrl+V or the button, files dropped or chosen,
+the intake's limits explained before sending, and **Send to Machine Saver**
+posting to the report intake, which files the issue and stores the files. The
+text stays on the clipboard whatever the network does.
+
+- `ms_appkit.report_form`: the form, the limits, the payload and the sender,
+  Qt-free; `MS_REPORT_INTAKE=off` for tests and bench runs.
+- `housekeeping.report_path_faults`: a program draws no report dialog of its
+  own, builds no issue or mailto address, and does not override
+  `report_problem`. Template house-rules test v3 carries the rule.
+- New buttons in the register: Paste a screenshot (`clipboard`), Choose files
+  (`upload`), Remove (`remove`), Send to Machine Saver (`send`).
+
 ## 2026-10-23 - The key has to be in the build
 
 ### ms-appkit 1.5.1 / ms-desktop-app 2.5.1
