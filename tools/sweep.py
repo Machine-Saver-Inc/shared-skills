@@ -62,17 +62,18 @@ def move_pin(app: Path, kind: str, tag: str, log: list[str]) -> None:
         new, count = re.subn(
             r"(ms-appkit(?:\[[\w,]+\])?\s*@\s*git\+https://github\.com/Machine-Saver-Inc/shared-skills(?:\.git)?)(?:@[^#\s\"']+)?(#subdirectory=packages/ms-appkit)",
             rf"\1@{tag}\2", text)
-        if count:
+        if not count:
+            log.append("pyproject.toml: no ms-appkit dependency line found (left alone)")
+        elif new != text:
             write(path, new)
             log.append(f"pyproject.toml: ms-appkit pinned to {tag}")
-        else:
-            log.append("pyproject.toml: no ms-appkit dependency line found (left alone)")
     else:
         path = app / "package.json"
         data = json.loads(read(path))
-        data.setdefault("msKit", {"repo": "Machine-Saver-Inc/shared-skills"})["ref"] = tag
-        write(path, json.dumps(data, indent=2) + "\n")
-        log.append(f"package.json: msKit.ref set to {tag}")
+        if data.get("msKit", {}).get("ref") != tag:
+            data.setdefault("msKit", {"repo": "Machine-Saver-Inc/shared-skills"})["ref"] = tag
+            write(path, json.dumps(data, indent=2) + "\n")
+            log.append(f"package.json: msKit.ref set to {tag}")
 
 
 def names_for(app: Path, kind: str) -> dict[str, str]:
@@ -110,12 +111,18 @@ def refresh_template_files(app: Path, kind: str, kit_root: Path, log: list[str])
 def bump_manifest(app: Path, kind: str, tag: str, kit_root: Path, log: list[str]) -> None:
     path = app / "ms-app.json"
     data = json.loads(read(path))
-    data["kit"] = {"name": tag.split("/v")[0], "version": tag.split("/v")[1]}
-    data["skill"] = {"name": "ms-desktop-app" if kind == "desktop" else "ms-mobile-app",
-                     "version": skill_version(kit_root, kind)}
+    kit = {"name": tag.split("/v")[0], "version": tag.split("/v")[1]}
+    skill = {"name": "ms-desktop-app" if kind == "desktop" else "ms-mobile-app",
+             "version": skill_version(kit_root, kind)}
+    # A sweep that finds nothing behind leaves the manifest alone: dating every
+    # run opened a date-only pull request for every current application.
+    if data.get("kit") == kit and data.get("skill") == skill and not log:
+        log.append(f"ms-app.json: already current at kit {kit['version']}, skill {skill['version']}")
+        return
+    data["kit"], data["skill"] = kit, skill
     data["last_sweep"] = dt.date.today().isoformat()
     write(path, json.dumps(data, indent=2) + "\n")
-    log.append(f"ms-app.json: kit {data['kit']['version']}, skill {data['skill']['version']}")
+    log.append(f"ms-app.json: kit {kit['version']}, skill {skill['version']}")
 
 
 def run(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess:
