@@ -21,7 +21,7 @@ reproducible build.
 | --- | --- |
 | `src/kit.css` | tokens, the three button roles with every state, shell layout, tab bar, signature, banner |
 | `src/kit.js` | `shell`, `screens`, `button/primary/danger`, `actionBar`, `signature`, `banner`, `theme`, `trail`, `icon` |
-| `src/report.js` | `openReport`, `buildReport`, `issueUrl`, `mailtoUrl` |
+| `src/report.js` | `openReport`, `sendReport`, `buildReport`, `acceptFiles`, `filesFromPaste`; the form is `report_form.json` |
 | `src/update.js` | `checkForUpdate`, `compareVersions`, `explainNetworkError` |
 | `src/settings.js` | `settings(key, defaults)` with `export()` for reports |
 | `src/icons/` | 74 Lucide marks, `LICENSE`, `SOURCE.md`, `marks.json` |

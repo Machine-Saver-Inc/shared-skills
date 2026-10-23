@@ -30,6 +30,6 @@
   },
   "msKit": {
     "repo": "Machine-Saver-Inc/shared-skills",
-    "ref": "ms-mobilekit/v1.1.1"
+    "ref": "ms-mobilekit/v1.2.0"
   }
 }

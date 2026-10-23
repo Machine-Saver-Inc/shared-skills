@@ -4,8 +4,11 @@
 // plain-language failures. Each one exists because it was missed once.
 
 import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
-import { join, extname } from 'node:path';
+import { join, extname, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { marks, lucide } from '../src/icons.js';
+import { FAMILY_SUPPORT_EMAIL } from '../src/report.js';
+export { FAMILY_SUPPORT_EMAIL };
 
 const read = (p) => readFileSync(p, 'utf8');
 const ex = (p) => existsSync(p);
@@ -183,8 +186,7 @@ export function checkSimulator(root) {
 // ---- 11. the manifest says what this app is and what it was built from, and the kit is pinned to a tag ----
 // Nothing recorded which kit an app came from, and apps followed `main`, so "who is behind?" had no
 // answer and no build could be reproduced. ms-app.json is the record; the family sweep bumps it.
-export const FAMILY_SUPPORT_EMAIL = 'software-support@machinesaver.net';
-export const TEMPLATE_VERSION = 1;
+export const TEMPLATE_VERSION = 2;
 // Only the house-rules test is the kit's file whole; ci.yml carries the app's own
 // tracked-file list and steps, and checkCI judges its contents instead.
 export const TEMPLATE_MARKED = ['tests/house_rules.test.mjs'];
@@ -231,7 +233,38 @@ export function checkTemplateDrift(root) {
   return errs;
 }
 
-export const CHECKS = { checkVersion, checkChangelog, checkButtons, checkShell, checkIcons, checkNative, checkNetwork, checkCI, checkReadme, checkSimulator, checkManifest, checkSupportEmail, checkTemplateDrift };
+// ---- 14. Report a problem is the family's one form, sent to the intake ----
+// The form is registry/report-form.json, vendored with the kit. An app that drew
+// its own dialog, or still opened GitHub or a mail client, would ask different
+// questions and lose the attachments; the footer's button must open the kit's.
+export function checkReportForm(root) {
+  const errs = [];
+  const kitForm = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'report_form.json');
+  const vendored = join(root, 'www/vendor/ms-mobilekit/report_form.json');
+  if (!ex(vendored)) errs.push('www/vendor/ms-mobilekit/report_form.json is missing — run tools/vendor_kit.mjs; the dialog is drawn from it');
+  else if (readFileSync(vendored).compare(readFileSync(kitForm)) !== 0) errs.push("www/vendor/ms-mobilekit/report_form.json differs from the kit's; vendor the kit again, never edit the form in the app");
+  const js = walk(join(root, 'www/js'), ['.js']);
+  const all = js.map(read).join('\n');
+  for (const f of js) {
+    const src = read(f);
+    if (/\b(issueUrl|mailtoUrl)\s*\(/.test(src)) errs.push(`${f}: calls issueUrl/mailtoUrl — reports go to the intake through the kit's openReport, never to GitHub or a mail client`);
+    // a mailto for something else (a diagnostics share) is allowed; one on a line about a report is not
+    if (/github\.com\/[^'"\s]*\/issues\/new/.test(src) || src.split('\n').some(l => /mailto:/.test(l) && /report/i.test(l))) errs.push(`${f}: builds a GitHub issue or mailto link for a report — reports go through the kit's openReport`);
+    if (/createElement\(['"]dialog['"]\)/.test(src) && /report/i.test(src)) errs.push(`${f}: draws its own report dialog — the form is the kit's (openReport)`);
+  }
+  if (!/\bopenReport\s*\(/.test(all)) errs.push("www/js never calls the kit's openReport — the footer's Report a problem has nowhere to go");
+  if (!/signature\(\{[^}]*onReport\s*:/.test(all)) errs.push("the signature is built without onReport — the footer's Report a problem must call the kit's openReport");
+  const manifest = join(root, 'ms-app.json');
+  if (ex(manifest)) {
+    try {
+      const slug = JSON.parse(read(manifest)).slug;
+      if (slug && !new RegExp(`slug:\\s*['"]${slug}['"]`).test(all)) errs.push(`www/js never passes slug: '${slug}' (shell or openReport) — the intake files the report against that repository`);
+    } catch (e) { /* checkManifest reports the broken file */ }
+  }
+  return errs;
+}
+
+export const CHECKS = { checkVersion, checkChangelog, checkButtons, checkShell, checkIcons, checkNative, checkNetwork, checkCI, checkReadme, checkSimulator, checkManifest, checkSupportEmail, checkTemplateDrift, checkReportForm };
 
 export function runAll(root) {
   const out = [];
