@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.7.0.** Published at
+**Skill version 2.7.1.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -212,7 +212,7 @@ Every application is one or the other, decided before the first line of code
 
 ```python
 # <app>/__init__.py
-VISIBILITY = "private"                     # "public" is the default
+VISIBILITY = "private"                     # the default for a new program
 from gateway_app._private import PRIVATE   # a PrivateConfig; see "Using it" below
 
 # <app>/app.py
@@ -220,13 +220,20 @@ run(name=APP_NAME, repo=GITHUB_REPO, version=__version__, slug=SLUG,
     window=MainWindow, visibility=VISIBILITY, private=PRIVATE)
 ```
 
-**Public** is what the family has always been: a public repository, releases on
-GitHub, no sign-in. Choose it when nothing in the program or its source needs
-protecting. The Espec burn-in program is public.
+**A new program is private unless there is a reason for it to be public.**
+Private is the default since skill 2.7.1: its releases go to the Machine Saver
+release store (the `machinesaver-desktop-releases` bucket, read by
+apps.machinesaver.com and by Check for updates), the same place as every other
+private program, and only machinesaver.net accounts can download it. Choose
+**public** only when the program is meant to be used or read outside Machine
+Saver, by a customer, a partner or the open-source world, and nothing in it or
+its source needs protecting: then it has a public repository, releases on
+GitHub, and no sign-in. Say which, and why, in the first pull request. Espec
+Burn-In was written public before this default and stays public by decision.
 
-**Private** is for a program whose source, releases or credentials must stay
-inside Machine Saver — a label printer that logs into a customer portal, a tool
-that encodes a certification's contents. The people who run it have a
+**Private** keeps a program's source, releases and credentials inside Machine
+Saver — a label printer that logs into a customer portal, a tool that encodes a
+certification's contents, a bench tool for our own hardware. The people who run it have a
 machinesaver.net Google account and usually no GitHub account, so private does
 **not** mean "sign in to a private GitHub repository". It means the source stays
 in a private GitHub repository and everything the person at the machine
@@ -239,7 +246,7 @@ sign-in instead.
 | Releases | GitHub Releases | Google Cloud Storage bucket, readable by `machinesaver.net` only |
 | Starting the program | opens | **Sign in with Google** first, machinesaver.net accounts only |
 | Credentials it needs | none — a public program holds no secrets | Google Secret Manager, fetched after sign-in; never in git, never in `settings.json` |
-| Report a problem | **Open GitHub to post it** | **Email it to support** — the operator has no GitHub account |
+| Report a problem | the family's form, sent to the report intake (§5) | the same form; the issue lands in the private repository |
 | Release page link | GitHub releases page | the bucket's folder in the Cloud console |
 
 ### What private promises, and what it does not
@@ -409,6 +416,7 @@ steps:
 | Rule | Where |
 | --- | --- |
 | The declared visibility matches the repository's | `housekeeping.visibility_faults`, from `MS_REPO_PRIVATE`; skips only outside CI |
+| A private desktop program releases to the store, a public one to GitHub | `tools/check_registry.py`, over `registry/apps.yaml`, since skill 2.7.1 |
 | No `.env`, key file, stamped `_client_secret.py` or credential-shaped string is tracked | `housekeeping.tracked_secret_faults`, over `git ls-files` |
 | A private program's sign-in settings are the family's | `housekeeping.private_config_faults` — a real client ID, a domain support address, grace ≤ 14 days |
 | The spec names the stamped key, the package and `certifi` under `hiddenimports` | `housekeeping.spec_faults`, since 1.5.1 |
@@ -540,8 +548,14 @@ mark.
 3. What does it talk to — hardware, a network service, files, nothing?
 4. Is there a long-running or unattended operation? (§11)
 5. Windows only, or Linux too?
-6. **Public or private?** (§1a) Private if the source, the releases or any
-   credential it uses must stay inside Machine Saver.
+6. **Public or private?** (§1a) **Private unless there is a reason to be
+   public**: private releases go to the Machine Saver release store and need a
+   machinesaver.net sign-in. Public only when people outside Machine Saver
+   must use or read it. A private program starts from the template's
+   `release-private.yml` (renamed `release.yml`) and copies `_private.py` from
+   an existing private program such as `airvibe-power-profiler`: the template
+   ships as public only because shared-skills is a public repository and must
+   not carry the family's sign-in settings.
 
 ### The layout
 
