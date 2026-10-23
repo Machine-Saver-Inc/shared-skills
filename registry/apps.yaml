@@ -15,8 +15,8 @@
 # category: Installation | Manufacturing | Integration
 
 - slug: airvibe-cellular-app
-  name: AirVibe Cellular Installation
-  repo: Machine-Saver-Inc/airvibe-cellular-app
+  name: AirVibe Cellular Mobile App
+  repo: Machine-Saver-Inc/airvibe-cellular-mobile-app
   kind: mobile
   kit: ms-mobilekit
   visibility: private
@@ -24,11 +24,11 @@
   description: Installs and claims an AirVibe Cellular on site, from the first power-up to the first upload.
   releases: github
   catalog: { listed: true, public: false }
-  issues: { repo: Machine-Saver-Inc/airvibe-cellular-app, labels: [from-app] }
+  issues: { repo: Machine-Saver-Inc/airvibe-cellular-mobile-app, labels: [from-app] }
 
 - slug: airvibe-power-profiler
-  name: AirVibe Power Profiler
-  repo: Machine-Saver-Inc/airvibe-power-profiler
+  name: Power Profiler Desktop App
+  repo: Machine-Saver-Inc/power-profiler-desktop-app
   kind: desktop
   kit: ms-appkit
   visibility: private
@@ -36,16 +36,16 @@
   description: Measures what an AirVibe draws through every power event on a Nordic Power Profiler Kit II and keeps the readings in Machine Saver's cloud.
   releases: gcs
   catalog: { listed: true, public: false }
-  issues: { repo: Machine-Saver-Inc/airvibe-power-profiler, labels: [from-app] }
+  issues: { repo: Machine-Saver-Inc/power-profiler-desktop-app, labels: [from-app] }
 
 - slug: espec-burn-in
-  name: Espec Burn-In
-  repo: Machine-Saver-Inc/espec-temperature-cycling
+  name: Espec Desktop App
+  repo: Machine-Saver-Inc/espec-desktop-app
   kind: desktop
   kit: ms-appkit
-  visibility: public
+  visibility: private
   category: Manufacturing
   description: Runs the 48-hour PCB burn-in temperature cycle in an Espec chamber through its Watlow F4 controller and reports the result.
-  releases: github
-  catalog: { listed: true, public: true }
-  issues: { repo: Machine-Saver-Inc/espec-temperature-cycling, labels: [from-app] }
+  releases: gcs
+  catalog: { listed: true, public: false }
+  issues: { repo: Machine-Saver-Inc/espec-desktop-app, labels: [from-app] }
