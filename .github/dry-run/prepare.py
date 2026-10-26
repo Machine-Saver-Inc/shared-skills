@@ -17,6 +17,13 @@ image = bmp + pixels + mask
 icon = struct.pack("<HHH", 0, 1, 1) + struct.pack("<BBBBHHII", 16, 16, 0, 0, 1, 32, len(image), 22)
 (template / "packaging" / "windows" / "icon.ico").write_bytes(icon + image)
 
+# The template names an entry script and a resources folder it does not ship.
+package = template / "example_app"
+(package / "__main__.py").write_text(
+    "import sys\n\nfrom example_app.app import main\n\nsys.exit(main())\n", encoding="utf-8")
+(package / "resources").mkdir(exist_ok=True)
+(package / "resources" / "placeholder.txt").write_text("dry run\n", encoding="utf-8")
+
 steps = yaml.safe_load((template / ".github" / "workflows" / "release-private.yml")
                        .read_text(encoding="utf-8"))["jobs"]["build"]["steps"]
 named = {s.get("name"): s for s in steps}
