@@ -4,6 +4,39 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-26 - A toolkit release that crashed on close
+
+### ms-appkit 1.7.1
+
+Nothing changes on screen. PySide6 6.12.0, the toolkit every program's
+window is drawn with, lost a reference to None on every button click under
+Python 3.10 and 3.11; after enough clicks a program aborted as it closed. No
+installed program was affected, because builds use Python 3.12, but anyone
+running one from source on 3.10 or 3.11 could see it, and the Power
+Profiler's tests did. The kit now refuses that release.
+
+- `PySide6-Essentials>=6.6,!=6.12.0`. Reproduced in a python:3.10 container:
+  -1.0 references to None per click on 6.12.0, none on 6.11.3, 6.11.1,
+  6.11.0 or 6.10.2.
+- `test_a_click_does_not_drain_none` clicks a kit button 500 times and fails
+  if None is drained, so the next such release is caught by a check rather
+  than by a crash at exit. Seen red on 6.12.0 and green on 6.11.3.
+
+## 2026-10-23 (late night) - Past results open in the program
+
+### ms-desktop-app 2.7.2
+
+Nothing changes in a kit. The button register said **Open past results**
+opens the results folder; the first program to be asked for more (the Power
+Profiler, report 17) showed that people expect it to open the tests in the
+program, with their trace. The register now says so, and the folder keeps a
+button of its own.
+
+- **Open past results**: show the tests this program has recorded, in the
+  program, to open one. Mark `folder`, secondary.
+- **Open the results folder**: new; open the folder the results are kept in,
+  in the file manager. Mark `folder`, secondary.
+
 ## 2026-10-23 (late) - A new program is private by default
 
 ### ms-desktop-app 2.7.1
