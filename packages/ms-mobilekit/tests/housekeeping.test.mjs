@@ -6,7 +6,7 @@ import { cpSync, mkdtempSync, readFileSync, writeFileSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkCI, checkManifest, checkSupportEmail, checkTemplateDrift, checkReportForm, FAMILY_SUPPORT_EMAIL, TEMPLATE_VERSION } from '../housekeeping/index.mjs';
+import { checkCI, checkManifest, checkSupportEmail, checkTemplateDrift, checkReportForm, checkUpdateFeed, checkNative, FAMILY_SUPPORT_EMAIL, TEMPLATE_VERSION } from '../housekeeping/index.mjs';
 
 const kit = join(dirname(fileURLToPath(import.meta.url)), '..');
 const template = join(kit, 'template');
@@ -95,5 +95,46 @@ test("Report a problem is the kit's form, vendored unchanged, sent through openR
     // the slug the intake files against is not the manifest's
     writeFileSync(app, src.replace("slug: 'example-tool'", "slug: 'other-tool'"));
     assert.ok(checkReportForm(root).some((e) => e.includes("slug: 'example-tool'")));
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('the app checks for updates by itself from the store feed, can install one, and its release writes the feed last', () => {
+  const root = copy();
+  try {
+    assert.deepEqual(checkUpdateFeed(root), []);
+    assert.deepEqual(checkNative(root), [], 'the template declares the install permission with a usage string');
+    const app = join(root, 'www/js/app.js'); const src = readFileSync(app, 'utf8');
+    // the check only runs from the button (1.2 and before)
+    writeFileSync(app, src.replace(/watchForUpdates\(/, 'myWatch('));
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('never calls the kit\'s watchForUpdates')));
+    // the feed is another app's, or GitHub's API
+    writeFileSync(app, src.replace("feedUrl('example-tool')", "feedUrl('other-tool')"));
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes("feedUrl('example-tool')")));
+    writeFileSync(app, src + "\nfetch('https://api.github.com/repos/x/y/releases/latest', { signal: AbortSignal.timeout(1) });\n");
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('asks GitHub')));
+    // Update now opens a page instead of installing; the button no longer forces a check
+    writeFileSync(app, src.replace(/installUpdate\(/, 'window.open('));
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('never calls the kit\'s installUpdate')));
+    writeFileSync(app, src.replace(', onCheck: check', ''));
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('without onCheck')));
+    writeFileSync(app, src);
+    assert.deepEqual(checkUpdateFeed(root), []);
+    // Android cannot open the build without the permission
+    writeFileSync(join(root, 'native.json'), '{ "capabilities": {} }');
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('REQUEST_INSTALL_PACKAGES')));
+    // the release never writes the feed, writes it to the wrong place, with a key, or before the files
+    const rel = join(root, '.github/workflows/release.yml'); const yml = readFileSync(rel, 'utf8');
+    writeFileSync(rel, yml.replace(/.*publish_feed.*\n/, ''));
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('publish_feed')));
+    writeFileSync(rel, yml.replace(/machinesaver-mobile-releases/g, 'my-bucket'));
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('mobile release store')));
+    writeFileSync(rel, yml.replace('google-github-actions/auth@v2', 'my/auth@v1'));
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('keylessly')));
+    writeFileSync(rel, yml.replace(/( *)gcloud storage cp dist\/\* (.*)\n( *)gcloud storage cp latest\.json (.*)\n/, '$1gcloud storage cp latest.json $4\n$3gcloud storage cp dist/* $2\n'));
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('before the build files')), 'the feed written before the files is caught');
+    writeFileSync(rel, yml.replace(/.*gcloud storage cp latest\.json.*\n/, ''));
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('never uploads latest.json')));
+    rmSync(rel);
+    assert.ok(checkUpdateFeed(root).some((e) => e.includes('release.yml is missing')));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

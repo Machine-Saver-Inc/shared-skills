@@ -114,8 +114,10 @@ export function banner({ version, onWhatsNew, onUpdate, onLater }) {
   const text = document.createElement('span'); text.textContent = `Version ${version} is available.`;
   el.append(text,
     button({ label: "What's new", mark: 'notes', onClick: onWhatsNew }),
-    primary({ label: 'Update now', mark: 'download', onClick: onUpdate }),
+    primary({ label: 'Update now', mark: 'download', onClick: (e) => onUpdate && onUpdate(e, el) }),
     button({ label: 'Later', mark: 'later', onClick: () => { el.remove(); onLater && onLater(); } }));
+  // While an update downloads, the banner says where it is instead of offering the buttons again.
+  el.say = (sentence) => { const t = document.createElement('span'); t.textContent = sentence; el.replaceChildren(t); };
   return el;
 }
 

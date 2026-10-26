@@ -4,6 +4,30 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-26 - A phone app checks for updates by itself and installs one
+
+### ms-mobilekit 1.3.0 / ms-mobile-app 1.3.0
+
+The mobile kit's update path reached the desktop bar as far as a phone allows.
+The app checks by itself when it opens, when it comes back to the foreground
+and when the connection returns, hourly at most and only when online; the
+banner appears on a newer version; the footer button still forces a check with
+the three honest outcomes. On Android, Update now downloads the signed APK with
+progress, verifies it against the published checksum, hands it to the system
+installer and deletes the download at the next launch; on iPhone it opens
+TestFlight or the App Store and says so; on the web the release page.
+
+The version source is a world-readable `latest.json` per app in a new mobile
+release store, `gs://machinesaver-mobile-releases/<slug>/`, written last by the
+app's release workflow through the organisation's Workload Identity provider
+(no key in any app repository). Not GitHub: a private repository's Releases
+API answers 404 to a phone, which is why every check said "could not tell"
+(issue 9). Not the desktop bucket: it enforces public-access prevention for
+installers meant for machinesaver.net accounts, and a phone has no such
+sign-in. Skill §4 carries the decision and the Android signing rule (one key,
+release after release, in the repository secrets; without it the feed carries
+no install link and the app says so). `checkUpdateFeed` enforces the shell
+side and the release side; template v3.
 ## 2026-10-26 - Every Windows program is signed as Machine Saver Inc
 
 ### ms-appkit 1.8.0 / ms-desktop-app 2.8.0

@@ -1,4 +1,4 @@
-// ms-mobilekit template v2
+// ms-mobilekit template v3
 // Copied from ms-mobilekit/template on day one. Do not edit; the rules live in the kit.
 import test from 'node:test';
 import assert from 'node:assert/strict';
