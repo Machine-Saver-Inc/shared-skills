@@ -1,0 +1,87 @@
+name: Signing dry run (temporary, removed before merge)
+
+# Runs the template's own installer and verification steps, verbatim, on a
+# Windows runner with a stand-in ArtifactSigning module that signs with a
+# throwaway self-signed certificate. Proves the ISCC quoting, the signed
+# uninstaller and the Windows check without Azure.
+
+on:
+  push:
+    branches: [kit-1.8.0-signing]
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install the kit and the template program
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e "packages/ms-appkit[dev]" pyinstaller pyyaml
+          pip install --no-deps -e packages/ms-appkit/template
+
+      - name: A stand-in icon and the template's steps, read from the template
+        run: python -I .github/dry-run/prepare.py packages/ms-appkit/template $env:RUNNER_TEMP
+
+      - name: A throwaway certificate and a stand-in ArtifactSigning module
+        run: |
+          $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=Machine Saver Inc (dry run)' -CertStoreLocation Cert:\CurrentUser\My
+          $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('Root', 'LocalMachine')
+          $store.Open('ReadWrite'); $store.Add($cert); $store.Close()
+          $store = New-Object System.Security.Cryptography.X509Certificates.X509Store('TrustedPublisher', 'LocalMachine')
+          $store.Open('ReadWrite'); $store.Add($cert); $store.Close()
+          $module = Join-Path ($env:PSModulePath -split ';' | Select-Object -First 1) 'ArtifactSigning'
+          New-Item -ItemType Directory -Force $module | Out-Null
+          Copy-Item .github/dry-run/ArtifactSigning.psm1 $module
+
+      - name: Build with PyInstaller
+        working-directory: packages/ms-appkit/template
+        run: pyinstaller --noconfirm --clean packaging/example_app.spec
+
+      - name: Sign the program (stand-in for the action)
+        working-directory: packages/ms-appkit/template
+        run: |
+          Import-Module ArtifactSigning
+          Invoke-ArtifactSigning -Files "$PWD\dist\ExampleTool\ExampleTool.exe"
+
+      - name: The signed program still carries its archive
+        working-directory: packages/ms-appkit/template
+        run: python -m ms_appkit.frozen_check dist/ExampleTool/ExampleTool.exe example_app
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: The template's installer step, verbatim
+        working-directory: packages/ms-appkit/template
+        env:
+          VERSION: 0.0.1
+          SIGNING_ENDPOINT: https://example.invalid/
+          SIGNING_ACCOUNT: dry-run
+          SIGNING_PROFILE: dry-run
+        run: '& (Join-Path $env:RUNNER_TEMP "installer-step.ps1")'
+
+      - name: The template's verification step, verbatim
+        working-directory: packages/ms-appkit/template
+        run: '& (Join-Path $env:RUNNER_TEMP "verify-step.ps1")'
+
+      - name: The installed uninstaller is signed too
+        working-directory: packages/ms-appkit/template
+        run: |
+          $setup = Get-ChildItem out -Filter *.exe | Select-Object -First 1
+          $p = Start-Process $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/CURRENTUSER','/NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "setup exited $($p.ExitCode)" }
+          $uninstaller = Get-ChildItem "$env:LOCALAPPDATA\Programs\Example Tool" -Filter 'unins*.exe' | Select-Object -First 1
+          $sig = Get-AuthenticodeSignature $uninstaller.FullName
+          Write-Host "$($uninstaller.Name): $($sig.Status) by $($sig.SignerCertificate.Subject)"
+          if ($sig.Status -ne 'Valid') { throw "the uninstaller is not signed: $($sig.StatusMessage)" }
