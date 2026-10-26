@@ -5,7 +5,7 @@ description: "Scaffold, build, release and maintain any Machine Saver desktop ap
 
 # Machine Saver desktop applications
 
-**Skill version 2.7.1.** Published at
+**Skill version 2.8.0.** Published at
 `github.com/Machine-Saver-Inc/shared-skills`, alongside **`ms-appkit`** — the
 Python package that *is* the shell this skill describes. Read §0 first.
 
@@ -497,7 +497,8 @@ same role, in every application. The left column is also the vocabulary: say
 | **Check again** | re-scan for devices | `refresh` | `refresh-cw` | secondary |
 | **Change port** | go back to device selection | `connect` | `plug` | secondary |
 | **Try again** | retry the failed operation | `retry` | `rotate-cw` | primary |
-| **Open past results** | open the results folder | `folder` | `folder-open` | secondary |
+| **Open past results** | show the tests this program has recorded, in the program, to open one | `folder` | `folder-open` | secondary |
+| **Open the results folder** | open the folder the results are kept in, in the file manager | `folder` | `folder-open` | secondary |
 | **Start …** | begin the app's main job | `start` | `play` | primary |
 | **Stop …** | end the job early | `stop` | `circle-stop` | danger |
 | **Sign in with Google** | start a private program's sign-in (§1a) | `user` | `user` | primary |
@@ -868,11 +869,66 @@ import fails, so use `importorskip("PySide6.QtWidgets")`.
 3. Build. Inno Setup is **not** preinstalled on `windows-latest`
    (`choco install innosetup`); `libfuse2` does not exist under that name on
    Ubuntu 24.04 (`APPIMAGE_EXTRACT_AND_RUN=1`).
-4. `sha256sum * > SHA256SUMS`.
-5. Compose the body with `tools/release_notes.py` (§7).
-6. Publish.
-7. **Download the published assets anonymously and verify them.** Uploading is
+4. **Sign every Windows program as Machine Saver Inc** (below): the program
+   after PyInstaller, then the setup program and its uninstaller through Inno
+   Setup, then ask Windows (`Get-AuthenticodeSignature`) whether each is
+   `Valid` and Machine Saver's.
+5. `sha256sum * > SHA256SUMS`, **after** signing: signing changes the file, so
+   a checksum taken before it describes a file nobody downloads.
+6. Compose the body with `tools/release_notes.py` (§7).
+7. Publish.
+8. **Download the published assets anonymously and verify them.** Uploading is
    not the same as being downloadable.
+
+### Signing — every Windows build, as Machine Saver Inc
+
+An unsigned download shows **"Windows protected your PC — Unknown
+publisher"**, and the in-app updater runs the same file silently. Since kit
+1.8.0 every release is signed with **Azure Artifact Signing** (called Trusted
+Signing until 2026), and `housekeeping.signing_faults` refuses a release
+workflow or Inno script that does not.
+
+- **One signing account and one Public Trust certificate profile for the
+  family**, owned by Machine Saver's Azure subscription. Microsoft validated
+  the organisation once; certificates are issued in its name and renewed by
+  Microsoft every few days, so there is no certificate file to keep or expire.
+- **No secret anywhere.** One app registration in Entra ID,
+  `github-release-signing` (tenant Machine Saver Inc.), holds the role
+  *Artifact Signing Certificate Profile Signer* on the profile. Each
+  application repository adds a **federated credential** to it (scenario
+  *GitHub Actions deploying Azure resources*, entity *Environment* =
+  `release`). The family's repositories send GitHub's **immutable** subject,
+  so the subject carries the organisation and repository ids:
+  `repo:Machine-Saver-Inc@106830173/<repo>@<repo id>:environment:release`.
+  Read the exact prefix with
+  `gh api repos/Machine-Saver-Inc/<repo>/actions/oidc/customization/sub`
+  (`sub_claim_prefix`); a subject written the old way
+  (`repo:Machine-Saver-Inc/<repo>:...`) never matches and the login fails.
+  The release job runs in the `release` environment, so the subject is the
+  same for every tag. The job proves which repository it is with
+  `id-token: write`, exactly as it does for Google Cloud.
+- **Five repository variables, none secret:** `AZURE_TENANT_ID`,
+  `AZURE_CLIENT_ID`, `SIGNING_ENDPOINT` (the account's regional URI, e.g.
+  `https://eus.codesigning.azure.net/`), `SIGNING_ACCOUNT`, `SIGNING_PROFILE`.
+  The workflow refuses to build without them: an unsigned release is not
+  shipped.
+- **The order is the rule.** `azure/login` (client and tenant id,
+  `allow-no-subscriptions`) → `azure/artifact-signing-action` on the
+  PyInstaller program → `ISCC /DSign /Sartifactsigning=...`, so Inno Setup
+  calls the same signing for the setup program and the uninstaller it writes
+  (`SignTool=artifactsigning` and `SignedUninstaller=yes` inside `#ifdef Sign`
+  in the `.iss`; a build on a desk stays unsigned) → `Get-AuthenticodeSignature`
+  on all of them → `SHA256SUMS`.
+- **A new application** asks for its own federated credential on the app
+  registration and the five variables before its first release. That is the
+  whole of it.
+- **Signed is not the same as trusted on day one.** SmartScreen judges a
+  publisher by how many people have run its files. A signed installer names
+  **Machine Saver Inc** as publisher, but in the first weeks Windows may still
+  show its blue notice for a new release until enough downloads have built
+  the reputation. Install instructions say to check the publisher reads
+  *Machine Saver Inc* before choosing **Run anyway**, and never to run one that
+  says *Unknown publisher*.
 
 ---
 
@@ -1038,8 +1094,9 @@ travelling.
 ## 12. README, screenshots, and how to work on these
 
 **The README describes the current release and shows it.** Download first;
-per-platform install steps including *"Windows protected your PC" → More info →
-Run anyway*; screenshots; a numbered walkthrough; where outputs go; how to report
+per-platform install steps (the installer is signed by Machine Saver Inc; a
+blue SmartScreen notice that names that publisher may still appear while a new
+release earns its reputation, §6); screenshots; a numbered walkthrough; where outputs go; how to report
 a problem; troubleshooting.
 
 **Generate screenshots, do not take them.** `tools/screenshots.py`, offscreen,
@@ -1166,6 +1223,7 @@ the template's `test_house_rules.py`:
 | `ci_workflow_faults` | `ci.yml` calls the family's reusable workflow at a kit tag, or carries bash, Qt offscreen, `MS_REPO_PRIVATE`, the actually-ran step and ruff; and has a monthly `schedule:` so an untouched program is still tested |
 | `release_workflow_faults` | the tag is on `main`, `SHA256SUMS` is written and verified after publishing, `_version.py` is stamped, `SLUG` matches |
 | `installer_script_faults` | the Inno script has its own `AppId`, installs per user, closes the program before replacing it |
+| `signing_faults` | the release signs the program after PyInstaller, has Inno Setup sign the setup program and its uninstaller, proves each with `Get-AuthenticodeSignature`, writes `SHA256SUMS` only after, and reaches Azure through `id-token: write`, never a client secret (since 1.8.0) |
 | `manifest_faults` | `ms-app.json` agrees with the code and the kit pin is a tag, never `main` |
 | `template_drift_faults` | the copied template files carry the kit's current marker |
 | `dependency_faults` | every dependency is on the family's list (`allowed_dependencies.txt`) or justified under `[tool.ms-appkit]` |

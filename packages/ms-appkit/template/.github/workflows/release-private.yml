@@ -15,7 +15,7 @@ on:
 
 permissions:
   contents: read
-  id-token: write        # lets the job prove to Google which repository it is
+  id-token: write        # lets the job prove to Google and Azure which repository it is
 
 env:
   BUCKET: machinesaver-desktop-releases
@@ -25,6 +25,9 @@ jobs:
   build:
     name: Build Windows
     runs-on: windows-latest
+    # Azure trusts this repository's "release" environment to sign (the
+    # federated credential names it); a tag name changes, the environment does not.
+    environment: release
     defaults:
       run:
         shell: bash
@@ -57,6 +60,21 @@ jobs:
             echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
           fi
 
+      # Every Windows build is signed as Machine Saver Inc with Azure Artifact
+      # Signing (skill section 6). Five repository variables, none secret:
+      # Azure trusts GitHub's word for which repository this is.
+      - name: Signing is configured
+        env:
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          SIGNING_ENDPOINT: ${{ vars.SIGNING_ENDPOINT }}
+          SIGNING_ACCOUNT: ${{ vars.SIGNING_ACCOUNT }}
+          SIGNING_PROFILE: ${{ vars.SIGNING_PROFILE }}
+        run: |
+          for name in AZURE_TENANT_ID AZURE_CLIENT_ID SIGNING_ENDPOINT SIGNING_ACCOUNT SIGNING_PROFILE; do
+            [ -n "${!name}" ] || { echo "::error::repository variable $name is not set; an unsigned release is not shipped (skill section 6)"; exit 1; }
+          done
+
       # One source of truth: a build can never disagree with its tag.
       - name: Stamp the version
         run: |
@@ -78,7 +96,36 @@ jobs:
       - name: Build with PyInstaller
         run: pyinstaller --noconfirm --clean packaging/example_app.spec
 
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      # The program itself, before Inno Setup packs it: an installed copy and
+      # every update the program fetches carry the signature too.
+      - name: Sign the program
+        uses: azure/artifact-signing-action@v2
+        with:
+          endpoint: ${{ vars.SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\dist\ExampleTool\ExampleTool.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          exclude-environment-credential: true
+          exclude-workload-identity-credential: true
+          exclude-managed-identity-credential: true
+          exclude-shared-token-cache-credential: true
+          exclude-visual-studio-credential: true
+          exclude-visual-studio-code-credential: true
+          exclude-azure-powershell-credential: true
+          exclude-azure-developer-cli-credential: true
+          exclude-interactive-browser-credential: true
+
       # The key is loaded by name, so only the archive itself can say it is there.
+      # Read after signing: the signed program is the one that ships.
       - name: The frozen build carries its sign-in key
         run: python -m ms_appkit.frozen_check dist/ExampleTool/ExampleTool.exe example_app._client_secret
 
@@ -86,16 +133,51 @@ jobs:
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
-      - name: Build the Windows installer
+      # Inno Setup calls sign.ps1 for the setup program and for the uninstaller
+      # it writes inside it, with the module the signing step above installed.
+      - name: Build the Windows installer, signed with its uninstaller
         shell: pwsh
+        env:
+          SIGNING_ENDPOINT: ${{ vars.SIGNING_ENDPOINT }}
+          SIGNING_ACCOUNT: ${{ vars.SIGNING_ACCOUNT }}
+          SIGNING_PROFILE: ${{ vars.SIGNING_PROFILE }}
         run: |
+          $sign = Join-Path $env:RUNNER_TEMP 'sign.ps1'
+          @'
+          param([string]$File)
+          $ErrorActionPreference = 'Stop'
+          Import-Module ArtifactSigning
+          $params = @{
+            Endpoint = $env:SIGNING_ENDPOINT; CodeSigningAccountName = $env:SIGNING_ACCOUNT
+            CertificateProfileName = $env:SIGNING_PROFILE; Files = $File; FileDigest = 'SHA256'
+            TimestampRfc3161 = 'http://timestamp.acs.microsoft.com'; TimestampDigest = 'SHA256'
+            ExcludeEnvironmentCredential = $true; ExcludeWorkloadIdentityCredential = $true
+            ExcludeManagedIdentityCredential = $true; ExcludeSharedTokenCacheCredential = $true
+            ExcludeVisualStudioCredential = $true; ExcludeVisualStudioCodeCredential = $true
+            ExcludeAzurePowerShellCredential = $true; ExcludeAzureDeveloperCliCredential = $true
+            ExcludeInteractiveBrowserCredential = $true
+          }
+          Invoke-ArtifactSigning @params
+          '@ | Set-Content -Encoding utf8 $sign
           $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
           if (-not (Test-Path $iscc)) { throw "ISCC.exe not found at $iscc" }
           $out = Join-Path $PWD 'out'
           New-Item -ItemType Directory -Force $out | Out-Null
-          & $iscc "/DAppVersion=$env:VERSION" "/O$out" 'packaging\windows\example_app.iss'
+          & $iscc "/DAppVersion=$env:VERSION" "/DSign" "/Sartifactsigning=pwsh -NoProfile -ExecutionPolicy Bypass -File $sign `$f" "/O$out" 'packaging\windows\example_app.iss'
           if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
           Get-ChildItem $out -Filter *.exe | ForEach-Object { Write-Host $_.Name }
+
+      # Windows' own check, on what ships, before anything is checksummed.
+      - name: Windows says every program is signed by Machine Saver
+        shell: pwsh
+        run: |
+          $files = @(Get-Item 'dist\ExampleTool\ExampleTool.exe') + @(Get-ChildItem out -Filter *.exe)
+          foreach ($file in $files) {
+            $sig = Get-AuthenticodeSignature $file.FullName
+            Write-Host "$($file.Name): $($sig.Status) by $($sig.SignerCertificate.Subject)"
+            if ($sig.Status -ne 'Valid') { throw "$($file.Name) is not validly signed: $($sig.StatusMessage)" }
+            if ($sig.SignerCertificate.Subject -notmatch 'CN="?Machine Saver') { throw "$($file.Name) is signed by someone else" }
+          }
 
       - name: Checksum and release notes
         run: |

@@ -4,7 +4,7 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
-## 2026-10-23 (evening) - A phone app checks for updates by itself and installs one
+## 2026-10-26 - A phone app checks for updates by itself and installs one
 
 ### ms-mobilekit 1.3.0 / ms-mobile-app 1.3.0
 
@@ -28,6 +28,74 @@ sign-in. Skill §4 carries the decision and the Android signing rule (one key,
 release after release, in the repository secrets; without it the feed carries
 no install link and the app says so). `checkUpdateFeed` enforces the shell
 side and the release side; template v3.
+## 2026-10-26 - Every Windows program is signed as Machine Saver Inc
+
+### ms-appkit 1.8.0 / ms-desktop-app 2.8.0
+
+Until now every installer was unsigned, so Windows greeted each download with
+"Windows protected your PC — Unknown publisher", and the program's own
+updater ran that same unsigned file without asking. From this version the
+program, its installer and its uninstaller are signed as Machine Saver Inc
+through Azure Artifact Signing (formerly Trusted Signing). Windows names
+Machine Saver Inc as the publisher. For the first weeks after a release it may
+still show its blue notice until enough people have installed it; the install
+steps now say to check that the publisher is Machine Saver Inc, and never to
+run a copy that says Unknown publisher.
+
+- The template's `release.yml` and `release-private.yml` run in the `release`
+  environment, sign in to Azure with GitHub's OIDC proof (`azure/login`,
+  client and tenant id only, no secret), sign the PyInstaller program with
+  `azure/artifact-signing-action@v2`, and have Inno Setup sign the setup
+  program and the uninstaller it writes (`ISCC /DSign /Sartifactsigning=...`;
+  `SignTool=artifactsigning` and `SignedUninstaller=yes` inside `#ifdef Sign`
+  in the `.iss`). `Get-AuthenticodeSignature` must report each one `Valid`
+  and Machine Saver's before `SHA256SUMS` is written. A release with any of
+  the five repository variables missing (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`,
+  `SIGNING_ENDPOINT`, `SIGNING_ACCOUNT`, `SIGNING_PROFILE`) stops instead of
+  shipping unsigned.
+- `housekeeping.signing_faults` holds the rule, and the template's
+  `test_house_rules.py` runs it (template v4). Proved red against the
+  unsigned 1.7.0 template, then green.
+- In `release-private.yml`, `frozen_check` now runs after signing, so it
+  reads the program that ships.
+- Skill §6 gains *Signing*: the one-time Azure set-up, the per-application
+  federated credential (GitHub's immutable subject,
+  `repo:Machine-Saver-Inc@<org id>/<repo>@<repo id>:environment:release`)
+  and what SmartScreen reputation does and does not promise. §12 and the
+  template's README and release notes no longer describe the warning as
+  expected.
+## 2026-10-26 - A toolkit release that crashed on close
+
+### ms-appkit 1.7.1
+
+Nothing changes on screen. PySide6 6.12.0, the toolkit every program's
+window is drawn with, lost a reference to None on every button click under
+Python 3.10 and 3.11; after enough clicks a program aborted as it closed. No
+installed program was affected, because builds use Python 3.12, but anyone
+running one from source on 3.10 or 3.11 could see it, and the Power
+Profiler's tests did. The kit now refuses that release.
+
+- `PySide6-Essentials>=6.6,!=6.12.0`. Reproduced in a python:3.10 container:
+  -1.0 references to None per click on 6.12.0, none on 6.11.3, 6.11.1,
+  6.11.0 or 6.10.2.
+- `test_a_click_does_not_drain_none` clicks a kit button 500 times and fails
+  if None is drained, so the next such release is caught by a check rather
+  than by a crash at exit. Seen red on 6.12.0 and green on 6.11.3.
+
+## 2026-10-23 (late night) - Past results open in the program
+
+### ms-desktop-app 2.7.2
+
+Nothing changes in a kit. The button register said **Open past results**
+opens the results folder; the first program to be asked for more (the Power
+Profiler, report 17) showed that people expect it to open the tests in the
+program, with their trace. The register now says so, and the folder keeps a
+button of its own.
+
+- **Open past results**: show the tests this program has recorded, in the
+  program, to open one. Mark `folder`, secondary.
+- **Open the results folder**: new; open the folder the results are kept in,
+  in the file manager. Mark `folder`, secondary.
 
 ## 2026-10-23 (late) - A new program is private by default
 

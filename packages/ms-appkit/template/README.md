@@ -27,8 +27,10 @@ One or two sentences for the person who will use it, in their words.
 
 1. Download `ExampleTool-Setup-<version>.exe` from the newest release and
    double-click it.
-2. Windows will say **"Windows protected your PC"**. Click **More info**, then
-   **Run anyway**: the installer is not code-signed yet.
+2. The installer is signed by **Machine Saver Inc**. If Windows shows a blue
+   **"Windows protected your PC"** notice for a new release, click **More
+   info**, check that *Publisher* says **Machine Saver Inc**, then **Run
+   anyway**. Never run one that says *Unknown publisher*.
 3. Click through the installer. No administrator rights are needed.
 
 Once installed, the program offers each new version itself: **Check for

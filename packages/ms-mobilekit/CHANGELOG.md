@@ -1,6 +1,6 @@
 # Changelog — ms-mobilekit
 
-## [1.3.0] — 2026-10-23
+## [1.3.0] — 2026-10-26
 
 The app now looks for a newer version by itself: when it opens, whenever you
 come back to it, and when the connection returns, at most once an hour and
