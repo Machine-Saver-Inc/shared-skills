@@ -1289,3 +1289,36 @@ def test_the_frozen_program_restarts_itself_by_default(tmp_path, monkeypatch):
     installer.write_bytes(b"x")
     module.apply_update(installer, launcher=lambda c, **o: launched.append(c))
     assert f"Start-Process -FilePath '{tmp_path / 'App' / 'App.exe'}'" in launched[0][-1]
+
+
+# --- the toolkit underneath --------------------------------------------------------
+
+
+def test_a_click_does_not_drain_none(qt):
+    """PySide6 6.12.0 lost a reference to None each time a button's clicked
+    signal reached a Python slot, and every button the kit makes has one (the
+    trail). Under Python 3.10 and 3.11, where None can still be freed, a
+    session with enough clicks aborted at exit with "free(): invalid pointer"
+    after doing everything right; the Power Profiler's CI was the first to
+    click that many. From 3.12 None is immortal and the count means nothing,
+    so the guard only runs where it can see the fault.
+    """
+    import sys
+
+    if sys.version_info >= (3, 12):
+        pytest.skip("None is immortal from Python 3.12; the drain cannot be seen")
+    from ms_appkit.widgets import button
+
+    made = button("Continue", "forward")
+    made.clicked.connect(lambda *_: None)
+    for _ in range(20):                       # warm whatever caches the first clicks fill
+        made.click()
+    before = sys.getrefcount(None)
+    for _ in range(500):
+        made.click()
+    drained = before - sys.getrefcount(None)
+    assert drained < 50, (
+        f"500 clicks took {drained} references to None with them; this PySide6 "
+        "drains None on every click and a long session will abort at exit. "
+        "Exclude the version in packages/ms-appkit/pyproject.toml."
+    )
