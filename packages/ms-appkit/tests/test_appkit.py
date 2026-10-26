@@ -1300,13 +1300,13 @@ def test_a_click_does_not_drain_none(qt):
     trail). Under Python 3.10 and 3.11, where None can still be freed, a
     session with enough clicks aborted at exit with "free(): invalid pointer"
     after doing everything right; the Power Profiler's CI was the first to
-    click that many. From 3.12 None is immortal and the count means nothing,
-    so the guard only runs where it can see the fault.
+    click that many. From 3.12 None is immortal: its count never moves and
+    the guard passes there by construction. It is not skipped, because the
+    family's CI refuses any skipped interface test (a skip is how a runner
+    without Qt once passed unnoticed).
     """
     import sys
 
-    if sys.version_info >= (3, 12):
-        pytest.skip("None is immortal from Python 3.12; the drain cannot be seen")
     from ms_appkit.widgets import button
 
     made = button("Continue", "forward")
