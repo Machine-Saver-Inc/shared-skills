@@ -35,7 +35,8 @@ run a copy that says Unknown publisher.
 - In `release-private.yml`, `frozen_check` now runs after signing, so it
   reads the program that ships.
 - Skill §6 gains *Signing*: the one-time Azure set-up, the per-application
-  federated credential (`repo:Machine-Saver-Inc/<repo>:environment:release`)
+  federated credential (GitHub's immutable subject,
+  `repo:Machine-Saver-Inc@<org id>/<repo>@<repo id>:environment:release`)
   and what SmartScreen reputation does and does not promise. §12 and the
   template's README and release notes no longer describe the warning as
   expected.

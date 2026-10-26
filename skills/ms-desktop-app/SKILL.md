@@ -891,11 +891,19 @@ workflow or Inno script that does not.
   family**, owned by Machine Saver's Azure subscription. Microsoft validated
   the organisation once; certificates are issued in its name and renewed by
   Microsoft every few days, so there is no certificate file to keep or expire.
-- **No secret anywhere.** One app registration in Entra ID holds the role
+- **No secret anywhere.** One app registration in Entra ID,
+  `github-release-signing` (tenant Machine Saver Inc.), holds the role
   *Artifact Signing Certificate Profile Signer* on the profile. Each
-  application repository adds a **federated credential** to it, subject
-  `repo:Machine-Saver-Inc/<repo>:environment:release`; the release job runs in
-  the `release` environment (`environment: release`), so the subject is the
+  application repository adds a **federated credential** to it (scenario
+  *GitHub Actions deploying Azure resources*, entity *Environment* =
+  `release`). The family's repositories send GitHub's **immutable** subject,
+  so the subject carries the organisation and repository ids:
+  `repo:Machine-Saver-Inc@106830173/<repo>@<repo id>:environment:release`.
+  Read the exact prefix with
+  `gh api repos/Machine-Saver-Inc/<repo>/actions/oidc/customization/sub`
+  (`sub_claim_prefix`); a subject written the old way
+  (`repo:Machine-Saver-Inc/<repo>:...`) never matches and the login fails.
+  The release job runs in the `release` environment, so the subject is the
   same for every tag. The job proves which repository it is with
   `id-token: write`, exactly as it does for Google Cloud.
 - **Five repository variables, none secret:** `AZURE_TENANT_ID`,
