@@ -16,8 +16,11 @@ dependency are bundled.
 
 1. Download `ExampleTool-Setup-<version>.exe`.
 2. Double-click it.
-3. Windows will say **"Windows protected your PC"**. That is expected: the
-   installer is not code-signed yet. Click **More info**, then **Run anyway**.
+3. The installer is signed by **Machine Saver Inc**. If Windows shows a blue
+   **"Windows protected your PC"** notice (it can, for a new release, until
+   enough people have installed it), click **More info** and check that
+   *Publisher* says **Machine Saver Inc**, then **Run anyway**. If it says
+   *Unknown publisher*, do not run it; use **Report a problem** instead.
 4. Click through the installer. It needs **no administrator rights**. Leave
    *Create a desktop shortcut* ticked.
 5. Launch **Example Tool** from the desktop icon and sign in with

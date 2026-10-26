@@ -4,6 +4,42 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-10-26 - Every Windows program is signed as Machine Saver Inc
+
+### ms-appkit 1.8.0 / ms-desktop-app 2.8.0
+
+Until now every installer was unsigned, so Windows greeted each download with
+"Windows protected your PC — Unknown publisher", and the program's own
+updater ran that same unsigned file without asking. From this version the
+program, its installer and its uninstaller are signed as Machine Saver Inc
+through Azure Artifact Signing (formerly Trusted Signing). Windows names
+Machine Saver Inc as the publisher. For the first weeks after a release it may
+still show its blue notice until enough people have installed it; the install
+steps now say to check that the publisher is Machine Saver Inc, and never to
+run a copy that says Unknown publisher.
+
+- The template's `release.yml` and `release-private.yml` run in the `release`
+  environment, sign in to Azure with GitHub's OIDC proof (`azure/login`,
+  client and tenant id only, no secret), sign the PyInstaller program with
+  `azure/artifact-signing-action@v2`, and have Inno Setup sign the setup
+  program and the uninstaller it writes (`ISCC /DSign /Sartifactsigning=...`;
+  `SignTool=artifactsigning` and `SignedUninstaller=yes` inside `#ifdef Sign`
+  in the `.iss`). `Get-AuthenticodeSignature` must report each one `Valid`
+  and Machine Saver's before `SHA256SUMS` is written. A release with any of
+  the five repository variables missing (`AZURE_TENANT_ID`, `AZURE_CLIENT_ID`,
+  `SIGNING_ENDPOINT`, `SIGNING_ACCOUNT`, `SIGNING_PROFILE`) stops instead of
+  shipping unsigned.
+- `housekeeping.signing_faults` holds the rule, and the template's
+  `test_house_rules.py` runs it (template v4). Proved red against the
+  unsigned 1.7.0 template, then green.
+- In `release-private.yml`, `frozen_check` now runs after signing, so it
+  reads the program that ships.
+- Skill §6 gains *Signing*: the one-time Azure set-up, the per-application
+  federated credential (GitHub's immutable subject,
+  `repo:Machine-Saver-Inc@<org id>/<repo>@<repo id>:environment:release`)
+  and what SmartScreen reputation does and does not promise. §12 and the
+  template's README and release notes no longer describe the warning as
+  expected.
 ## 2026-10-26 - A toolkit release that crashed on close
 
 ### ms-appkit 1.7.1

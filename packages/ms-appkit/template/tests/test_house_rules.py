@@ -1,4 +1,4 @@
-# ms-appkit template v3
+# ms-appkit template v4
 """The house rules, run against this application.
 
 Copy this file into a new Machine Saver application unchanged except for the
@@ -123,6 +123,10 @@ def test_the_manifest_says_what_this_is_and_pins_a_kit_tag(identity):
 
 def test_the_installer_is_this_program_s_own_and_installs_per_user(identity):
     assert not house.installer_script_faults(ROOT, identity.slug)
+
+
+def test_every_windows_build_is_signed_as_machine_saver():
+    assert not house.signing_faults(ROOT)
 
 
 def test_the_frozen_build_will_carry_what_the_program_loads_by_name(identity):

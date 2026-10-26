@@ -125,6 +125,49 @@ def test_the_release_check_wants_main_the_tag_and_a_verified_upload(app):
     assert house.release_workflow_faults(app) == [".github/workflows/release.yml is missing"]
 
 
+def test_the_signing_check_passes_the_template(app):
+    assert not house.signing_faults(app)
+    (app / ".github" / "workflows" / "release.yml").unlink()
+    assert not house.signing_faults(app), "a private program keeps only release-private.yml"
+
+
+@pytest.mark.parametrize("name", ["release.yml", "release-private.yml"])
+def test_the_signing_check_wants_every_build_signed_before_its_checksum(app, name):
+    release = app / ".github" / "workflows" / name
+    text = release.read_text(encoding="utf-8")
+    release.write_text(text.replace("azure/artifact-signing-action@", "example/nothing@"),
+                       encoding="utf-8")
+    assert any("does not sign the program" in f for f in house.signing_faults(app))
+    release.write_text(text.replace("id-token: write", "id-token: none"), encoding="utf-8")
+    assert any("id-token" in f for f in house.signing_faults(app))
+    release.write_text(text.replace("allow-no-subscriptions: true",
+                                    "allow-no-subscriptions: true\n          "
+                                    "azure-client-secret: ${{ secrets.AZURE_CLIENT_SECRET }}"),
+                       encoding="utf-8")
+    assert any("client secret" in f for f in house.signing_faults(app))
+    release.write_text(text.replace('"/DSign" ', ""), encoding="utf-8")
+    assert any("uninstaller" in f for f in house.signing_faults(app))
+    release.write_text(text.replace("Get-AuthenticodeSignature", "Write-Host"), encoding="utf-8")
+    assert any("Get-AuthenticodeSignature" in f for f in house.signing_faults(app))
+    # The checksums moved above the signing: they would describe unsigned files.
+    lines = text.splitlines(keepends=True)
+    start = next(i for i, line in enumerate(lines) if "name: Checksum and release notes" in line)
+    end = next(i for i in range(start + 1, len(lines)) if lines[i].lstrip().startswith("- "))
+    block = lines[start:end]
+    rest = lines[:start] + lines[end:]
+    build = next(i for i, line in enumerate(rest) if "name: Build with PyInstaller" in line)
+    release.write_text("".join(rest[:build] + block + rest[build:]), encoding="utf-8")
+    assert any("SHA256SUMS before" in f for f in house.signing_faults(app))
+
+
+def test_the_signing_check_wants_the_installer_and_uninstaller_signed(app):
+    iss = app / "packaging" / "windows" / "example_app.iss"
+    edit(iss, "SignedUninstaller=yes", "SignedUninstaller=no")
+    assert any("SignedUninstaller" in f for f in house.signing_faults(app))
+    edit(iss, "SignTool=artifactsigning", "; no signing")
+    assert any("SignTool" in f for f in house.signing_faults(app))
+
+
 def test_the_dependency_check_reads_environment_markers(app):
     """Espec Burn-In's markers were read as dependencies called ", " and "3.12"."""
     edit(app / "pyproject.toml", "dependencies = [",

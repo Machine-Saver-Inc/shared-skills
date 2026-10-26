@@ -26,6 +26,12 @@ UninstallDisplayIcon={app}\{#AppExe}
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
 CloseApplications=yes
+#ifdef Sign
+; The release signs the setup program and the uninstaller it writes as Machine
+; Saver Inc (ISCC /DSign /Sartifactsigning=...). A build on a desk is unsigned.
+SignTool=artifactsigning
+SignedUninstaller=yes
+#endif
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"
