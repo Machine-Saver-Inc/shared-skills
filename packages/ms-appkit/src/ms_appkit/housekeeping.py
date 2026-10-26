@@ -644,7 +644,7 @@ def private_config_faults(info) -> list[str]:
 #: The version of the files an application copies from template/. An
 #: application whose copies carry an older number is behind the kit; the
 #: family sweep refreshes them (template_drift_faults).
-TEMPLATE_VERSION = 3
+TEMPLATE_VERSION = 4
 TEMPLATE_MARKER = re.compile(r"ms-appkit template v(\d+)")
 TEMPLATE_SLUG = "example-tool"           # the template is allowed its own placeholders
 #: The files template/ ships with a marker line, relative to the app root.
@@ -764,6 +764,65 @@ def release_workflow_faults(root: Path, slug: str = "") -> list[str]:
         said = re.findall(r"^\s*SLUG:\s*([\w.-]+)", text, re.M)
         if said and any(s != slug for s in said):
             faults.append(f"release.yml says SLUG: {said[0]} but the program's SLUG is {slug}")
+    return faults
+
+
+#: Microsoft's action for Azure Artifact Signing (called Trusted Signing until
+#: 2026; the old name still works and is accepted).
+SIGNING_ACTIONS = ("azure/artifact-signing-action@", "azure/trusted-signing-action@")
+
+
+def signing_faults(root: Path) -> list[str]:
+    """Every Windows build is signed as Machine Saver Inc (section 6).
+
+    An unsigned download shows "Windows protected your PC / Unknown publisher",
+    and the in-app updater runs the same file silently. So the release signs
+    the program before Inno Setup packs it, has Inno Setup sign the setup
+    program and the uninstaller it writes, proves each signature with
+    Windows' own check, and only then writes SHA256SUMS: a checksum taken
+    before signing describes a file nobody downloads. Azure is reached through
+    GitHub's proof of which repository this is, never a stored secret.
+    """
+    folder = Path(root) / ".github" / "workflows"
+    releases = {name: text for name in ("release.yml", "release-private.yml")
+                if (text := _read(folder / name)) is not None}
+    if not releases:
+        return []                           # release_workflow_faults says it is missing
+    faults = []
+    for name, text in releases.items():
+        signs = [text.find(action) for action in SIGNING_ACTIONS if action in text]
+        if not signs:
+            faults.append(f"{name} does not sign the program (azure/artifact-signing-action "
+                          "after PyInstaller)")
+        elif "pyinstaller" in text.lower() and min(signs) < text.lower().find("pyinstaller "):
+            faults.append(f"{name} signs before PyInstaller has built the program")
+        if not re.search(r"^\s*id-token:\s*write", text, re.M):
+            faults.append(f"{name} has no 'id-token: write' permission, so it cannot prove "
+                          "to Azure which repository it is")
+        if re.search(r"azure-client-secret|AZURE_CLIENT_SECRET", text):
+            faults.append(f"{name} signs with a client secret; use the federated credential "
+                          "(azure/login with client-id and tenant-id only)")
+        if "/DSign" not in text or "/Sartifactsigning=" not in text:
+            faults.append(f"{name} does not have Inno Setup sign the setup program and its "
+                          "uninstaller (ISCC /DSign /Sartifactsigning=...)")
+        verified = text.find("Get-AuthenticodeSignature")
+        if verified < 0:
+            faults.append(f"{name} never asks Windows whether what it built is signed "
+                          "(Get-AuthenticodeSignature)")
+        checksum = text.find("sha256sum")
+        if checksum >= 0 and (verified < 0 or checksum < verified
+                              or any(at > checksum for at in signs)):
+            faults.append(f"{name} writes SHA256SUMS before every file is signed and "
+                          "verified, so the checksums describe unsigned files")
+    scripts = sorted((Path(root) / "packaging" / "windows").glob("*.iss"))
+    if scripts:
+        iss = scripts[0].read_text(encoding="utf-8")
+        if not re.search(r"^\s*SignTool=artifactsigning", iss, re.M):
+            faults.append("the installer script names no SignTool=artifactsigning, so the "
+                          "setup program is not signed")
+        if not re.search(r"^\s*SignedUninstaller=yes", iss, re.M):
+            faults.append("the installer script does not sign its uninstaller "
+                          "(SignedUninstaller=yes)")
     return faults
 
 

@@ -51,6 +51,7 @@ def test_the_template_passes_the_family_s_checks(template_info):
     assert not house.release_workflow_faults(TEMPLATE, info.slug)
     assert not house.manifest_faults(TEMPLATE, info)
     assert not house.installer_script_faults(TEMPLATE, info.slug)
+    assert not house.signing_faults(TEMPLATE)
     assert not house.bare_urlopen_faults(package)
     assert not house.update_path_faults(package)
     assert not house.readme_faults(TEMPLATE)
