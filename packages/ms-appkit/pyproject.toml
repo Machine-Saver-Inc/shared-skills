@@ -11,7 +11,10 @@ requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Machine Saver Inc" }]
 dependencies = [
-    "PySide6-Essentials>=6.6",
+    # Not 6.12.0: under Python 3.10 and 3.11 every button click loses a
+    # reference to None, and a long session aborts when it closes
+    # (test_a_click_does_not_drain_none).
+    "PySide6-Essentials>=6.6,!=6.12.0",
     "certifi>=2024.2.2",
 ]
 
