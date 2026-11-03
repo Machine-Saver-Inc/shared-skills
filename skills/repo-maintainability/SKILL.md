@@ -5,7 +5,7 @@ description: "Fit a Machine Saver repository — existing or brand new — with 
 
 # Repo maintainability
 
-**Skill version 0.2.1.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
+**Skill version 0.2.2.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
 First run: `Machine-Saver-Inc/platform`, November 2026.
 
 For any Machine Saver repository that agents develop in, whether it exists
@@ -96,7 +96,7 @@ check is the rule.
 | | Rule | Enforced by |
 | --- | --- | --- |
 | R1 | **Issues are the ledger.** No hand-written tracker, ledger, status page, TODO or progress log is committed. Blockers, next actions, decisions and deferrals are issues with the matching label. | `check_ledgers.py` (PR tier, fails on an added file); `assets/issue-templates/`, `assets/labels.json` |
-| R2 | **Every PR names its issue or ADR** (`Closes #N`, `Refs #N`, `ADR NNNN`). The `no-issue` label is the typo-level escape, like `no-adr`. | `check_pr_links.py` (PR tier) |
+| R2 | **Every PR names its issue or ADR** (`Closes #N`, `Refs #N`, `ADR NNNN`). The `no-issue` label is the typo-level escape, like `no-adr`. Bots and the release PR are exempt. | `check_pr_links.py` (PR tier) |
 | R3 | **Every issue and PR is on the organisation board** from the moment it opens. One board, the fields `Status`, `Area`, `Horizon`. | `assets/workflows/project-sync.yml` |
 | R4 | **Status is generated.** `STATUS.md` is rendered from the board on every push to `main`, carries a `generated-by:` first line, and is never edited. No timestamp: the commit is the timestamp. | `render_status.py` in `maintainability-main.yml` |
 | R5 | **Evidence is an issue comment** with the CI run or artefact link, on the issue it proves, at the time it was observed. A closed issue is the only "done". | `assets/review-roles/records-and-comments.md` |
@@ -107,6 +107,12 @@ Why not ban comments outright: the *why* then moves to commit messages and
 ADRs, which an agent reading the function never sees, and it re-derives the
 constraint, sometimes wrongly. ERA001 and the role rule remove the comments
 that are slop; the ones left are the ones that stop slop.
+
+If the repo uses release-please, run it with its own fine-grained token
+(Contents and Pull requests write) rather than `GITHUB_TOKEN`: a PR opened
+by `GITHUB_TOKEN` never triggers workflows, so the release PR arrives with
+no checks and needs an admin merge past every gate. With a token it is an
+ordinary PR; the PR-links step exempts it by branch prefix.
 
 Two one-time settings per repo, because `GITHUB_TOKEN` cannot touch an
 organisation board: `vars.PROJECT_NUMBER` and `secrets.PROJECT_TOKEN` (a

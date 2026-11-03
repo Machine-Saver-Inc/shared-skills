@@ -57,9 +57,11 @@ jobs:
         run: python scripts/ci/check_ledgers.py --base origin/${{ github.base_ref }}
 
       # 4. The PR names the issue or ADR it serves (rule R2). Bots (Renovate,
-      #    release-please, the burn-down) serve no issue by design.
+      #    the burn-down) serve no issue by design. So does the release PR,
+      #    which a token-authored release-please opens as a human; it is
+      #    exempted by its fixed branch prefix.
       - name: PR names its issue
-        if: ${{ github.event.pull_request.user.type != 'Bot' && !contains(github.event.pull_request.labels.*.name, 'no-issue') }}
+        if: ${{ github.event.pull_request.user.type != 'Bot' && !startsWith(github.head_ref, 'release-please--') && !contains(github.event.pull_request.labels.*.name, 'no-issue') }}
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
