@@ -4,6 +4,17 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-03 (night) - The archive PR's lessons
+
+### repo-maintainability 0.2.1
+
+- **Decisions and archives are records, not consumers.** The reference
+  check skips `docs/adr/` and `docs/archive/`: an ADR that says a script
+  was removed, and an archived page that once called it, must keep naming
+  the old path. Test went red first; 18 guard tests.
+- **Commit before proving a gate** (§4): a staged deletion is invisible to a
+  `base..HEAD` diff, and the proof passes for the wrong reason.
+
 ## 2026-11-03 (evening) - Project state moves to issues
 
 ### repo-maintainability 0.2.0

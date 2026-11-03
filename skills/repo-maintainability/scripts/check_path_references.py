@@ -33,6 +33,9 @@ from pathlib import Path
 DEFAULT_WATCH = ("scripts",)
 SKIP_DIRS = {".git", "node_modules", "__pycache__", ".venv", "dist", "build",
              ".maintainability"}   # baselines are records of findings, not consumers
+# Records, not consumers: a decision or an archive names a path as it was,
+# and must keep doing so after the move. Runbooks are consumers and stay in.
+RECORD_PATHS = ("docs/adr/", "docs/archive/")
 BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".zip",
                    ".gz", ".tar", ".whl", ".pyc", ".so", ".exe", ".dll"}
 MIN_BASENAME_LEN = 8          # shorter basenames match everywhere
@@ -101,6 +104,8 @@ def find_references(root: Path, targets: list[str]) -> list[tuple[str, int, str]
     compiled = {t: patterns_for(t) for t in targets}
     for f in repo_files(root):
         rel = f.relative_to(root).as_posix()
+        if rel.startswith(RECORD_PATHS):
+            continue
         try:
             text = f.read_text(encoding="utf-8", errors="ignore")
         except OSError:

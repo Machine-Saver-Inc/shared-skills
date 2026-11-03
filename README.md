@@ -27,7 +27,7 @@ in one place, so that a lesson learned in one of them lands in all of them.
 | [`packages/ms-appkit/`](packages/ms-appkit/) | The Python package that *is* the shared shell. Currently **1.8.0**. |
 | [`skills/ms-mobile-app/`](skills/ms-mobile-app/) | The skill an agent reads before scaffolding or changing a Machine Saver iPhone/Android app. Currently **1.3.0**. |
 | [`packages/ms-mobilekit/`](packages/ms-mobilekit/) | The JavaScript package that *is* the shared mobile shell. Currently **1.3.0**. |
-| [`skills/repo-maintainability/`](skills/repo-maintainability/) | The skill an agent reads before fitting an existing repo with self-updating maintainability gates, project state in issues and a burn-down. Currently **0.2.0**. |
+| [`skills/repo-maintainability/`](skills/repo-maintainability/) | The skill an agent reads before fitting an existing repo with self-updating maintainability gates, project state in issues and a burn-down. Currently **0.2.1**. |
 
 ## Why this exists
 

@@ -169,3 +169,23 @@ Consequences next time.
 bash heredoc turned `\b` into a backspace and silently skipped three edits,
 and the commit went out with a failing test. Edit files with a tool that
 shows the diff, and never commit on a suite that is not fully green.
+
+## 2026-11-03 — platform, archive PR (PR 3), skill 0.2.1
+
+**Found:** the local proof of the archive PR passed for the wrong reason.
+The scripts were `git rm`'d but not committed, and every gate diffs
+`base..HEAD`, so the reference check saw nothing moved. CI then found four
+dangling references. Became a sentence in §4 step 1: commit before proving.
+
+**Found:** two of the four were the ADR that says the scripts are removed
+and the archived tracker that once called them. A decision and an archive
+name a path as it was, and must keep doing so; they are records, like
+baselines, not consumers. `docs/adr/` and `docs/archive/` are now skipped
+(`test_reference_check_ignores_decisions_and_archives`). Runbooks stay in:
+a person follows them.
+
+**Found:** platform's review shard contract refuses a per-file diff over
+300 KB, and the archived tracker's rename was 608 KB. A file that size can
+never be reviewed, moved or deleted under the normal gate; archiving it is
+necessarily an owner-bypass PR. One more reason a ledger file must never
+exist: the day it needs to go, the review gate cannot watch it go.
