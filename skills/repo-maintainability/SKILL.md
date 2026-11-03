@@ -5,7 +5,7 @@ description: "Fit a Machine Saver repository — existing or brand new — with 
 
 # Repo maintainability
 
-**Skill version 0.2.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
+**Skill version 0.2.1.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
 First run: `Machine-Saver-Inc/platform`, November 2026.
 
 For any Machine Saver repository that agents develop in, whether it exists
@@ -159,7 +159,9 @@ reviewability) wants small workflow changes. Order:
    into the repo's `scripts/ci/` (never leave them at the top level of the
    directory you are gating). Write `.maintainability/layout.json` with the
    families you found in §0. Run `check_layout.py --baseline` once; commit
-   the tolerated list.
+   the tolerated list. **Commit before proving a gate**: every gate diffs
+   `base..HEAD`, so a staged move or deletion is invisible to it and the
+   proof passes for the wrong reason.
 1b. **Records ADR + records gate + board sync.** Where the repo has a
    hand ledger: the ADR from §2, the `AGENTS.md` rule replaced, the
    `Records` and `PR names its issue` steps, `project-sync.yml`, the issue

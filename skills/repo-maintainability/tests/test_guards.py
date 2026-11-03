@@ -227,3 +227,18 @@ def test_status_render_accepts_a_bare_list(tmp_path: Path) -> None:
               stdin=json.dumps([{"status": "Todo", "content": {"number": 1, "title": "x"}}]))
     assert out.returncode == 0, out.stderr
     assert "## Todo (1)" in out.stdout
+
+
+def test_reference_check_ignores_decisions_and_archives(repo: Path) -> None:
+    (repo / "docs/adr").mkdir(parents=True)
+    (repo / "docs/adr/0001-seed.md").write_text("We keep scripts/airvibe_gateway_seed.py.\n")
+    (repo / "docs/archive").mkdir(parents=True)
+    (repo / "docs/archive/old-tracker.html").write_text("ran airvibe_gateway_seed.py\n")
+    git("add", "-A", cwd=repo)
+    git("commit", "-qm", "records", cwd=repo)
+    move_seed(repo)
+    git("commit", "-qam", "move", cwd=repo)
+    out = run(str(SCRIPTS / "check_path_references.py"), "--base", "main", cwd=repo)
+    assert out.returncode == 1
+    assert "docs/adr/" not in out.stdout and "docs/archive/" not in out.stdout
+    assert "Makefile:2" in out.stdout
