@@ -199,3 +199,12 @@ def test_status_render_is_marked_generated_and_grouped(tmp_path: Path) -> None:
     assert out.stdout.splitlines()[0].startswith("<!-- generated-by:")
     assert out.stdout.index("## In Progress (1)") < out.stdout.index("## Todo (1)")
     assert "[#7 Seed gateways](https://x/7) · platform · Platform · Next · `blocker`" in out.stdout
+
+
+def test_ledger_check_ignores_code_named_after_ledgers(repo: Path) -> None:
+    (repo / "scripts/airvibe/ledger_sync.py").write_text("print('not a ledger')\n")
+    (repo / "scripts/airvibe/check_tracker.sh").write_text("echo ok\n")
+    git("add", "-A", cwd=repo)
+    git("commit", "-qm", "code", cwd=repo)
+    out = run(str(SCRIPTS / "check_ledgers.py"), "--base", "main", cwd=repo)
+    assert out.returncode == 0, out.stdout

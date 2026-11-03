@@ -136,3 +136,11 @@ never the slop; 381 flat files, 55 `_candidate` files and 37/82 attended
 `.ps1`/`.sh` pairs were. The owner's instinct to ban comments was aimed at
 the right feeling and the wrong target; R6 keeps the aim and moves the
 target.
+
+**Found while proving the records gate on platform:** `check_ledgers.py`
+flagged `scripts/ci/check_ledgers.py`, its own file, because the name
+matches `*ledger*`. Second time a guard has caught its own files (0.1.0: the
+reference check and its tolerated list). A ledger is a document, so the
+check now examines document extensions only
+(`test_ledger_check_ignores_code_named_after_ledgers`). Standing rule: the
+first thing to run a new guard against is the PR that adds it.

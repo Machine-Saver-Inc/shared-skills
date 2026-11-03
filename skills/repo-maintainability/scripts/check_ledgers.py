@@ -11,8 +11,12 @@ Policy: `.maintainability/records.json` (optional; these are the defaults)
   "forbid": ["*tracker*", "*ledger*", "STATUS.md", "PROGRESS.md", "TODO.md",
              "NOTES.md", "*-log.md", "*changelog*.html"],
   "allow": ["docs/archive/*"],
+  "extensions": [".md", ".html", ".htm", ".txt", ".csv", ".tsv", ".rst", ".adoc"],
   "generated_marker": "generated-by:"
 }
+
+A ledger is a document, so only document extensions are examined; a script
+named `ledger_sync.py` is code and is left to the layout gate.
 
 Usage:
   check_ledgers.py --base <git-ref>   # CI: only files added or renamed since base
@@ -32,6 +36,7 @@ DEFAULTS = {
     "forbid": ["*tracker*", "*ledger*", "STATUS.md", "PROGRESS.md", "TODO.md",
                "NOTES.md", "*-log.md", "*changelog*.html"],
     "allow": ["docs/archive/*"],
+    "extensions": [".md", ".html", ".htm", ".txt", ".csv", ".tsv", ".rst", ".adoc"],
     "generated_marker": "generated-by:",
 }
 MARKER_LINES = 5
@@ -73,6 +78,8 @@ def main() -> int:
     bad = []
     for path in candidates(args.base):
         name = Path(path).name.lower()
+        if Path(name).suffix not in policy["extensions"]:
+            continue
         if any(fnmatch(path, a) for a in policy["allow"]):
             continue
         if not any(fnmatch(name, f.lower()) for f in policy["forbid"]):
