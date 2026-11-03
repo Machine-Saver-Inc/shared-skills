@@ -5,7 +5,7 @@ description: "Audit an existing Machine Saver repository and fit it with self-up
 
 # Repo maintainability
 
-**Skill version 0.1.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
+**Skill version 0.1.1.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
 First run: `Machine-Saver-Inc/platform`, November 2026.
 
 For any Machine Saver repository that agents develop in. The problem it
@@ -40,8 +40,15 @@ list of tools. Read, in this order:
 2. `docs/adr/` (or wherever decisions live) — note every ADR that governs
    docs, architecture, review or CI, because your changes will cite them.
 3. `.github/workflows/`, the `Makefile`, `renovate.json`, any ruleset.
-4. The largest flat directory. Count its top-level files. That number goes
+4. The largest flat directory. Count its top-level files with
+   `git ls-files scripts | grep -c '^scripts/[^/]*$'` (not `grep -vc /`:
+   every path contains a slash, so that always says 0). That number goes
    in the ADR.
+5. Sort every top-level file in it into the families you intend to list.
+   Whatever is left over is either an `allow_top_level` entry point or a
+   group that needs a family of its own; ask the owner to name any group
+   of more than a handful (on `platform`: 18 gateway and sensor onboarding
+   scripts became `onboarding`).
 
 Then write the conflict table before proposing anything. For `platform` it
 was:
@@ -51,7 +58,7 @@ was:
 | MAP-style `ARCHITECTURE.md` | ADR 0006 makes LikeC4 + ADRs the only architecture record | dropped |
 | ctxmap git hook | per-clone hooks are not "reproducible from git"; a committed `CONTEXT.md` regenerated per commit conflicts across parallel agent PRs | generate on `main` only, bot commit |
 | Fallow | TS/JS only; repo is Python, bash, PowerShell, YAML, OpenTofu | dropped |
-| Any new workflow | trusted-base guard fails it by design | each lands as an owner-reviewed PR, so plan a PR sequence |
+| A job added to `ci.yml` | the trusted-base guard fails any change to `ci.yml`, `.github/review/` or the review scripts (`PROTECTED` in `scripts/ai_review_sdk.py`) | ship the gates as their own workflow file, which the guard does not watch; still one gate per owner-reviewed PR |
 
 ## 1. The tools, and why each is free
 

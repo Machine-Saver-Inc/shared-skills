@@ -5,13 +5,15 @@ A guard nobody has seen fail is decoration (shared-skills README, rule 2).
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+SKILL = Path(__file__).resolve().parents[1]
+SCRIPTS = SKILL / "scripts"
 
 
 def run(*cmd: str, cwd: Path, stdin: str | None = None) -> subprocess.CompletedProcess[str]:
@@ -79,6 +81,16 @@ def test_reference_check_ignores_baseline_records(repo: Path) -> None:
     assert ".maintainability" not in out.stdout
 
 
+def test_reference_check_points_at_the_section_that_explains_shims(repo: Path) -> None:
+    move_seed(repo)
+    git("commit", "-qam", "move", cwd=repo)
+    out = run(str(SCRIPTS / "check_path_references.py"), "--base", "main", cwd=repo)
+    section = re.search(r"§(\d+)", out.stdout)
+    assert section, out.stdout
+    body = (SKILL / "SKILL.md").read_text(encoding="utf-8").split(f"\n## {section.group(1)}. ")[1]
+    assert "shim" in body.split("\n## ")[0]
+
+
 def test_layout_passes_on_a_family_file(repo: Path) -> None:
     (repo / "scripts/airvibe/new.py").write_text("x\n")
     git("add", "-A", cwd=repo)
@@ -120,3 +132,22 @@ def test_ratchet_refuses_to_grow_but_shrinks(tmp_path: Path) -> None:
     assert run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b),
                cwd=tmp_path, stdin="a:1: x\n").returncode == 0
     assert b.read_text() == "a: x\n"
+
+
+def test_ratchet_refuses_to_grow_an_empty_baseline(tmp_path: Path) -> None:
+    b = tmp_path / "t.baseline"
+    run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b), "--allow-growth",
+        cwd=tmp_path, stdin="")
+    assert run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b),
+               cwd=tmp_path, stdin="a:1: x\n").returncode == 1
+    assert b.read_text() == ""
+
+
+def test_ratchet_refuses_a_swapped_finding(tmp_path: Path) -> None:
+    b = tmp_path / "t.baseline"
+    run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b), "--allow-growth",
+        cwd=tmp_path, stdin="a:1: x\nb:1: y\n")
+    out = run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b),
+              cwd=tmp_path, stdin="a:1: x\nc:1: z\n")
+    assert out.returncode == 1 and "c: z" in out.stdout
+    assert b.read_text() == "a: x\nb: y\n"

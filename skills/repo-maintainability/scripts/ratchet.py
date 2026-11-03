@@ -9,9 +9,9 @@ PSScriptAnalyzer, jscpd, ...) can be ratcheted:
 
 `check` fails only on findings NOT already in the baseline, so existing debt
 never blocks a PR. `update` rewrites the baseline from the current findings
-but refuses to let it grow -- a baseline only ratchets down. The burn-down
-workflow runs `update` on main after each merge; nobody edits a baseline by
-hand.
+but refuses to add any finding not already in it -- a baseline only ratchets
+down. The main-tier workflow runs `update` after each merge; nobody edits a
+baseline by hand.
 
 Findings are normalised before comparison: line and column numbers are
 stripped, so a finding that merely shifts lines is not "new".
@@ -56,9 +56,14 @@ def main() -> int:
               f"{cleared} cleared since)")
         return 0
 
-    if old and len(current) > len(old) and not args.allow_growth:
-        print(f"ratchet: refusing to grow {args.baseline} {len(old)} -> {len(current)}; "
-              "fix the new findings, or pass --allow-growth deliberately")
+    # Compare findings, not counts: a fixed finding must not pay for a new
+    # one, and an empty baseline must stay empty.
+    new = sorted(current - old)
+    if new and not args.allow_growth:
+        for line in new:
+            print("NEW:", line)
+        print(f"ratchet: refusing to add {len(new)} finding(s) to {args.baseline}; "
+              "fix them, or pass --allow-growth deliberately")
         return 1
     args.baseline.parent.mkdir(parents=True, exist_ok=True)
     args.baseline.write_text("\n".join(sorted(current)) + ("\n" if current else ""))

@@ -1,6 +1,7 @@
 # Maintainability gates — PR tier. Deterministic, cheap, no API keys.
-# Lands in the target repo as .github/workflows/maintainability.yml, or as a job
-# in its existing ci.yml ahead of any paid review. Every gate fails only on a
+# Lands in the target repo as its own .github/workflows/maintainability.yml.
+# Not as a job in ci.yml: on platform the review gate's trusted-base guard
+# fails any change to ci.yml, and a separate file keeps each PR small. Every gate fails only on a
 # REGRESSION against a committed baseline; existing debt never blocks a PR.
 #
 # Pin every action and tool version. Renovate keeps them current.
