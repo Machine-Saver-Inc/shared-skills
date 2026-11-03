@@ -80,6 +80,11 @@ jobs:
           pip install pyyaml
           python tools/check_versions.py
 
+      # Every guard in the maintainability skill is proved to fail against its
+      # own violation. A guard nobody has seen fail is decoration.
+      - name: The maintainability guards go red when their rules are broken
+        run: python -m pytest skills/repo-maintainability/tests -q
+
   mobile:
     runs-on: ubuntu-latest
     steps:

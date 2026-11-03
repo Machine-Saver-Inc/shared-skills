@@ -4,6 +4,33 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-03 - Repo maintainability
+
+### repo-maintainability 0.1.0 — first release
+
+A skill for fitting an existing, agent-developed repository with free,
+open-source tooling that keeps it understandable and stops agents from
+leaving it messier than they found it. First run: `Machine-Saver-Inc/platform`.
+
+- **Audit first.** §0 reads what the repo already enforces and writes a
+  conflict table before proposing a tool; on platform two of the obvious
+  additions would have competed with ADR 0006 and the "reproducible from
+  git" principle.
+- **Three guards**, each proved to fail against its own violation in
+  `tests/test_guards.py`: `check_path_references.py` (a textual index that
+  catches a move while a Makefile, runbook, TSV or workflow still names the
+  old path — the thing a code graph cannot see), `check_layout.py` (no new
+  top-level files in a directory that must grow in families), `ratchet.py`
+  (baselines fail only on new findings, ignore line shifts, and refuse to
+  grow).
+- **Three workflow templates**: PR tier (deterministic, no keys), main tier
+  (bot-commits `CONTEXT.md` and the code graph index, lowers every baseline),
+  burn-down (one Draft PR every other day, serial, budget-capped).
+- **An ADR template** with a "what this does not change" section.
+- **`references/LESSONS.md`**, append-only; the first entry records why the
+  plan changed on contact with the repo, and a bug the proof caught (the
+  reference check flagged its own tolerated-list file as a consumer).
+
 ## 2026-10-26 - A phone app checks for updates by itself and installs one
 
 ### ms-mobilekit 1.3.0 / ms-mobile-app 1.3.0

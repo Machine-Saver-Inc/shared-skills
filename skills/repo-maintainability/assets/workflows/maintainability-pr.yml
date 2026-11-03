@@ -1,0 +1,84 @@
+# Maintainability gates — PR tier. Deterministic, cheap, no API keys.
+# Lands in the target repo as .github/workflows/maintainability.yml, or as a job
+# in its existing ci.yml ahead of any paid review. Every gate fails only on a
+# REGRESSION against a committed baseline; existing debt never blocks a PR.
+#
+# Pin every action and tool version. Renovate keeps them current.
+# Do not add `set -o pipefail`: the finding tools exit non-zero whenever they
+# find anything, and the ratchet after the pipe is the verdict.
+
+name: maintainability
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # the gates diff against the PR base
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Tools
+        run: |
+          pip install vulture==2.14
+          sudo apt-get install -y shellcheck
+          npm install -g jscpd@4.0.5
+
+      # 1. Nothing under scripts/ moved or deleted while something still names it.
+      - name: Path references
+        run: python scripts/ci/check_path_references.py --base origin/${{ github.base_ref }}
+
+      # 2. No new top-level file in a directory that must grow in families.
+      - name: Layout
+        run: python scripts/ci/check_layout.py --base origin/${{ github.base_ref }}
+
+      # 3-5. Ratcheted finding tools. Each one only fails on findings not in
+      #      its baseline; the main-tier workflow lowers the baselines on main.
+      - name: Dead code (Python)
+        run: |
+          vulture --min-confidence 80 scripts cloud mcp eval 2>/dev/null \
+            | python scripts/ci/ratchet.py check --baseline .maintainability/vulture.baseline
+
+      - name: Shell
+        run: |
+          git ls-files '*.sh' | xargs shellcheck -f gcc -S warning 2>/dev/null \
+            | python scripts/ci/ratchet.py check --baseline .maintainability/shellcheck.baseline
+
+      - name: Duplication
+        run: |
+          jscpd --silent --reporters console --format python,bash,powershell,yaml \
+                --min-lines 12 --min-tokens 70 scripts cloud edge 2>/dev/null \
+            | grep -E '^\s*-' \
+            | python scripts/ci/ratchet.py check --baseline .maintainability/jscpd.baseline
+
+  # PowerShell has to run on a Windows runner; same ratchet, its own baseline.
+  powershell:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Warning,Error |
+            ForEach-Object { "$($_.ScriptPath):$($_.Line): $($_.RuleName) $($_.Message)" } |
+            python scripts/ci/ratchet.py check --baseline .maintainability/pssa.baseline

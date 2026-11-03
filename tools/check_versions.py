@@ -6,7 +6,9 @@
 Four artifacts, two pairs. A pair moves together: a change to a kit bumps the
 kit, and bumps its skill when it changes what the skill says. The mobile skill
 also names the desktop skill it is the counterpart of, and that must be the
-desktop skill's current version. No tomllib: the CI matrix starts at 3.10.
+desktop skill's current version. repo-maintainability stands alone: it has no
+kit, but its version still needs a CHANGELOG entry and a README row. No
+tomllib: the CI matrix starts at 3.10.
 """
 
 from __future__ import annotations
@@ -33,6 +35,7 @@ def main() -> int:
     mobile_skill = find(r"^\*\*Skill version ([0-9.]+)\.\*\*", "skills/ms-mobile-app/SKILL.md")
     counterpart = find(r"counterpart of `ms-desktop-app` \*\*([0-9.]+)\*\*", "skills/ms-mobile-app/SKILL.md")
     mobilekit = json.loads((ROOT / "packages/ms-mobilekit/package.json").read_text(encoding="utf-8"))["version"]
+    maintainability = find(r"^\*\*Skill version ([0-9.]+)\.\*\*", "skills/repo-maintainability/SKILL.md")
 
     changelog = (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     mobile_changelog = (ROOT / "packages/ms-mobilekit/CHANGELOG.md").read_text(encoding="utf-8")
@@ -42,7 +45,8 @@ def main() -> int:
     if stamped != appkit:
         faults.append(f"_version.py says {stamped}, pyproject.toml says {appkit}")
     for name, version in (("ms-desktop-app", desktop_skill), ("ms-appkit", appkit),
-                          ("ms-mobile-app", mobile_skill), ("ms-mobilekit", mobilekit)):
+                          ("ms-mobile-app", mobile_skill), ("ms-mobilekit", mobilekit),
+                          ("repo-maintainability", maintainability)):
         if f"{name} {version}" not in changelog:
             faults.append(f"{name} {version} has no entry in CHANGELOG.md")
     if f"## [{mobilekit}]" not in mobile_changelog:
@@ -53,13 +57,13 @@ def main() -> int:
     if template_manifest["kit"]["version"] != appkit or template_manifest["skill"]["version"] != desktop_skill:
         faults.append("packages/ms-appkit/template/ms-app.json does not name the current kit and skill")
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for version in (desktop_skill, appkit, mobile_skill, mobilekit):
+    for version in (desktop_skill, appkit, mobile_skill, mobilekit, maintainability):
         if f"**{version}**" not in readme:
             faults.append(f"README.md's version table does not show {version}")
     for line in faults:
         print(f"  {line}")
     print(f"ms-desktop-app {desktop_skill}, ms-appkit {appkit}, ms-mobile-app {mobile_skill}, "
-          f"ms-mobilekit {mobilekit}; {len(faults)} faults")
+          f"ms-mobilekit {mobilekit}, repo-maintainability {maintainability}; {len(faults)} faults")
     return 1 if faults else 0
 
 

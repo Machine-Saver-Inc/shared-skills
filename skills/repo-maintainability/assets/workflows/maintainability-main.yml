@@ -1,0 +1,100 @@
+# Maintainability — main tier. Runs after every merge to main. Regenerates
+# the agent context map and the code graph index, lowers every baseline to
+# what is actually left, and commits the result as a bot. This is the only
+# place a baseline or CONTEXT.md is ever written; no person and no agent PR
+# touches them. Two agent PRs that both regenerated CONTEXT.md would
+# conflict on every merge, which is why generation is not a git hook.
+#
+# No local hook, no manual step. "Everything as code, reproducible from git."
+# Pin every tool version; Renovate keeps them current.
+
+name: maintainability-main
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 6 * * 1"     # weekly refresh of the human graph view
+
+permissions:
+  contents: write
+
+concurrency:
+  group: maintainability-main
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Tools
+        run: |
+          pip install ctxmap==0.3.2 vulture==2.14
+          sudo apt-get install -y shellcheck
+          npm install -g jscpd@4.0.5 codebase-memory-mcp@0.11.0
+
+      # Session-start map for agents. ~600 tokens; AGENTS.md points here.
+      # ctxmap writes structure only; it must never contain IPs, credentials
+      # or endpoints (ADR 0006 applies to every generated artefact).
+      - name: Context map
+        run: ctxmap build --no-semantic
+
+      - name: Context map holds no secrets or endpoints
+        run: |
+          ! grep -Eq '([0-9]{1,3}\.){3}[0-9]{1,3}|https?://|-----BEGIN' CONTEXT.md
+
+      # Code graph index for agents. Committed as a small SQLite file so an
+      # agent session starts with the graph instead of rebuilding it.
+      - name: Code graph index
+        run: codebase-memory-mcp index . --out .maintainability/codegraph.db
+
+      # Ratchet every baseline DOWN to what remains. `update` refuses growth.
+      - name: Lower baselines
+        run: |
+          vulture --min-confidence 80 scripts cloud mcp eval 2>/dev/null \
+            | python scripts/ci/ratchet.py update --baseline .maintainability/vulture.baseline
+          git ls-files '*.sh' | xargs shellcheck -f gcc -S warning 2>/dev/null \
+            | python scripts/ci/ratchet.py update --baseline .maintainability/shellcheck.baseline
+          jscpd --silent --reporters console --format python,bash,powershell,yaml \
+                --min-lines 12 --min-tokens 70 scripts cloud edge 2>/dev/null \
+            | grep -E '^\s*-' \
+            | python scripts/ci/ratchet.py update --baseline .maintainability/jscpd.baseline
+          python scripts/ci/check_layout.py --baseline
+
+      - name: Commit as the bot
+        run: |
+          git config user.name "maintainability-bot"
+          git config user.email "maintainability-bot@users.noreply.github.com"
+          git add CONTEXT.md .maintainability/
+          git diff --cached --quiet && { echo "nothing changed"; exit 0; }
+          git commit -m "chore(maintainability): refresh context map and baselines [skip ci]"
+          git push
+
+  # Weekly human-readable graph. Understand-Anything builds it with an agent;
+  # once committed, anyone opens the dashboard with no LLM and no key.
+  human-view:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate the interactive graph
+        run: |
+          # Understand-Anything runs as a Claude Code / Codex plugin. Wire its
+          # headless build here once the target repo's agent runner exists;
+          # until then this job is a placeholder that does not fail.
+          echo "human-view: pending agent runner (see skill §6)"
