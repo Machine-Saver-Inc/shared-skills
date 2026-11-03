@@ -44,7 +44,7 @@ jobs:
 
       - name: Tools
         run: |
-          pip install ctxmap==0.3.2 vulture==2.14
+          pip install ctxmap==0.3.2 vulture==2.14 ruff==0.17.3
           sudo apt-get install -y shellcheck
           npm install -g jscpd@4.0.5 codebase-memory-mcp@0.11.0
 
@@ -66,6 +66,7 @@ jobs:
       # Ratchet every baseline DOWN to what remains. `update` refuses growth.
       - name: Lower baselines
         run: |
+          ruff check --config .maintainability/ruff.toml --output-format concise . 2>/dev/null             | python scripts/ci/ratchet.py update --baseline .maintainability/ruff.baseline
           vulture --min-confidence 80 scripts cloud mcp eval 2>/dev/null \
             | python scripts/ci/ratchet.py update --baseline .maintainability/vulture.baseline
           git ls-files '*.sh' | xargs shellcheck -f gcc -S warning 2>/dev/null \
@@ -76,11 +77,20 @@ jobs:
             | python scripts/ci/ratchet.py update --baseline .maintainability/jscpd.baseline
           python scripts/ci/check_layout.py --baseline
 
+      # The only status file in the repo, rendered from the project board
+      # (rule R4). Needs secrets.PROJECT_TOKEN and vars.PROJECT_NUMBER, as
+      # project-sync.yml does; GITHUB_TOKEN cannot read an organisation board.
+      - name: Status page from the project board
+        env:
+          GH_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+        run: |
+          gh project item-list "${{ vars.PROJECT_NUMBER }}" --owner "$GITHUB_REPOSITORY_OWNER"               --format json --limit 500             | python scripts/ci/render_status.py > STATUS.md
+
       - name: Commit as the bot
         run: |
           git config user.name "maintainability-bot"
           git config user.email "maintainability-bot@users.noreply.github.com"
-          git add CONTEXT.md .maintainability/
+          git add CONTEXT.md STATUS.md .maintainability/
           git diff --cached --quiet && { echo "nothing changed"; exit 0; }
           git commit -m "chore(maintainability): refresh context map and baselines [skip ci]"
           git push

@@ -1,19 +1,22 @@
 ---
 name: "repo-maintainability"
-description: "Audit an existing Machine Saver repository and fit it with self-updating, free, open-source tooling that keeps it understandable to humans and agents and stops agents from leaving it messier than they found it — a reference index, a layout gate, ratcheted dead-code and duplication baselines, a bot-maintained context map and code graph, and a serial burn-down scheduler. Use whenever Leo asks to clean up, reorganise or 'fix' a repo for agentic development, to add codebase-understanding or maintainability tooling, to stop a directory sprawling, or to set up a burn-down of technical debt — even if he only says the repo is getting hard to work in. Run it again on the same repo after each phase to record what was learned."
+description: "Fit a Machine Saver repository — existing or brand new — with self-updating, free, open-source tooling that keeps it understandable to humans and agents and stops agents from leaving it messier than they found it: a reference index, a layout gate, ratcheted lint/dead-code/duplication baselines, project state in GitHub Issues and the org Project board instead of hand-written trackers, a generated STATUS.md, a bot-maintained context map and code graph, and a serial burn-down scheduler. Use whenever Leo asks to clean up, reorganise or 'fix' a repo for agentic development, to start a new repo under the house rules, to add codebase-understanding or maintainability tooling, to stop a directory or a tracker file sprawling, to move bookkeeping into issues, or to set up a burn-down of technical debt — even if he only says the repo is getting hard to work in. Run it again on the same repo after each phase to record what was learned."
 ---
 
 # Repo maintainability
 
-**Skill version 0.1.1.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
+**Skill version 0.2.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
 First run: `Machine-Saver-Inc/platform`, November 2026.
 
-For any Machine Saver repository that agents develop in. The problem it
-solves is specific: agents add and rarely remove, so a repo with no gate on
-code shape grows a flat pile of scripts, candidates and copied wrappers that
-nobody can hold in their head. This skill fits the repo with gates that fail
-**only on regression**, a map that rebuilds itself, and a scheduler that
-burns the existing pile down one small PR at a time.
+For any Machine Saver repository that agents develop in, whether it exists
+already (§0–§7) or is being started today (§8). The problem it solves is
+specific: agents add and rarely remove, so a repo with no gate on code shape
+grows a flat pile of scripts, candidates and copied wrappers that nobody can
+hold in their head, and a repo with no rule on where state lives grows a
+hand-written tracker that nobody reads. This skill fits the repo with gates
+that fail **only on regression**, puts state in GitHub Issues and the
+organisation Project board, a map and a status page that rebuild themselves,
+and a scheduler that burns the existing pile down one small PR at a time.
 
 **Every rule here is enforced by a script in `scripts/`, not by this text.**
 Each script was broken on purpose and watched go red before it was kept
@@ -66,7 +69,11 @@ was:
 | --- | --- | --- | --- |
 | Reference index | `scripts/check_path_references.py` (this skill) | MIT | PR tier |
 | Layout gate | `scripts/check_layout.py` (this skill) | MIT | PR tier |
+| Records gate | `scripts/check_ledgers.py`, `scripts/check_pr_links.py` (this skill) | MIT | PR tier |
+| Board sync | `actions/add-to-project` | MIT | on issue/PR open |
+| Status page | `scripts/render_status.py` (this skill) | MIT | main tier, bot commit |
 | Ratchet | `scripts/ratchet.py` (this skill) | MIT | PR + main tier |
+| Python lint | ruff, `assets/lint/ruff.toml` | MIT | PR + main tier |
 | Dead code | vulture, shellcheck, PSScriptAnalyzer | MIT / GPL-3 (tool only) / MIT | PR + main tier |
 | Duplication | jscpd | MIT | PR + main tier |
 | Context map | ctxmap | MIT | main tier, bot commit |
@@ -79,6 +86,33 @@ for-profit use), DeepWiki (public repos only), Greptile / Sourcegraph /
 Mintlify / Swimm (paid), Repowise (AGPL-3), Graphify (overlaps the code
 graph). Fallow is excellent but TS/JS only; use it if the repo is.
 
+## 1b. Records: where state lives
+
+Owner decision, November 2026, after `platform`'s `project-tracker.html`
+reached 591 KB and 411 timeline entries under a binding "update before every
+hand-off" rule that had no removal rule. Every rule below has a check; the
+check is the rule.
+
+| | Rule | Enforced by |
+| --- | --- | --- |
+| R1 | **Issues are the ledger.** No hand-written tracker, ledger, status page, TODO or progress log is committed. Blockers, next actions, decisions and deferrals are issues with the matching label. | `check_ledgers.py` (PR tier, fails on an added file); `assets/issue-templates/`, `assets/labels.json` |
+| R2 | **Every PR names its issue or ADR** (`Closes #N`, `Refs #N`, `ADR NNNN`). The `no-issue` label is the typo-level escape, like `no-adr`. | `check_pr_links.py` (PR tier) |
+| R3 | **Every issue and PR is on the organisation board** from the moment it opens. One board, the fields `Status`, `Area`, `Horizon`. | `assets/workflows/project-sync.yml` |
+| R4 | **Status is generated.** `STATUS.md` is rendered from the board on every push to `main`, carries a `generated-by:` first line, and is never edited. No timestamp: the commit is the timestamp. | `render_status.py` in `maintainability-main.yml` |
+| R5 | **Evidence is an issue comment** with the CI run or artefact link, on the issue it proves, at the time it was observed. A closed issue is the only "done". | `assets/review-roles/records-and-comments.md` |
+| R6 | **Comments say why, never what, and never hold code.** No comment-density rule in either direction; unclear code gets a better name or a split, not a comment. | ruff `ERA001` through the ratchet; the review role above |
+| R7 | **Lint is ratcheted from the first PR**: ruff (`assets/lint/ruff.toml`), shellcheck, PSScriptAnalyzer, jscpd. On a new repo every baseline starts empty and `update` refuses growth, so there is never a day when it was allowed. | `maintainability-pr.yml`, `ratchet.py` |
+
+Why not ban comments outright: the *why* then moves to commit messages and
+ADRs, which an agent reading the function never sees, and it re-derives the
+constraint, sometimes wrongly. ERA001 and the role rule remove the comments
+that are slop; the ones left are the ones that stop slop.
+
+Two one-time settings per repo, because `GITHUB_TOKEN` cannot touch an
+organisation board: `vars.PROJECT_NUMBER` and `secrets.PROJECT_TOKEN` (a
+fine-grained token with organisation Projects read/write). Labels:
+`for l in $(jq -c '.[]' assets/labels.json); do gh label create "$(jq -r .name <<<"$l")" --color "$(jq -r .color <<<"$l")" --description "$(jq -r .description <<<"$l")" --force; done`.
+
 ## 2. The audit → ADR
 
 Copy `assets/adr/NNNN-maintainability-gates.md`, number it after the repo's
@@ -86,6 +120,11 @@ last ADR, fill the Context from §0 and the conflict table, and keep the
 "what this ADR does not change" section — it is what the owner reads first.
 If the repo has an `adr-gate`, this ADR is what satisfies it for the whole
 PR sequence.
+
+If the repo has a hand-written ledger and a rule that keeps it (`platform`
+had both in `AGENTS.md`), that rule changes only through its own ADR: copy
+`assets/adr/NNNN-records-in-issues.md`. The ADR freezes the ledger on
+merge; the archive and the evidence migration are the next PR.
 
 ## 3. Why the graph cannot see every path, and what can
 
@@ -121,13 +160,20 @@ reviewability) wants small workflow changes. Order:
    directory you are gating). Write `.maintainability/layout.json` with the
    families you found in §0. Run `check_layout.py --baseline` once; commit
    the tolerated list.
+1b. **Records ADR + records gate + board sync.** Where the repo has a
+   hand ledger: the ADR from §2, the `AGENTS.md` rule replaced, the
+   `Records` and `PR names its issue` steps, `project-sync.yml`, the issue
+   templates and labels, the review role. The ledger file stays until the
+   next PR archives it under `docs/archive/` (which `check_ledgers.py`
+   allows) and moves its evidence rows to issue comments.
 2. **Ratcheted baselines.** Add the remaining steps of
-   `assets/workflows/maintainability-pr.yml`. Run each tool once through
-   `ratchet.py update --allow-growth` to seed the baselines; that is the
-   only time `--allow-growth` is ever used.
-3. **Context map + code graph.** `assets/workflows/maintainability-main.yml`.
-   One line in the root `AGENTS.md`: *Read `CONTEXT.md` first; query the
-   code graph before grepping.* Never a git hook.
+   `assets/workflows/maintainability-pr.yml`, ruff included. Run each tool
+   once through `ratchet.py update --allow-growth` to seed the baselines;
+   that is the only time `--allow-growth` is ever used.
+3. **Context map + code graph + status page.**
+   `assets/workflows/maintainability-main.yml`. One line in the root
+   `AGENTS.md`: *Read `CONTEXT.md` and `STATUS.md` first; query the code
+   graph before grepping.* Never a git hook.
 4. **This skill's lessons.** Append what the first three PRs taught to
    `references/LESSONS.md` and bump the skill version.
 5. **Burn-down.** `assets/workflows/maintainability-burndown.yml`, plus the
@@ -150,7 +196,7 @@ stripped so a shifted line is not "new". The main-tier workflow runs
 This is why the gates can be switched on in a repo with hundreds of findings
 on day one without blocking anybody.
 
-## 6. Still to build (as of 0.1.0)
+## 6. Still to build (as of 0.2.0)
 
 - `burndown_pick.py` / `burndown_agent.py` are specified in the burn-down
   workflow's comments and not yet written; they are repo-specific because
@@ -164,4 +210,34 @@ on day one without blocking anybody.
 
 Run the audit again (§0), diff the conflict table, read `LESSONS.md`, then
 check: did the baselines go down? Did any burn-down PR get closed rather
-than merged, and why? Those two answers are the next lesson.
+than merged, and why? Is there a file `check_ledgers.py` would have caught
+if it had been there, and why wasn't it? Those answers are the next lesson.
+
+## 8. Starting a new repository
+
+Nothing to audit and nothing to burn down, so the whole of §4 lands in the
+first PR, before any feature code. In this order, all from `assets/`:
+
+1. `README.md` with the repo's purpose; `AGENTS.md` with the house rules
+   (`platform`'s root `AGENTS.md` is the model: Draft PRs, Conventional
+   Commits, never self-merge, read `CONTEXT.md` and `STATUS.md` first);
+   `docs/adr/0001-<why-this-repo-exists>.md`. Decisions go in ADRs from
+   day one.
+2. `.github/ISSUE_TEMPLATE/` from `assets/issue-templates/`; labels from
+   `assets/labels.json`; `vars.PROJECT_NUMBER` and `secrets.PROJECT_TOKEN`
+   set; `project-sync.yml`.
+3. `scripts/ci/` with every script in this skill's `scripts/`;
+   `.maintainability/layout.json` naming the families the repo will have
+   (`ci` is always one), `records.json` only if the defaults need changing,
+   `ruff.toml` from `assets/lint/`.
+4. `maintainability.yml` from `maintainability-pr.yml` complete, and
+   `maintainability-main.yml`. Baselines are empty files, committed. From
+   now on `ratchet.py update` refuses the first finding, so no debt is ever
+   tolerated; `--allow-growth` is never passed in a new repo.
+5. The review role from `assets/review-roles/` if the repo has an AI
+   review gate; otherwise the same rules are the PR template's checklist.
+
+The first feature PR then names its issue, lands in a family directory,
+passes an empty baseline, and appears on the board and in `STATUS.md`
+without anyone doing anything. That is the test of the setup: if the first
+real PR needs a person to remember a step, §8 is wrong.

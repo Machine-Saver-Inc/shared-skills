@@ -46,7 +46,9 @@ jobs:
           python tools/check_report_form.py
 
       - name: Lint
-        run: ruff check packages/ms-appkit/src packages/ms-appkit/tests packages/ms-appkit/template
+        run: |
+          ruff check packages/ms-appkit/src packages/ms-appkit/tests packages/ms-appkit/template
+          ruff check --config skills/repo-maintainability/assets/lint/ruff.toml skills/repo-maintainability
 
       - name: The kit's own tests
         env:

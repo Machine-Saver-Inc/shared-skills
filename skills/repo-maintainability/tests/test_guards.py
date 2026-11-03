@@ -151,3 +151,51 @@ def test_ratchet_refuses_a_swapped_finding(tmp_path: Path) -> None:
               cwd=tmp_path, stdin="a:1: x\nc:1: z\n")
     assert out.returncode == 1 and "c: z" in out.stdout
     assert b.read_text() == "a: x\nb: y\n"
+
+
+def test_ledger_check_fails_on_a_hand_written_tracker(repo: Path) -> None:
+    (repo / "project-tracker.html").write_text("<!doctype html><p>Next action: ...</p>\n")
+    (repo / "docs/STATUS.md").write_text("# Status\n- doing things\n")
+    git("add", "-A", cwd=repo)
+    git("commit", "-qm", "ledger", cwd=repo)
+    out = run(str(SCRIPTS / "check_ledgers.py"), "--base", "main", cwd=repo)
+    assert out.returncode == 1
+    assert "project-tracker.html" in out.stdout and "docs/STATUS.md" in out.stdout
+
+
+def test_ledger_check_allows_generated_status_and_archive(repo: Path) -> None:
+    (repo / "STATUS.md").write_text("<!-- generated-by: render_status.py -->\n# Status\n")
+    (repo / "docs/archive").mkdir(parents=True)
+    (repo / "docs/archive/project-tracker.html").write_text("<!doctype html>old\n")
+    git("add", "-A", cwd=repo)
+    git("commit", "-qm", "generated", cwd=repo)
+    out = run(str(SCRIPTS / "check_ledgers.py"), "--base", "main", cwd=repo)
+    assert out.returncode == 0, out.stdout
+
+
+def test_pr_links_pass_on_issue_or_adr_and_fail_without(tmp_path: Path) -> None:
+    body = tmp_path / "body.md"
+    for text in ("Closes #42", "see https://github.com/o/r/issues/7", "Implements ADR 0019",
+                 "per ADR-0020"):
+        body.write_text(text)
+        assert run(str(SCRIPTS / "check_pr_links.py"), "--body-file", str(body),
+                   cwd=tmp_path).returncode == 0, text
+    for text in ("", "fix typo", "step #", "see PR-42 and v1.0.3"):
+        body.write_text(text)
+        assert run(str(SCRIPTS / "check_pr_links.py"), "--body-file", str(body),
+                   cwd=tmp_path).returncode == 1, text
+
+
+def test_status_render_is_marked_generated_and_grouped(tmp_path: Path) -> None:
+    board = {"items": [
+        {"status": "Todo", "horizon": "Next", "area": "Platform", "labels": ["blocker"],
+         "content": {"number": 7, "title": "Seed gateways", "url": "https://x/7",
+                     "repository": "Machine-Saver-Inc/platform"}},
+        {"status": "In Progress", "content": {"number": 9, "title": "Layout gate",
+                                              "url": "https://x/9"}},
+    ]}
+    out = run(str(SCRIPTS / "render_status.py"), cwd=tmp_path, stdin=json.dumps(board))
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.splitlines()[0].startswith("<!-- generated-by:")
+    assert out.stdout.index("## In Progress (1)") < out.stdout.index("## Todo (1)")
+    assert "[#7 Seed gateways](https://x/7) · platform · Platform · Next · `blocker`" in out.stdout

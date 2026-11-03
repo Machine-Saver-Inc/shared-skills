@@ -9,8 +9,9 @@ already there. Existing files are tolerated through a committed list; only
 Policy: `.maintainability/layout.json`
 {
   "scripts": {
-    "families": ["airvibe", "robustel", "mender", "headscale", "pi-bench", "ai-review", "ci"],
-    "allow_top_level": ["edge-compose.sh"]
+    "families": ["airvibe", "robustel", "mender", "headscale", "pi-bench",
+                 "ai-review", "ci", "onboarding", "fixtures", "systemd"],
+    "allow_top_level": ["edge-compose.sh", "org-up.sh", "org-down.sh"]
   }
 }
 
@@ -39,6 +40,37 @@ def top_level_files(directory: str) -> list[str]:
     return sorted(f for f in files if f.count("/") == 1)
 
 
+def write_baseline(policy: dict) -> int:
+    lines: list[str] = []
+    for directory in policy:
+        lines += top_level_files(directory)
+    TOLERATED.parent.mkdir(parents=True, exist_ok=True)
+    TOLERATED.write_text("\n".join(lines) + "\n")
+    print(f"check_layout: tolerating {len(lines)} existing top-level file(s)")
+    return 0
+
+
+def added_since(base: str) -> list[str]:
+    added: list[str] = []
+    for line in git("diff", "--name-status", "-M", base, "HEAD").splitlines():
+        parts = line.split("\t")
+        if parts[0][0] in "AR":
+            added.append(parts[-1])          # for R this is the new name
+    return added
+
+
+def violation(path: str, directory: str, rules: dict, tolerated: set[str]) -> str | None:
+    rel = path[len(directory) + 1:]
+    if "/" in rel:
+        family = rel.split("/", 1)[0]
+        if family not in rules.get("families", []):
+            return f"'{family}' is not a listed family of {directory}/"
+        return None
+    if rel in rules.get("allow_top_level", []) or path in tolerated:
+        return None
+    return f"new top-level file in {directory}/; put it in a family subdirectory"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base")
@@ -49,39 +81,16 @@ def main() -> int:
         print(f"check_layout: no {POLICY}; nothing to enforce")
         return 0
     policy = json.loads(POLICY.read_text())
-
     if args.baseline:
-        lines: list[str] = []
-        for directory in policy:
-            lines += top_level_files(directory)
-        TOLERATED.parent.mkdir(parents=True, exist_ok=True)
-        TOLERATED.write_text("\n".join(lines) + "\n")
-        print(f"check_layout: tolerating {len(lines)} existing top-level file(s)")
-        return 0
+        return write_baseline(policy)
 
     tolerated = set(TOLERATED.read_text().split()) if TOLERATED.exists() else set()
-    added: list[str] = []
-    if args.base:
-        for line in git("diff", "--name-status", "-M", args.base, "HEAD").splitlines():
-            parts = line.split("\t")
-            if parts[0][0] in "AR":
-                added.append(parts[-1])          # for R this is the new name
-
-    bad: list[tuple[str, str]] = []
-    for path in added:
-        for directory, rules in policy.items():
-            if not path.startswith(directory + "/"):
-                continue
-            rel = path[len(directory) + 1:]
-            if "/" in rel:
-                family = rel.split("/", 1)[0]
-                if family not in rules.get("families", []):
-                    bad.append((path, f"'{family}' is not a listed family of {directory}/"))
-            elif rel in rules.get("allow_top_level", []) or path in tolerated:
-                continue
-            else:
-                bad.append((path, f"new top-level file in {directory}/; "
-                                  "put it in a family subdirectory"))
+    added = added_since(args.base) if args.base else []
+    bad = [(path, why)
+           for path in added
+           for directory, rules in policy.items()
+           if path.startswith(directory + "/")
+           if (why := violation(path, directory, rules, tolerated))]
 
     if not bad:
         print(f"check_layout: {len(added)} added/renamed path(s), layout holds")

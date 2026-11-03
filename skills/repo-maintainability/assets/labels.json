@@ -1,0 +1,10 @@
+[
+  {"name": "needs-triage", "color": "fbca04", "description": "On the board, not yet placed in a horizon"},
+  {"name": "blocker", "color": "b60205", "description": "Stops another issue until a person decides or acts"},
+  {"name": "decision", "color": "5319e7", "description": "Only the owner can settle this"},
+  {"name": "evidence", "color": "0e8a16", "description": "A bench, field or device result"},
+  {"name": "deferred", "color": "c5def5", "description": "Deliberately parked; the comment says until when"},
+  {"name": "burn-down", "color": "bfd4f2", "description": "Opened by the maintainability burn-down workflow"},
+  {"name": "no-issue", "color": "ededed", "description": "Escape hatch: this PR serves no issue (typo-level only)"},
+  {"name": "no-adr", "color": "ededed", "description": "Escape hatch: this PR changes no decision (typo-level only)"}
+]

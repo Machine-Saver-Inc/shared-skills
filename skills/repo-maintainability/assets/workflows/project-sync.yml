@@ -1,0 +1,26 @@
+# Every issue and PR lands on the organisation Project board the moment it
+# opens, so nobody maintains a list by hand and nothing is tracked twice.
+#
+# Needs two repository settings, both one-time:
+#   vars.PROJECT_NUMBER   the board's number in its URL
+#   secrets.PROJECT_TOKEN a fine-grained token with organisation Projects
+#                         read/write; GITHUB_TOKEN cannot touch org boards.
+
+name: project-sync
+
+on:
+  issues:
+    types: [opened, reopened, transferred]
+  pull_request:
+    types: [opened, reopened]
+
+permissions: {}
+
+jobs:
+  add:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/add-to-project@v2.0.0
+        with:
+          project-url: https://github.com/orgs/${{ github.repository_owner }}/projects/${{ vars.PROJECT_NUMBER }}
+          github-token: ${{ secrets.PROJECT_TOKEN }}

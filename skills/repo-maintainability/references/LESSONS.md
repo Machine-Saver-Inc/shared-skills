@@ -100,3 +100,39 @@ where you can, not as a separate one.
 **Still open:** platform's `scripts/ci/` copies predate these fixes. Ship the
 fixed `ratchet.py` and `check_path_references.py` to platform with the
 ratchet PR (§4 step 2), which is the first PR that runs the ratchet.
+
+## 2026-11-03 — owner decisions after platform PR 1, skill 0.2.0
+
+**Decided by the owner:** project state belongs in GitHub Issues and one
+organisation board, not in a hand-written file; cleanliness is enforced by
+lint and CI, not by sentences; comments that say *what* are slop, comments
+that say *why* are not, and there is no density rule either way. These became
+§1b (R1–R7) and §8, each with a check.
+
+**Found:** platform's `project-tracker.html` was 591 KB with 411 timeline
+entries and 40 blockers, each new entry written twice (verification and
+timeline), old next-actions never removed, and caveats copied into every
+entry ("HIL skipped" 21 times). The rule that kept it was one commit on
+2026-10-13 with no ADR. Its only check tested HTML structure. The two PRs
+before the maintainability one did not update it at all, because each
+update is a PR that re-runs the paid review. Became `check_ledgers.py`
+(`test_ledger_check_fails_on_a_hand_written_tracker`) and the ADR template
+for moving a ledger into issues.
+
+**Found:** GitHub already had most of the structure: 38 well-named open
+issues, a board with `Status`/`Area`/`Horizon`, but only 17 of the 38 on the
+board, 4 issues ever closed, no templates, no milestones. The missing piece
+was never a tool, it was a check that a PR names its issue
+(`test_pr_links_pass_on_issue_or_adr_and_fail_without`) and a workflow that
+puts issues on the board.
+
+**Found while linting the skill with its own config:** `check_layout.py`'s
+`main` had complexity 15 against the ceiling of 12. The skill did not pass
+its own rules until it was split. A skill that ships a lint config must run
+it on itself in CI; shared-skills now does.
+
+**Found:** comment density on platform's scripts is 1–3 %. Comments were
+never the slop; 381 flat files, 55 `_candidate` files and 37/82 attended
+`.ps1`/`.sh` pairs were. The owner's instinct to ban comments was aimed at
+the right feeling and the wrong target; R6 keeps the aim and moves the
+target.

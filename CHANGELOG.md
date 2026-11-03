@@ -4,6 +4,30 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-03 (evening) - Project state moves to issues
+
+### repo-maintainability 0.2.0
+
+Owner decision after platform's `project-tracker.html` reached 591 KB and
+411 timeline entries: bookkeeping lives in GitHub Issues and the organisation
+board, cleanliness is enforced by lint and CI, comments say why or go.
+
+- **§1b, rules R1–R7**, each with its check. `check_ledgers.py` fails a PR
+  that adds a hand-written tracker, ledger or status file; `check_pr_links.py`
+  fails a PR that names no issue or ADR; `render_status.py` writes the only
+  status file, from the board, on `main`.
+- **Assets for both cleanup and greenfield:** four issue templates, a labels
+  list, `project-sync.yml` (board auto-add), a ruff config with `ERA001`
+  (commented-out code) and complexity ceilings, a review role for records and
+  comments, and an ADR template for moving a ledger into issues.
+- **§8, starting a new repository**: the order to lay the rules down before
+  the first feature commit, with every baseline empty from day one.
+- **The skill's scripts pass their own lint**; `check_layout.py` was split
+  when ruff found `main` too complex. shared-skills CI now lints the skill with
+  its own config.
+- Four new guard tests, 14 in all; the three new scripts were stubbed to
+  `exit 0` and the tests watched go red first.
+
 ## 2026-11-03 (later) - Repo maintainability after its first run
 
 ### repo-maintainability 0.1.1
