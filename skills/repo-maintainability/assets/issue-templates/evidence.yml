@@ -1,0 +1,25 @@
+name: Evidence
+description: A bench, field or device result worth keeping. Prefer a comment on the issue it proves; use this only when there is none.
+labels: ["evidence"]
+body:
+  - type: input
+    id: proves
+    attributes:
+      label: Proves or disproves
+      description: The issue or acceptance line this evidence bears on (#N).
+    validations:
+      required: true
+  - type: input
+    id: observed
+    attributes:
+      label: Observed at
+      description: When it was observed, with timezone. Say "retrospective" if reconstructed.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Result
+      description: What happened, the CI run or artefact link, the device or bench target. No credentials, IPs or full hardware identifiers.
+    validations:
+      required: true

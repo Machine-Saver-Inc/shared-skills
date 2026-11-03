@@ -1,0 +1,30 @@
+name: Feature or change
+description: Work that ends in a merged PR. The issue is the record; the PR names it.
+labels: ["needs-triage"]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: One or two sentences on what is true when this is done.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: Checks that prove it. Each line is something a CI run, a device readback or a reviewer can confirm.
+      value: |
+        - [ ]
+    validations:
+      required: true
+  - type: input
+    id: decision
+    attributes:
+      label: ADR
+      description: The ADR this implements, if any (e.g. ADR 0019). Architecture and binding-rule changes need one.
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: What this issue deliberately does not do.

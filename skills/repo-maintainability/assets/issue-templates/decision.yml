@@ -1,0 +1,24 @@
+name: Decision needed
+description: A question only the owner can settle. Closed by a comment with the decision, or by an ADR.
+labels: ["decision", "needs-triage"]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: The question
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options and what each costs
+      value: |
+        1.
+        2.
+    validations:
+      required: true
+  - type: input
+    id: by
+    attributes:
+      label: Needed by
+      description: The date or the issue that waits on it.

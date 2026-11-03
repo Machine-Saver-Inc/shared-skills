@@ -1,0 +1,24 @@
+name: Blocker
+description: Something stops work on another issue until a person decides or acts.
+labels: ["blocker", "needs-triage"]
+body:
+  - type: input
+    id: blocks
+    attributes:
+      label: Blocks
+      description: The issue(s) that cannot proceed (#N).
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What is blocked and why
+    validations:
+      required: true
+  - type: textarea
+    id: unblock
+    attributes:
+      label: What unblocks it
+      description: The decision, access, hardware or information needed, and who can give it.
+    validations:
+      required: true

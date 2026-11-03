@@ -12,6 +12,9 @@ name: maintainability
 
 on:
   pull_request:
+    # edited/labeled: adding `Refs #N` to the body or the `no-issue` label
+    # must re-run the PR-links check without a push.
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -37,7 +40,7 @@ jobs:
 
       - name: Tools
         run: |
-          pip install vulture==2.14
+          pip install vulture==2.14 ruff==0.17.3
           sudo apt-get install -y shellcheck
           npm install -g jscpd@4.0.5
 
@@ -49,8 +52,26 @@ jobs:
       - name: Layout
         run: python scripts/ci/check_layout.py --base origin/${{ github.base_ref }}
 
-      # 3-5. Ratcheted finding tools. Each one only fails on findings not in
+      # 3. No hand-written tracker, ledger or status file was added (rule R1).
+      - name: Records
+        run: python scripts/ci/check_ledgers.py --base origin/${{ github.base_ref }}
+
+      # 4. The PR names the issue or ADR it serves (rule R2). Bots (Renovate,
+      #    release-please, the burn-down) serve no issue by design.
+      - name: PR names its issue
+        if: ${{ github.event.pull_request.user.type != 'Bot' && !contains(github.event.pull_request.labels.*.name, 'no-issue') }}
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pr-body.md"
+          python scripts/ci/check_pr_links.py --body-file "$RUNNER_TEMP/pr-body.md"
+
+      # 5-8. Ratcheted finding tools. Each one only fails on findings not in
       #      its baseline; the main-tier workflow lowers the baselines on main.
+      - name: Python lint (rule R6: ERA001 is commented-out code)
+        run: |
+          ruff check --config .maintainability/ruff.toml --output-format concise . 2>/dev/null             | python scripts/ci/ratchet.py check --baseline .maintainability/ruff.baseline
+
       - name: Dead code (Python)
         run: |
           vulture --min-confidence 80 scripts cloud mcp eval 2>/dev/null \
