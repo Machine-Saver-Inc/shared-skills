@@ -201,7 +201,8 @@ and Pull requests write). Became a sentence in §1b.
 **Found by ai-review on the token PR:** with a human-owned token the
 release PR stops being a bot, so rule R2's PR-links step would block it,
 since release-please writes no `Closes #N`. Exempted by its fixed branch
-prefix `release-please--` in the template. Also: the token input now falls
-back to `github.token`, so an expired secret degrades to the old behaviour
-instead of stopping releases. Sentence and template, not a check: the gate
+prefix `release-please--` in the template. Also: the token input falls back
+to `github.token` when the secret is absent; an expired token is not absent
+and fails loudly, which is the right signal to mint a new one. The first
+draft of that comment claimed the fallback covered expiry; review caught it. Sentence and template, not a check: the gate
 runs in the target repo's workflow and the proof is the next release PR.
