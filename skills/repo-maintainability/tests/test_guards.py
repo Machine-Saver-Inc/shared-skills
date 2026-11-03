@@ -208,3 +208,22 @@ def test_ledger_check_ignores_code_named_after_ledgers(repo: Path) -> None:
     git("commit", "-qm", "code", cwd=repo)
     out = run(str(SCRIPTS / "check_ledgers.py"), "--base", "main", cwd=repo)
     assert out.returncode == 0, out.stdout
+
+
+def test_pr_links_needs_a_keyword_before_the_issue_number(tmp_path: Path) -> None:
+    body = tmp_path / "body.md"
+    for text in ("mentioned in PR #158 earlier", "step #3 of the runbook", "item #42"):
+        body.write_text(text)
+        assert run(str(SCRIPTS / "check_pr_links.py"), "--body-file", str(body),
+                   cwd=tmp_path).returncode == 1, text
+    for text in ("Refs #158", "closes issue #7", "Part of #9", "Implements #11"):
+        body.write_text(text)
+        assert run(str(SCRIPTS / "check_pr_links.py"), "--body-file", str(body),
+                   cwd=tmp_path).returncode == 0, text
+
+
+def test_status_render_accepts_a_bare_list(tmp_path: Path) -> None:
+    out = run(str(SCRIPTS / "render_status.py"), cwd=tmp_path,
+              stdin=json.dumps([{"status": "Todo", "content": {"number": 1, "title": "x"}}]))
+    assert out.returncode == 0, out.stderr
+    assert "## Todo (1)" in out.stdout

@@ -44,7 +44,7 @@ def line(item: dict) -> str:
 
 def main() -> int:
     data = json.load(sys.stdin)
-    items = data.get("items", data if isinstance(data, list) else [])
+    items = data if isinstance(data, list) else data.get("items", [])
     groups: dict[str, list[dict]] = {}
     for item in items:
         groups.setdefault(field(item, "status") or "No status", []).append(item)
