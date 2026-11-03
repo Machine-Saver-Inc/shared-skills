@@ -145,7 +145,7 @@ def main() -> int:
     for referrer, line, target in hits:
         print(f"{referrer}:{line}: still names {target}")
     print(f"\n{len(hits)} dangling reference(s). Update them in this PR, "
-          "or leave a shim at the old path (see the skill, §4).")
+          "or leave a shim at the old path (see the repo-maintainability skill, §3).")
     return 1
 
 

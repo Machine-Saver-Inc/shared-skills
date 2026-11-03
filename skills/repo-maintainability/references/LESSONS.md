@@ -46,3 +46,57 @@ read the LICENSE file, not the README badge.
 **Decisions by the owner:** no paid or proprietary tools; burn-down cadence
 every other day; the burn-down agent may use the existing paid review key,
 budget-capped.
+
+## 2026-11-03 — platform, phase 1 (ADR 0019 + layout gate + reference index), skill 0.1.1
+
+**Expected:** copy three scripts, list nine families, add a two-step
+workflow; the trusted-base guard fails the workflow change and the owner
+reviews it.
+
+**Found:** the handoff's count command, `git ls-files scripts | grep -vc /`,
+prints 0, because every path contains a slash. The right count is
+`grep -c '^scripts/[^/]*$'`: 381. Became a sentence in §0, with the command.
+
+**Found:** the nine families from the audit covered 343 of 381 files. Of the
+38 left over, 3 were the named entry points, about 17 scattered one-offs, and
+18 one coherent group (gateway enrollment/identity/telemetry plans and sensor
+activation/enrollment/import) with no family. Without one, the first new
+onboarding script would have failed the gate with nowhere legal to go. The
+owner named it `onboarding`. Became §0 step 5: sort every file before
+writing `layout.json`, and ask about any leftover group.
+
+**Found:** the trusted-base guard did **not** trip. It protects `ci.yml`,
+`.github/review/` and the three ai-review scripts (`PROTECTED` in
+`scripts/ai_review_sdk.py`), not every workflow. A separate
+`maintainability.yml` passes it; the PR template's alternative ("or as a job
+in its existing ci.yml") would have tripped it. The conflict-table row and
+the template comment now say so. Sentence, not check: the guard's scope is
+the target repo's, not ours.
+
+**Found:** ai-review (0 blocking, five suggestions) caught two real bugs in
+`ratchet.py update`. It compared counts, not findings, so a fixed finding
+paid for a new one; and it skipped the check when the baseline was empty,
+so a baseline that reached zero stopped guarding. Both now compare the
+finding sets and refuse anything new without `--allow-growth`. Became
+checks: `test_ratchet_refuses_a_swapped_finding`,
+`test_ratchet_refuses_to_grow_an_empty_baseline`. Both went red first.
+Side effect, intended: a missing baseline now also needs `--allow-growth`,
+which is what §4 already said the first run uses.
+
+**Found:** `check_path_references.py` told readers the shim rule was in §4;
+it is in §3. Became a check that the section the message names is the one
+that explains shims (`test_reference_check_points_at_the_section_that_explains_shims`).
+
+**Found while proving the gate on platform:** moving
+`scripts/check-mender-compose.sh` left five stale references, not two:
+the Makefile, a runbook, both workflows and `project-tracker.html`. The
+index caught them all; a code graph would have caught none.
+
+**Found:** platform's AGENTS.md makes a `project-tracker.html` entry binding
+before any hand-off after a push or PR checks. Each extra commit reruns the
+paid review, so write the tracker entry in the same push as the last fix
+where you can, not as a separate one.
+
+**Still open:** platform's `scripts/ci/` copies predate these fixes. Ship the
+fixed `ratchet.py` and `check_path_references.py` to platform with the
+ratchet PR (§4 step 2), which is the first PR that runs the ratchet.

@@ -4,6 +4,22 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-03 (later) - Repo maintainability after its first run
+
+### repo-maintainability 0.1.1
+
+What platform's first PR (ADR 0019, layout gate, reference index) taught.
+
+- **The ratchet compares findings, not counts.** `update` let a fixed
+  finding pay for a new one, and stopped guarding once a baseline was empty.
+  Both now refuse anything new without `--allow-growth`, proved by two tests
+  that went red first.
+- **The shim pointer names the right section** (§3, not §4), with a test.
+- **§0 counts the flat directory correctly** and sorts every file into a
+  family before `layout.json` is written; a leftover group goes to the owner.
+- **The trusted-base guard watches `ci.yml` and the review machinery, not
+  every workflow**, so the gates ship as their own workflow file.
+
 ## 2026-11-03 - Repo maintainability
 
 ### repo-maintainability 0.1.0 — first release
