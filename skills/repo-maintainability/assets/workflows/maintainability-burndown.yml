@@ -1,0 +1,96 @@
+# Maintainability — burn-down. Every other day, if no burn-down PR is still
+# open, pick ONE target from the baselines and open a Draft PR that removes
+# it. The PR goes through the repo's own review gate (ADR 0005 on platform);
+# the owner merges or closes. The main-tier workflow then lowers the
+# baselines, so cleared debt cannot return.
+#
+# Serial on purpose: two open burn-down PRs that both touch scripts/ conflict
+# and waste review budget.
+#
+# Target order, safest first:
+#   1. retire   — a *_candidate.* file with no inbound graph reference and no
+#                 commit in 90 days
+#   2. delete   — a vulture / shellcheck finding, verified dead in the graph
+#   3. dedupe   — one jscpd cluster (usually an attended .ps1/.sh pair)
+#   4. move     — one file into its family dir, shim left at the old path
+#
+# The agent runs under the repo's existing review SDK key with a per-PR
+# budget cap. Tools are free; this labour is the only paid part, by choice.
+
+name: maintainability-burndown
+
+on:
+  schedule:
+    - cron: "23 7 */2 * *"    # every other day, 07:23 UTC
+  workflow_dispatch:
+    inputs:
+      kind:
+        description: "retire | delete | dedupe | move (blank = next in order)"
+        required: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: maintainability-burndown
+  cancel-in-progress: false
+
+jobs:
+  pick:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.open.outputs.skip }}
+    steps:
+      - name: Only one burn-down PR at a time
+        id: open
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh pr list --repo "$GITHUB_REPOSITORY" --label burn-down --state open --json number --jq 'length')
+          echo "skip=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  burndown:
+    needs: pick
+    if: needs.pick.outputs.skip == 'false'
+    runs-on: ubuntu-latest
+    env:
+      BURNDOWN_BUDGET_USD: "5"
+      BURNDOWN_MAX_TURNS: "60"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Choose the target
+        id: target
+        run: |
+          # scripts/ci/burndown_pick.py reads .maintainability/*.baseline and the
+          # code graph, applies the order above, and prints JSON:
+          #   {"kind": "retire", "path": "scripts/x_candidate.py", "evidence": "..."}
+          python scripts/ci/burndown_pick.py \
+            --kind "${{ github.event.inputs.kind }}" > target.json
+          cat target.json
+          echo "kind=$(jq -r .kind target.json)" >> "$GITHUB_OUTPUT"
+          echo "path=$(jq -r .path target.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Open the Draft PR
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # The agent step. On platform this reuses scripts/ai_review_sdk.py's
+          # bridge with Read/Edit/Bash and a workspace boundary hook. It:
+          #   - makes the change for exactly one target
+          #   - for a move: `git mv`, leaves a shim at the old path, updates
+          #     every reference the index reports (check_path_references.py
+          #     --index), including runbooks
+          #   - runs the PR-tier gates locally and stops if any fail
+          #   - opens a Draft PR labelled burn-down, body = target.json evidence
+          # It never marks the PR ready and never merges.
+          python scripts/ci/burndown_agent.py --target target.json \
+            --budget "$BURNDOWN_BUDGET_USD" --max-turns "$BURNDOWN_MAX_TURNS"
