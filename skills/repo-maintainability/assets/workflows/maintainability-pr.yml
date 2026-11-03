@@ -12,6 +12,9 @@ name: maintainability
 
 on:
   pull_request:
+    # edited/labeled: adding `Refs #N` to the body or the `no-issue` label
+    # must re-run the PR-links check without a push.
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
 
 permissions:
   contents: read

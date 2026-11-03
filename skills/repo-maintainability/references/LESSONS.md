@@ -144,3 +144,28 @@ reference check and its tolerated list). A ledger is a document, so the
 check now examines document extensions only
 (`test_ledger_check_ignores_code_named_after_ledgers`). Standing rule: the
 first thing to run a new guard against is the PR that adds it.
+
+**Found by ai-review on platform PR 2 (0 blocking, 6 suggestions), all
+fixed upstream first:** the PR-links check re-ran only on push, so the
+`no-issue` label and a body edit could not clear a red result (template now
+listens to `edited`, `labeled`, `unlabeled`); a bare `#N` anywhere satisfied
+it, including "PR #158" in prose (a GitHub keyword is now required,
+`test_pr_links_needs_a_keyword_before_the_issue_number`); `render_status.py`
+crashed on a bare JSON list (`test_status_render_accepts_a_bare_list`);
+`ratchet.py`'s `--allow-growth` help still described the count rule;
+`project-sync.yml` went red on the very PR that added it because its secret
+did not exist yet (it now warns and passes until the settings exist).
+Accepted, not fixed: a hand-written file can fake the `generated-by:` marker;
+the review role catches that, and exact-matching the marker would couple two
+scripts for a case nobody has a reason to attempt.
+
+**Found:** platform's `ci.yml` still calls `scripts/check-project-tracker.js`,
+and `ci.yml` is trusted-base protected. The archive PR that removes the
+tracker therefore has to be the owner's own PR, or leave the scripts in
+place and remove only the file. Write that into the records ADR's
+Consequences next time.
+
+**Found in this very run:** a Python helper that rewrites files from a
+bash heredoc turned `\b` into a backspace and silently skipped three edits,
+and the commit went out with a failing test. Edit files with a tool that
+shows the diff, and never commit on a suite that is not fully green.

@@ -2,7 +2,9 @@
 """Fail when a pull request body names no issue and no ADR.
 
 A PR that serves no issue leaves no trace on the project board once it is
-merged. Accepted forms: `#123`, an issue URL, or `ADR 0019` / `ADR-0019`.
+merged. Accepted forms: a GitHub keyword before the number (`Closes #123`,
+`Refs #123`, `Part of #123`), an issue URL, or `ADR 0019` / `ADR-0019`. A bare
+`#123` is not enough: "PR #158" in a sentence is a mention, not a link.
 
 Usage:
   check_pr_links.py --body-file <file>    # the workflow writes the PR body here
@@ -14,7 +16,8 @@ import re
 import sys
 from pathlib import Path
 
-ISSUE_REF = re.compile(r"(?<![\w/])#\d+\b")
+KEYWORDS = r"(closes?|closed|fixes|fixed|resolves?|resolved|refs?|references|see|implements|part of)"
+ISSUE_REF = re.compile(KEYWORDS + r"(\s+issue)?\s+#\d+\b", re.IGNORECASE)
 ISSUE_URL = re.compile(r"github\.com/[\w.-]+/[\w.-]+/(issues|pull)/\d+")
 ADR_REF = re.compile(r"\bADR[ -]?\d{4}\b")
 

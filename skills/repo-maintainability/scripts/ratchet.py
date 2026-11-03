@@ -35,7 +35,7 @@ def main() -> int:
     ap.add_argument("mode", choices=["check", "update"])
     ap.add_argument("--baseline", required=True, type=Path)
     ap.add_argument("--allow-growth", action="store_true",
-                    help="update only: permit a larger baseline (first run)")
+                    help="update only: permit findings not already in the baseline (first run)")
     args = ap.parse_args()
 
     current = {normalise(l) for l in sys.stdin if l.strip()}
