@@ -199,8 +199,9 @@ reviewability) wants small workflow changes. Order:
    the App is a ruleset bypass actor (`actor_type: Integration`,
    `bypass_mode: always`) so the commit lands on `main` without a PR. A
    plain `git push` from a runner fails both the signature rule and the
-   PR rule. The ruleset change is its own line in the PR and one live
-   `PUT` after merge, like making `gates` required. Strip ctxmap's
+   PR rule. The ruleset change is a decision: copy
+   `assets/adr/NNNN-generated-files-committed-by-the-app.md`, and apply it
+   with one live `PUT` after merge, like making `gates` required. Strip ctxmap's
    "Last updated" line: the commit is the timestamp.
 4. **This skill's lessons.** Append what the first three PRs taught to
    `references/LESSONS.md` and bump the skill version.
