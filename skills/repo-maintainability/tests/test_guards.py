@@ -323,4 +323,4 @@ def test_api_commit_refuses_paths_outside_the_allow_list(repo: Path) -> None:
               "--message", "m", "--allow", "STATUS.md", "--allow", ".maintainability/",
               "STATUS.md", "Makefile", cwd=repo)
     assert out.returncode == 2
-    assert "Makefile" in out.stderr and "allow" in out.stderr
+    assert "refusing paths outside the allow list: Makefile" in out.stderr
