@@ -5,7 +5,7 @@ description: "Fit a Machine Saver repository — existing or brand new — with 
 
 # Repo maintainability
 
-**Skill version 0.2.5.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
+**Skill version 0.3.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
 First run: `Machine-Saver-Inc/platform`, November 2026.
 
 For any Machine Saver repository that agents develop in, whether it exists
@@ -76,8 +76,9 @@ was:
 | Python lint | ruff, `assets/lint/ruff.toml` | MIT | PR + main tier |
 | Dead code | vulture, shellcheck, PSScriptAnalyzer | MIT / GPL-3 (tool only) / MIT | PR + main tier |
 | Duplication | jscpd | MIT | PR + main tier |
-| Context map | ctxmap | MIT | main tier, bot commit |
-| Code graph | codebase-memory-mcp | MIT, single binary, 66+ languages | main tier, committed index |
+| Context map | ctxmap 0.1.0, structural only (no LLM) | MIT | main tier, bot commit |
+| Bot commit | `scripts/commit_via_api.py` (this skill), as the repo's GitHub App | MIT | main tier |
+| Code graph | codebase-memory-mcp | MIT | deferred (§6): its index is per user and built through MCP calls |
 | Human graph | Understand-Anything | MIT | weekly, committed JSON |
 | Tool versions | Renovate | already present | weekly |
 
@@ -190,10 +191,17 @@ reviewability) wants small workflow changes. Order:
    their files, and delete the seed workflow before the PR leaves Draft. Tool versions, paths and line endings then match
    what the PR tier will see. That dispatch is the only time
    `--allow-growth` is ever used.
-3. **Context map + code graph + status page.**
+3. **Context map + status page + baseline lowering.**
    `assets/workflows/maintainability-main.yml`. One line in the root
-   `AGENTS.md`: *Read `CONTEXT.md` and `STATUS.md` first; query the code
-   graph before grepping.* Never a git hook.
+   `AGENTS.md`: *Read `CONTEXT.md` and `STATUS.md` first.* Never a git
+   hook. The bot commits through GitHub's API as the repo's App
+   (`commit_via_api.py`, `createCommitOnBranch`), which GitHub signs, and
+   the App is a ruleset bypass actor (`actor_type: Integration`,
+   `bypass_mode: always`) so the commit lands on `main` without a PR. A
+   plain `git push` from a runner fails both the signature rule and the
+   PR rule. The ruleset change is its own line in the PR and one live
+   `PUT` after merge, like making `gates` required. Strip ctxmap's
+   "Last updated" line: the commit is the timestamp.
 4. **This skill's lessons.** Append what the first three PRs taught to
    `references/LESSONS.md` and bump the skill version.
 5. **Burn-down.** `assets/workflows/maintainability-burndown.yml`, plus the
@@ -228,8 +236,10 @@ on day one without blocking anybody.
   they reuse the target repo's agent bridge.
 - The weekly Understand-Anything job is a placeholder until the target repo
   has an agent runner it can use headless.
-- Pin versions in the workflow templates against the registries before the
-  first PR; the numbers in the templates are the ones known at writing.
+- The committed code-graph index. codebase-memory-mcp (0.12.1 at writing)
+  keeps its index per user and indexes through MCP tool calls, so it does
+  not fit a committed, reviewable file; evaluate its `cli` entry points or
+  another tool before promising the index in an ADR.
 
 ## 7. When you come back to a repo
 

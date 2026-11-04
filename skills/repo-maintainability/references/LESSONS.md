@@ -287,3 +287,30 @@ the current trusted base, and the merge commit it adds is GitHub-signed.
 **Proof:** release PR #175, author `machine-saver-release-bot[bot]`,
 `verification.verified: true`, all checks green, 0 blocking findings,
 merge state CLEAN with no bypass. #167 closed on evidence.
+
+## 2026-11-04 — platform, main tier (PR 9), skill 0.3.0
+
+**Found:** a bot cannot `git push` to `platform`'s `main`: the ruleset
+requires a pull request and signed commits, and a runner's push is neither.
+Three ways out were put to the owner (App as bypass actor with API commits;
+refresh PRs through paid review on every merge; artifacts only). He chose
+the first. `commit_via_api.py` sends `createCommitOnBranch`, which GitHub
+signs, with `expectedHeadOid` so a race fails instead of overwriting, and
+only the paths that changed. The App is a bypass actor
+(`actor_type: Integration`, `bypass_mode: always`); the policy test pins it.
+Payload and no-op paths are unit-tested; the live commit is proven by the
+first run on `main`.
+
+**Found:** the template's tool pins were guesses. ctxmap is 0.1.0 on PyPI
+(not 0.3.2) and builds a structural map offline with no LLM, 6 KB for 316
+files; its "Last updated" line is replaced, since a changing line would
+make every run a change. codebase-memory-mcp is 0.12.1 and keeps its index
+per user, driven by MCP calls, so the "committed index" promise in the ADR
+template was not implementable as written; the graph is deferred to its
+own issue and §6 says so. Pin against the registry before writing the ADR,
+not after.
+
+**Found:** on a Windows developer machine ctxmap and `render_status.py`
+both died on cp1252 (`✓`, `·`); `PYTHONUTF8=1` and an explicit UTF-8
+stdout fix it. Runners are fine; the lesson is for whoever proves things
+locally on Windows.
