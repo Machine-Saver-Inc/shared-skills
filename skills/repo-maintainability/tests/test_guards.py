@@ -242,3 +242,31 @@ def test_reference_check_ignores_decisions_and_archives(repo: Path) -> None:
     assert out.returncode == 1
     assert "docs/adr/" not in out.stdout and "docs/archive/" not in out.stdout
     assert "Makefile:2" in out.stdout
+
+
+def test_ratchet_treats_windows_and_posix_paths_as_the_same_finding(tmp_path: Path) -> None:
+    b = tmp_path / "t.baseline"
+    run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b), "--allow-growth",
+        cwd=tmp_path, stdin="scripts/a.ps1:10: PSAvoidUsingCmdletAliases alias\n")
+    out = run(str(SCRIPTS / "ratchet.py"), "check", "--baseline", str(b),
+              cwd=tmp_path, stdin=r".\scripts\a.ps1:12: PSAvoidUsingCmdletAliases alias" + "\n")
+    assert out.returncode == 0, out.stdout
+
+
+def test_ratchet_writes_posix_line_endings_everywhere(tmp_path: Path) -> None:
+    b = tmp_path / "t.baseline"
+    run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b), "--allow-growth",
+        cwd=tmp_path, stdin="a:1: x\nb:1: y\n")
+    assert b"\r" not in b.read_bytes()
+
+
+def test_jscpd_findings_are_order_and_os_independent(tmp_path: Path) -> None:
+    report = tmp_path / "jscpd-report.json"
+    pair = {"format": "python", "lines": 12, "tokens": 204,
+            "firstFile": {"name": r"scripts\b.py", "start": 1, "end": 12},
+            "secondFile": {"name": "scripts/a.py", "start": 5, "end": 16}}
+    swapped = {**pair, "firstFile": pair["secondFile"], "secondFile": pair["firstFile"]}
+    report.write_text(json.dumps({"statistics": {}, "duplicates": [pair, swapped]}))
+    out = run(str(SCRIPTS / "jscpd_findings.py"), str(report), cwd=tmp_path)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.splitlines() == ["python: scripts/a.py + scripts/b.py"]

@@ -1,0 +1,67 @@
+# Seeds the ratchet baselines ON THE RUNNERS, once. Copy to the branch that
+# adds the ratcheted steps, put that branch's name below, push, download the
+# artifacts, commit their files, then delete this workflow before the PR
+# leaves Draft. It triggers on push, not workflow_dispatch: dispatch only
+# sees workflows that exist on the default branch. This is the only place
+# `ratchet.py update --allow-growth` is ever run: baselines seeded on a
+# developer machine differ in tool versions, path separators and line
+# endings from what the PR tier sees.
+
+name: maintainability-seed
+
+on:
+  push:
+    branches: [REPLACE-WITH-THE-SEEDING-BRANCH]
+
+permissions:
+  contents: read
+
+jobs:
+  seed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Finding tools
+        run: |
+          pip install --quiet ruff==0.17.3 vulture==2.14
+          sudo apt-get install -y -qq shellcheck >/dev/null
+          npm install --global --silent jscpd@4.0.5
+      - name: Seed the Linux baselines
+        run: |
+          mkdir -p .maintainability
+          ruff check --config .maintainability/ruff.toml --output-format concise . 2>/dev/null \
+            | grep -E '^[^ ]+:[0-9]+:[0-9]+: ' \
+            | python3 scripts/ci/ratchet.py update --allow-growth --baseline .maintainability/ruff.baseline
+          vulture --min-confidence 80 scripts cloud mcp eval 2>/dev/null \
+            | python3 scripts/ci/ratchet.py update --allow-growth --baseline .maintainability/vulture.baseline
+          git ls-files '*.sh' | xargs shellcheck -f gcc -S warning 2>/dev/null \
+            | python3 scripts/ci/ratchet.py update --allow-growth --baseline .maintainability/shellcheck.baseline
+          jscpd --silent --reporters json --output "$RUNNER_TEMP/jscpd" \
+                --format python,bash,powershell,yaml --min-lines 12 --min-tokens 70 \
+                scripts cloud edge >/dev/null 2>&1 || true
+          python3 scripts/ci/jscpd_findings.py "$RUNNER_TEMP/jscpd/jscpd-report.json" \
+            | python3 scripts/ci/ratchet.py update --allow-growth --baseline .maintainability/jscpd.baseline
+          wc -l .maintainability/*.baseline
+      - uses: actions/upload-artifact@v7
+        with:
+          name: baselines-linux
+          path: .maintainability/*.baseline
+          include-hidden-files: true   # .maintainability/ is a dot-directory
+
+  seed-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Seed the PowerShell baseline
+        shell: pwsh
+        run: |
+          Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
+          Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Warning,Error |
+            ForEach-Object { "$([System.IO.Path]::GetRelativePath((Get-Location).Path, $_.ScriptPath)):$($_.Line): $($_.RuleName) $($_.Message)" } |
+            python scripts/ci/ratchet.py update --allow-growth --baseline .maintainability/pssa.baseline
+          Get-Content .maintainability/pssa.baseline | Measure-Object -Line
+      - uses: actions/upload-artifact@v7
+        with:
+          name: baselines-windows
+          path: .maintainability/pssa.baseline
+          include-hidden-files: true

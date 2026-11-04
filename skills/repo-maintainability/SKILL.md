@@ -5,7 +5,7 @@ description: "Fit a Machine Saver repository — existing or brand new — with 
 
 # Repo maintainability
 
-**Skill version 0.2.2.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
+**Skill version 0.2.3.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
 First run: `Machine-Saver-Inc/platform`, November 2026.
 
 For any Machine Saver repository that agents develop in, whether it exists
@@ -175,9 +175,14 @@ reviewability) wants small workflow changes. Order:
    next PR archives it under `docs/archive/` (which `check_ledgers.py`
    allows) and moves its evidence rows to issue comments.
 2. **Ratcheted baselines.** Add the remaining steps of
-   `assets/workflows/maintainability-pr.yml`, ruff included. Run each tool
-   once through `ratchet.py update --allow-growth` to seed the baselines;
-   that is the only time `--allow-growth` is ever used.
+   `assets/workflows/maintainability-pr.yml`, ruff included. Seed the
+   baselines **on the CI runners, not your machine**: copy
+   `assets/workflows/maintainability-seed.yml` to the branch with the
+   branch's name in its `push:` trigger (a `workflow_dispatch` only sees
+   workflows on the default branch), push, download the artifacts, commit
+   their files, and delete the seed workflow before the PR leaves Draft. Tool versions, paths and line endings then match
+   what the PR tier will see. That dispatch is the only time
+   `--allow-growth` is ever used.
 3. **Context map + code graph + status page.**
    `assets/workflows/maintainability-main.yml`. One line in the root
    `AGENTS.md`: *Read `CONTEXT.md` and `STATUS.md` first; query the code

@@ -14,7 +14,8 @@ down. The main-tier workflow runs `update` after each merge; nobody edits a
 baseline by hand.
 
 Findings are normalised before comparison: line and column numbers are
-stripped, so a finding that merely shifts lines is not "new".
+stripped, so a finding that merely shifts lines is not "new", and path
+separators are made POSIX, so a Windows runner and a Linux runner agree.
 """
 from __future__ import annotations
 
@@ -27,7 +28,12 @@ LINE_NO = re.compile(r":\d+(:\d+)?(?=[:\s]|$)")
 
 
 def normalise(line: str) -> str:
-    return LINE_NO.sub("", line.strip())
+    # The same finding whichever OS reported it: Windows runners print
+    # backslashes and a leading ".\".
+    line = line.strip().replace("\\", "/")
+    if line.startswith("./"):
+        line = line[2:]
+    return LINE_NO.sub("", line)
 
 
 def main() -> int:
@@ -41,7 +47,7 @@ def main() -> int:
     current = {normalise(l) for l in sys.stdin if l.strip()}
     old: set[str] = set()
     if args.baseline.exists():
-        old = {l.strip() for l in args.baseline.read_text().splitlines() if l.strip()}
+        old = {normalise(l) for l in args.baseline.read_text().splitlines() if l.strip()}
 
     if args.mode == "check":
         new = sorted(current - old)
@@ -66,7 +72,9 @@ def main() -> int:
               "fix them, or pass --allow-growth deliberately")
         return 1
     args.baseline.parent.mkdir(parents=True, exist_ok=True)
-    args.baseline.write_text("\n".join(sorted(current)) + ("\n" if current else ""))
+    # POSIX line endings whichever runner wrote it, so the file is identical
+    # from Linux and Windows and git never sees a whole-file CRLF diff.
+    args.baseline.write_text("\n".join(sorted(current)) + ("\n" if current else ""), newline="\n")
     print(f"ratchet: {args.baseline} now {len(current)} (was {len(old)})")
     return 0
 

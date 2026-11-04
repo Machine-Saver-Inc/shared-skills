@@ -206,3 +206,49 @@ to `github.token` when the secret is absent; an expired token is not absent
 and fails loudly, which is the right signal to mint a new one. The first
 draft of that comment claimed the fallback covered expiry; review caught it. Sentence and template, not a check: the gate
 runs in the target repo's workflow and the proof is the next release PR.
+
+## 2026-11-04 — platform, ratchet PR (PR 5), skill 0.2.3
+
+**Found before seeding:** the developer machine is Windows, with no sudo in
+WSL, no PSScriptAnalyzer, shellcheck 0.9.0 and node only on the Windows
+side. Baselines seeded there would carry tool versions, path separators and
+line endings the PR tier never sees, and the first CI run would report
+"new" findings that were nothing of the kind. Became §4 step 2: seed on the
+runners through a temporary dispatch workflow and commit the artifacts.
+Became a check too: `ratchet.py` treats a backslash path and a slash path
+as the same finding, on the baseline side as well as the input side
+(`test_ratchet_treats_windows_and_posix_paths_as_the_same_finding`).
+
+**Found:** `$_.ScriptPath` from Invoke-ScriptAnalyzer is the runner's
+absolute path, so a PowerShell baseline would have been tied to the
+runner's checkout directory. The template writes repo-relative paths.
+
+**Found in this run, again:** the commit went out with the new test red,
+because the check was `pytest | grep -E 'passed|failed' && commit`, and
+grep succeeds on "failed" too. Second time a wrong local gate let a red
+suite through. Gate on pytest's exit code, never on its text.
+
+**Found while seeding:** `gh workflow run` answered "not found on the
+default branch": a `workflow_dispatch` is only addressable once the file
+exists on `main`. The seed workflow now triggers on push to the seeding
+branch instead; the template carries a placeholder branch name.
+
+**Found on the first seed:** the jscpd baseline came back empty, which
+looked like good news and was a dead gate: `--silent` suppresses the clone
+list, not just the progress bar. The templates now run jscpd without it,
+with `NO_COLOR=1` so no escape codes reach the baseline, and strip the
+`[line:col - line:col]` ranges so a clone that moves is not "new". Also:
+`actions/upload-artifact` skips dot-directories unless
+`include-hidden-files: true`, so the Linux baselines never uploaded. A
+baseline of zero on day one is a finding about the pipeline, not the code.
+
+**Found on the second seed:** ruff's concise output ends with "Found N
+errors." and a fixable-count line; both landed in the baseline and would
+have changed on every run. The pipelines keep only `path:line:col: ` lines.
+The PowerShell baseline came back with CRLF because `write_text` on a
+Windows runner uses the platform newline; `ratchet.py` now writes POSIX
+endings everywhere (`test_ratchet_writes_posix_line_endings_everywhere`,
+red on Windows first). And the 0.2.0 templates had the ruff step's two
+lines joined into one, a Python heredoc having eaten the `\`-newline; the
+same bug that bit the 0.2.0 workflow on platform. Templates are files to
+edit with a diff in front of you, not strings to rewrite in a script.
