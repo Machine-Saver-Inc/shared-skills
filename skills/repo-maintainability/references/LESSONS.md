@@ -331,3 +331,13 @@ token. The owner chose a second App: `Maintainability Bot`, Contents write
 only, token minted in the last step of the one workflow that commits, and
 the only bypass actor. Rule: one App per trust boundary; a bypass-capable
 token never reaches a step that runs someone else's code.
+
+**Found by ai-review on the main-tier PR, fourth pass (1 blocking):** the
+App token was minted in the same job that had just run pip- and
+npm-installed tools, so a compromised package could leave a `.pth` or a
+patched `commit_via_api.py` behind and use the token. The commit now
+happens in a separate job: fresh checkout of the trusted commit, nothing
+installed, token minted there and nowhere else, generated files arriving
+as artifacts, and `commit_via_api.py --allow` refusing any path outside
+the ADR's list (`test_api_commit_refuses_paths_outside_the_allow_list`).
+Hash-pinned installs for the generating job are the next tightening (§6).

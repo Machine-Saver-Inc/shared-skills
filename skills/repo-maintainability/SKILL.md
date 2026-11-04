@@ -240,6 +240,9 @@ on day one without blocking anybody.
   they reuse the target repo's agent bridge.
 - The weekly Understand-Anything job is a placeholder until the target repo
   has an agent runner it can use headless.
+- Hash-pinned installs (`pip install --require-hashes`, `npm ci` with a
+  lockfile) for the generating job of the main tier; today only versions
+  are pinned, and Renovate keeps them current.
 - The committed code-graph index. codebase-memory-mcp (0.12.1 at writing)
   keeps its index per user and indexes through MCP tool calls, so it does
   not fit a committed, reviewable file; evaluate its `cli` entry points or

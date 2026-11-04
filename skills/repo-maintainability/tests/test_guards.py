@@ -314,3 +314,13 @@ def test_api_commit_payload_carries_deletions(tmp_path: Path) -> None:
     body = commit_via_api.payload("org/repo", "main", "m", "a" * 40,
                                   {"STATUS.md": b"x"}, deletions=["old.md"])
     assert body["variables"]["input"]["fileChanges"]["deletions"] == [{"path": "old.md"}]
+
+
+def test_api_commit_refuses_paths_outside_the_allow_list(repo: Path) -> None:
+    (repo / "STATUS.md").write_text("generated\n")
+    (repo / "Makefile").write_text("tampered\n")
+    out = run(str(SCRIPTS / "commit_via_api.py"), "--repo", "o/r", "--branch", "main",
+              "--message", "m", "--allow", "STATUS.md", "--allow", ".maintainability/",
+              "STATUS.md", "Makefile", cwd=repo)
+    assert out.returncode == 2
+    assert "Makefile" in out.stderr and "allow" in out.stderr

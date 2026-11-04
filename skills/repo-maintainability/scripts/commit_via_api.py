@@ -12,6 +12,11 @@ pull request. A plain `git push` from a runner does neither.
 Only paths that differ from HEAD are sent; with nothing changed, no commit
 is made. The branch must still be at HEAD (`--expected-head`), otherwise
 GitHub refuses and the job fails rather than overwriting someone's push.
+
+Run it from a job that installed nothing and checked out the trusted
+commit fresh, with `--allow` naming every path or directory prefix the
+decision record permits; anything else is refused before a token is used.
+A tool that ran earlier in another job cannot then widen what is committed.
 """
 from __future__ import annotations
 
@@ -69,14 +74,27 @@ def post(body: dict, token: str) -> dict:
         return json.load(resp)
 
 
+def allowed(path: str, prefixes: list[str]) -> bool:
+    return any(path == p or (p.endswith("/") and path.startswith(p)) for p in prefixes)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", required=True)
     ap.add_argument("--branch", required=True)
     ap.add_argument("--message", required=True)
     ap.add_argument("--expected-head", default=None)
+    ap.add_argument("--allow", action="append", default=[],
+                    help="a path, or a directory prefix ending in /, the commit may touch; repeatable")
     ap.add_argument("paths", nargs="+")
     args = ap.parse_args()
+
+    if args.allow:
+        refused = [p for p in args.paths if not allowed(p, args.allow)]
+        if refused:
+            print(f"commit_via_api: refusing paths outside the allow list: {' '.join(refused)}",
+                  file=sys.stderr)
+            return 2
 
     modified, deleted = changed(args.paths)
     if not modified and not deleted:
