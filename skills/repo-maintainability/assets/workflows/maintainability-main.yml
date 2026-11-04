@@ -71,9 +71,9 @@ jobs:
             | python scripts/ci/ratchet.py update --baseline .maintainability/vulture.baseline
           git ls-files '*.sh' | xargs shellcheck -f gcc -S warning 2>/dev/null \
             | python scripts/ci/ratchet.py update --baseline .maintainability/shellcheck.baseline
-          jscpd --silent --reporters console --format python,bash,powershell,yaml \
+          NO_COLOR=1 jscpd --reporters console --format python,bash,powershell,yaml \
                 --min-lines 12 --min-tokens 70 scripts cloud edge 2>/dev/null \
-            | grep -E '^\s*-' \
+            | grep -E '^\s*-' | sed -E 's/ \[[0-9:]+ - [0-9:]+\]//g' \
             | python scripts/ci/ratchet.py update --baseline .maintainability/jscpd.baseline
           python scripts/ci/check_layout.py --baseline
 
