@@ -370,3 +370,11 @@ reachable from every branch. The environment and its policy are now in
 the repo's bootstrap script, its teardown, and the policy test. The rule
 the repo already had, "everything as code, reproducible from git", applies
 to the settings that protect the code too.
+
+**Found on the first move under the ratchets (platform PR 10):** a file
+moved into its family carried a tolerated ruff finding with it, and the
+ruff baseline keys findings by path, so at the new path the finding was
+"new" and the gate went red. That is the ratchet working: a move is the
+moment to fix what the file carries, not to re-tolerate it. The burn-down
+agent's "move" step must run the finding tools on the moved file and fix
+or justify each finding before opening its PR.
