@@ -5,7 +5,7 @@ description: "Fit a Machine Saver repository — existing or brand new — with 
 
 # Repo maintainability
 
-**Skill version 0.2.3.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
+**Skill version 0.2.4.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
 First run: `Machine-Saver-Inc/platform`, November 2026.
 
 For any Machine Saver repository that agents develop in, whether it exists
@@ -108,11 +108,14 @@ ADRs, which an agent reading the function never sees, and it re-derives the
 constraint, sometimes wrongly. ERA001 and the role rule remove the comments
 that are slop; the ones left are the ones that stop slop.
 
-If the repo uses release-please, run it with its own fine-grained token
-(Contents and Pull requests write) rather than `GITHUB_TOKEN`: a PR opened
-by `GITHUB_TOKEN` never triggers workflows, so the release PR arrives with
-no checks and needs an admin merge past every gate. With a token it is an
-ordinary PR; the PR-links step exempts it by branch prefix.
+If the repo uses release-please, run it with a **GitHub App installation
+token** (`actions/create-github-app-token`; Contents and Pull requests
+write) rather than `GITHUB_TOKEN` or a personal token: a PR opened by
+`GITHUB_TOKEN` never triggers workflows, so the release PR arrives with no
+checks; and a commit a personal token creates through the API is unsigned,
+so a `required_signatures` rule blocks it anyway. GitHub signs the commits
+an App creates, so the release PR is an ordinary PR; the PR-links step
+exempts it by branch prefix.
 
 Two one-time settings per repo, because `GITHUB_TOKEN` cannot touch an
 organisation board: `vars.PROJECT_NUMBER` and `secrets.PROJECT_TOKEN` (a
@@ -209,7 +212,12 @@ stripped so a shifted line is not "new". The main-tier workflow runs
 This is why the gates can be switched on in a repo with hundreds of findings
 on day one without blocking anybody.
 
-## 6. Still to build (as of 0.2.0)
+## 6. Still to build (as of 0.2.4)
+
+- A finding tool that crashes or fails to start prints nothing, and an
+  empty pipe looks like zero findings. Each ratchet step should capture
+  the tool's exit code and accept only its documented "findings" codes
+  before the ratchet sees the output (review suggestion on platform PR 5).
 
 - `burndown_pick.py` / `burndown_agent.py` are specified in the burn-down
   workflow's comments and not yet written; they are repo-specific because

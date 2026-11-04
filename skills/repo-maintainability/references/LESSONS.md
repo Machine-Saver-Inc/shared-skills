@@ -252,3 +252,18 @@ red on Windows first). And the 0.2.0 templates had the ruff step's two
 lines joined into one, a Python heredoc having eaten the `\`-newline; the
 same bug that bit the 0.2.0 workflow on platform. Templates are files to
 edit with a diff in front of you, not strings to rewrite in a script.
+
+## 2026-11-04 — platform, first token-authored release PR, skill 0.2.4
+
+**Found:** the first real release PR after the token change (0.5.0) ran
+every check and got a clean review, then sat `BLOCKED`: the ruleset
+requires signed commits, and a commit release-please creates through the
+API with a personal token is unsigned. Half of the problem was solved by
+the token (checks run); the other half needs a GitHub App installation
+token, whose API commits GitHub signs. §1b now says App, not PAT. Rule of
+thumb: before choosing a credential for a bot that commits, read every
+rule on the protected branch, not just the status checks.
+
+**Carried forward from review:** a finding tool that crashes prints
+nothing and an empty pipe is indistinguishable from zero findings. Listed
+in §6 until the ratchet steps check exit codes.
