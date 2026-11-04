@@ -242,3 +242,12 @@ def test_reference_check_ignores_decisions_and_archives(repo: Path) -> None:
     assert out.returncode == 1
     assert "docs/adr/" not in out.stdout and "docs/archive/" not in out.stdout
     assert "Makefile:2" in out.stdout
+
+
+def test_ratchet_treats_windows_and_posix_paths_as_the_same_finding(tmp_path: Path) -> None:
+    b = tmp_path / "t.baseline"
+    run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b), "--allow-growth",
+        cwd=tmp_path, stdin="scripts/a.ps1:10: PSAvoidUsingCmdletAliases alias\n")
+    out = run(str(SCRIPTS / "ratchet.py"), "check", "--baseline", str(b),
+              cwd=tmp_path, stdin=".\scripts\a.ps1:12: PSAvoidUsingCmdletAliases alias\n")
+    assert out.returncode == 0, out.stdout

@@ -206,3 +206,19 @@ to `github.token` when the secret is absent; an expired token is not absent
 and fails loudly, which is the right signal to mint a new one. The first
 draft of that comment claimed the fallback covered expiry; review caught it. Sentence and template, not a check: the gate
 runs in the target repo's workflow and the proof is the next release PR.
+
+## 2026-11-04 — platform, ratchet PR (PR 5), skill 0.2.3
+
+**Found before seeding:** the developer machine is Windows, with no sudo in
+WSL, no PSScriptAnalyzer, shellcheck 0.9.0 and node only on the Windows
+side. Baselines seeded there would carry tool versions, path separators and
+line endings the PR tier never sees, and the first CI run would report
+"new" findings that were nothing of the kind. Became §4 step 2: seed on the
+runners through a temporary dispatch workflow and commit the artifacts.
+Became a check too: `ratchet.py` treats a backslash path and a slash path
+as the same finding, on the baseline side as well as the input side
+(`test_ratchet_treats_windows_and_posix_paths_as_the_same_finding`).
+
+**Found:** `$_.ScriptPath` from Invoke-ScriptAnalyzer is the runner's
+absolute path, so a PowerShell baseline would have been tied to the
+runner's checkout directory. The template writes repo-relative paths.

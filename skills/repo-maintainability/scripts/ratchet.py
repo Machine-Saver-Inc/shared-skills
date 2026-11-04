@@ -14,7 +14,8 @@ down. The main-tier workflow runs `update` after each merge; nobody edits a
 baseline by hand.
 
 Findings are normalised before comparison: line and column numbers are
-stripped, so a finding that merely shifts lines is not "new".
+stripped, so a finding that merely shifts lines is not "new", and path
+separators are made POSIX, so a Windows runner and a Linux runner agree.
 """
 from __future__ import annotations
 
@@ -27,7 +28,12 @@ LINE_NO = re.compile(r":\d+(:\d+)?(?=[:\s]|$)")
 
 
 def normalise(line: str) -> str:
-    return LINE_NO.sub("", line.strip())
+    # The same finding whichever OS reported it: Windows runners print
+    # backslashes and a leading ".\".
+    line = line.strip().replace("\\", "/")
+    if line.startswith("./"):
+        line = line[2:]
+    return LINE_NO.sub("", line)
 
 
 def main() -> int:
@@ -41,7 +47,7 @@ def main() -> int:
     current = {normalise(l) for l in sys.stdin if l.strip()}
     old: set[str] = set()
     if args.baseline.exists():
-        old = {l.strip() for l in args.baseline.read_text().splitlines() if l.strip()}
+        old = {normalise(l) for l in args.baseline.read_text().splitlines() if l.strip()}
 
     if args.mode == "check":
         new = sorted(current - old)

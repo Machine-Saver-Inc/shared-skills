@@ -104,5 +104,5 @@ jobs:
         run: |
           Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
           Invoke-ScriptAnalyzer -Path scripts -Recurse -Severity Warning,Error |
-            ForEach-Object { "$($_.ScriptPath):$($_.Line): $($_.RuleName) $($_.Message)" } |
+            ForEach-Object { "$([System.IO.Path]::GetRelativePath((Get-Location).Path, $_.ScriptPath)):$($_.Line): $($_.RuleName) $($_.Message)" } |
             python scripts/ci/ratchet.py check --baseline .maintainability/pssa.baseline

@@ -4,6 +4,19 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-04 - Baselines are seeded where they are checked
+
+### repo-maintainability 0.2.3
+
+- **`ratchet.py` normalises path separators** on both sides, so a finding
+  reported by a Windows runner matches the same finding from Linux. Red-first
+  test; 19 guard tests.
+- **PSScriptAnalyzer findings use repo-relative paths** in the PR template,
+  not the runner's absolute checkout path.
+- **Baselines are seeded on the CI runners** through a temporary dispatch
+  workflow (`assets/workflows/maintainability-seed.yml`) whose artifacts are
+  committed, never from a developer machine with other tool versions.
+
 ## 2026-11-03 (late) - The release PR is an ordinary PR
 
 ### repo-maintainability 0.2.2
