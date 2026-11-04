@@ -353,3 +353,11 @@ template and in the ADR template's point 4. Setting an environment secret
 needs the key value, which only the owner has: creating the environment
 and its branch policy is the agent's, re-setting the secret into it is the
 owner's, and the repository-level copy is deleted after.
+
+**Found by ai-review on the main-tier PR, sixth pass (1 blocking):**
+unpacking the generating job's artifact over the checkout let that job
+ship its own `commit_via_api.py`, which then ran with the token. Artifacts
+now land in `runner.temp`; only the allow-listed files are copied into the
+checkout as plain files, symlinks refused. The pattern, stated once: an
+untrusted job's output is data, never code or layout, until a trusted job
+has chosen each file by name.

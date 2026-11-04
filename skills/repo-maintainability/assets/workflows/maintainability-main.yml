@@ -10,7 +10,8 @@
 # Trust boundary: the jobs that run third-party tools never see the App's
 # token. They hand their output over as artifacts; a last job with a fresh
 # checkout and no installs mints the token and commits only the allow-listed
-# paths, with the copy of commit_via_api.py from the trusted commit. The App's
+# paths, with the copy of commit_via_api.py from the trusted commit; the
+# artifacts are unpacked outside the checkout and only those files copied in. The App's
 # key lives in the `maintainability-bot` environment, which only `main` may
 # use, so a workflow on any other branch cannot mint the token at all.
 #
@@ -138,15 +139,27 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Artifacts land outside the checkout; only the allow-listed files are
+      # copied in, as plain files, so a compromised generating job cannot
+      # replace the script that runs next or add a path of its own.
       - uses: actions/download-artifact@v7
         with:
           name: generated-linux
-          path: .
+          path: ${{ runner.temp }}/gen
 
       - uses: actions/download-artifact@v7
         with:
           name: generated-windows
-          path: .maintainability
+          path: ${{ runner.temp }}/gen/.maintainability
+
+      - name: Take only the allow-listed files from the artifacts
+        run: |
+          for f in CONTEXT.md STATUS.md                    .maintainability/ruff.baseline .maintainability/vulture.baseline                    .maintainability/shellcheck.baseline .maintainability/jscpd.baseline                    .maintainability/pssa.baseline .maintainability/layout-tolerated.txt; do
+            src="$RUNNER_TEMP/gen/$f"
+            if [ -L "$src" ]; then echo "::error::$f arrived as a symlink"; exit 1; fi
+            if [ -f "$src" ]; then install -m 0644 "$src" "$f"; fi
+          done
+          git status --short
 
       - uses: actions/create-github-app-token@v3
         id: app
