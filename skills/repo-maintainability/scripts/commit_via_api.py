@@ -35,20 +35,28 @@ def git(*args: str) -> str:
     return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
 
 
-def changed(paths: list[str]) -> list[str]:
-    """Paths whose working-tree content differs from HEAD (or are untracked)."""
+def changed(paths: list[str]) -> tuple[list[str], list[str]]:
+    """(modified or untracked, deleted) paths relative to HEAD, among `paths`."""
     status = git("status", "--porcelain", "--untracked-files=all", "--", *paths)
-    return sorted({line[3:].strip() for line in status.splitlines() if line.strip()})
+    modified, deleted = set(), set()
+    for line in status.splitlines():
+        if not line.strip():
+            continue
+        path = line[3:].strip()
+        (deleted if "D" in line[:2] else modified).add(path)
+    return sorted(modified), sorted(deleted)
 
 
-def payload(repo: str, branch: str, message: str, head: str, files: dict[str, bytes]) -> dict:
+def payload(repo: str, branch: str, message: str, head: str, files: dict[str, bytes],
+            deletions: list[str] | None = None) -> dict:
     additions = [{"path": path, "contents": base64.b64encode(data).decode("ascii")}
                  for path, data in sorted(files.items())]
     return {"query": MUTATION, "variables": {"input": {
         "branch": {"repositoryNameWithOwner": repo, "branchName": branch},
         "message": {"headline": message},
         "expectedHeadOid": head,
-        "fileChanges": {"additions": additions},
+        "fileChanges": {"additions": additions,
+                        "deletions": [{"path": p} for p in sorted(deletions or [])]},
     }}}
 
 
@@ -70,8 +78,8 @@ def main() -> int:
     ap.add_argument("paths", nargs="+")
     args = ap.parse_args()
 
-    paths = changed(args.paths)
-    if not paths:
+    modified, deleted = changed(args.paths)
+    if not modified and not deleted:
         print("commit_via_api: nothing changed")
         return 0
     token = os.environ.get("GH_TOKEN", "")
@@ -79,13 +87,14 @@ def main() -> int:
         print("commit_via_api: GH_TOKEN is not set", file=sys.stderr)
         return 2
     head = args.expected_head or git("rev-parse", "HEAD").strip()
-    files = {p: Path(p).read_bytes() for p in paths}
-    result = post(payload(args.repo, args.branch, args.message, head, files), token)
+    files = {p: Path(p).read_bytes() for p in modified}
+    result = post(payload(args.repo, args.branch, args.message, head, files, deleted), token)
     if result.get("errors"):
         print("commit_via_api:", json.dumps(result["errors"]), file=sys.stderr)
         return 1
     commit = result["data"]["createCommitOnBranch"]["commit"]
-    print(f"commit_via_api: {commit['oid'][:7]} {commit['url']} ({len(paths)} file(s))")
+    print(f"commit_via_api: {commit['oid'][:7]} {commit['url']} "
+          f"({len(modified)} changed, {len(deleted)} deleted)")
     return 0
 
 

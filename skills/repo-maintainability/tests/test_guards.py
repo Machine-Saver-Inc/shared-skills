@@ -294,3 +294,23 @@ def test_api_commit_sends_only_changed_paths(repo: Path) -> None:
     out = run(str(SCRIPTS / "commit_via_api.py"), "--repo", "o/r", "--branch", "main",
               "--message", "m", "Makefile", cwd=repo)
     assert out.returncode == 0 and "nothing changed" in out.stdout
+
+
+def test_layout_baseline_refuses_to_grow(repo: Path) -> None:
+    (repo / "scripts/slipped_in.py").write_text("x\n")
+    git("add", "-A", cwd=repo)
+    git("commit", "-qm", "bypass merge", cwd=repo)
+    out = run(str(SCRIPTS / "check_layout.py"), "--baseline", cwd=repo)
+    assert out.returncode == 1 and "scripts/slipped_in.py" in out.stdout
+    tolerated = (repo / ".maintainability/layout-tolerated.txt").read_text()
+    assert "slipped_in" not in tolerated
+    assert run(str(SCRIPTS / "check_layout.py"), "--baseline", "--allow-growth",
+               cwd=repo).returncode == 0
+
+
+def test_api_commit_payload_carries_deletions(tmp_path: Path) -> None:
+    sys.path.insert(0, str(SCRIPTS))
+    import commit_via_api
+    body = commit_via_api.payload("org/repo", "main", "m", "a" * 40,
+                                  {"STATUS.md": b"x"}, deletions=["old.md"])
+    assert body["variables"]["input"]["fileChanges"]["deletions"] == [{"path": "old.md"}]
