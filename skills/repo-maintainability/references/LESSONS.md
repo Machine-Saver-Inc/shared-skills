@@ -227,3 +227,8 @@ runner's checkout directory. The template writes repo-relative paths.
 because the check was `pytest | grep -E 'passed|failed' && commit`, and
 grep succeeds on "failed" too. Second time a wrong local gate let a red
 suite through. Gate on pytest's exit code, never on its text.
+
+**Found while seeding:** `gh workflow run` answered "not found on the
+default branch": a `workflow_dispatch` is only addressable once the file
+exists on `main`. The seed workflow now triggers on push to the seeding
+branch instead; the template carries a placeholder branch name.

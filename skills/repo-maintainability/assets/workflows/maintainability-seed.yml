@@ -1,14 +1,17 @@
 # Seeds the ratchet baselines ON THE RUNNERS, once. Copy to the branch that
-# adds the ratcheted steps, dispatch it, download the artifacts, commit their
-# files, then delete this workflow before the PR leaves Draft. This is the
-# only place `ratchet.py update --allow-growth` is ever run: baselines seeded
-# on a developer machine differ in tool versions, path separators and line
+# adds the ratcheted steps, put that branch's name below, push, download the
+# artifacts, commit their files, then delete this workflow before the PR
+# leaves Draft. It triggers on push, not workflow_dispatch: dispatch only
+# sees workflows that exist on the default branch. This is the only place
+# `ratchet.py update --allow-growth` is ever run: baselines seeded on a
+# developer machine differ in tool versions, path separators and line
 # endings from what the PR tier sees.
 
 name: maintainability-seed
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [REPLACE-WITH-THE-SEEDING-BRANCH]
 
 permissions:
   contents: read

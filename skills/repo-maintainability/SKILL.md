@@ -177,10 +177,10 @@ reviewability) wants small workflow changes. Order:
 2. **Ratcheted baselines.** Add the remaining steps of
    `assets/workflows/maintainability-pr.yml`, ruff included. Seed the
    baselines **on the CI runners, not your machine**: copy
-   `assets/workflows/maintainability-seed.yml` to the branch, dispatch it
-   (`gh workflow run maintainability-seed.yml --ref <branch>`), download
-   the artifacts, commit their files, and delete the seed workflow before
-   the PR leaves Draft. Tool versions, paths and line endings then match
+   `assets/workflows/maintainability-seed.yml` to the branch with the
+   branch's name in its `push:` trigger (a `workflow_dispatch` only sees
+   workflows on the default branch), push, download the artifacts, commit
+   their files, and delete the seed workflow before the PR leaves Draft. Tool versions, paths and line endings then match
    what the PR tier will see. That dispatch is the only time
    `--allow-growth` is ever used.
 3. **Context map + code graph + status page.**
