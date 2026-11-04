@@ -204,7 +204,10 @@ reviewability) wants small workflow changes. Order:
    key is an Environment secret (`maintainability-bot`, deployment branch
    policy `main` only), never a repository secret, which any branch's
    workflow could read. Every job grants `contents: read`; `permissions: {}`
-   at the top alone blocks checkout on a private repo. A
+   at the top alone blocks checkout on a private repo. The environment and
+   its branch policy are created by the repo's bootstrap script and pinned
+   by a test, never by hand: GitHub auto-creates a referenced environment
+   with no policy at all. A
    plain `git push` from a runner fails both the signature rule and the
    PR rule. The ruleset change is a decision: copy
    `assets/adr/NNNN-generated-files-committed-by-the-app.md`, and apply it

@@ -361,3 +361,12 @@ now land in `runner.temp`; only the allow-listed files are copied into the
 checkout as plain files, symlinks refused. The pattern, stated once: an
 untrusted job's output is data, never code or layout, until a trusted job
 has chosen each file by name.
+
+**Found by ai-review on the main-tier PR, seventh pass (1 blocking):** the
+environment that scopes the bot's key to `main` existed only because an
+agent had created it by hand. GitHub auto-creates a referenced environment
+with no branch policy, so a fresh bootstrap would have left the key
+reachable from every branch. The environment and its policy are now in
+the repo's bootstrap script, its teardown, and the policy test. The rule
+the repo already had, "everything as code, reproducible from git", applies
+to the settings that protect the code too.
