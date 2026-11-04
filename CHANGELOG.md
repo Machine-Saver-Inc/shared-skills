@@ -4,6 +4,16 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-03 (late) - The release PR is an ordinary PR
+
+### repo-maintainability 0.2.2
+
+- **release-please runs with its own token** (§1b): a `GITHUB_TOKEN` PR
+  never triggers workflows, so the release PR had no checks and needed an
+  admin merge past every gate. With a token it is reviewed like any PR; the
+  PR-links step exempts it by its fixed branch prefix, since a token-authored
+  release PR is no longer a bot.
+
 ## 2026-11-03 (night) - The archive PR's lessons
 
 ### repo-maintainability 0.2.1

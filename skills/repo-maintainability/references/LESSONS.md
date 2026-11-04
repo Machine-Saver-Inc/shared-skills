@@ -189,3 +189,20 @@ a person follows them.
 never be reviewed, moved or deleted under the normal gate; archiving it is
 necessarily an owner-bypass PR. One more reason a ledger file must never
 exist: the day it needs to go, the review gate cannot watch it go.
+
+## 2026-11-03 — platform, release PR (PR 4), skill 0.2.2
+
+**Found:** after `gates` became required, the next release-please PR could
+never merge: a PR opened by `GITHUB_TOKEN` triggers no workflow, so the
+required checks never report. v0.4.0 (203 commits since v0.3.0) went in by
+admin bypass. Fix: release-please runs with a fine-grained token (Contents
+and Pull requests write). Became a sentence in §1b.
+
+**Found by ai-review on the token PR:** with a human-owned token the
+release PR stops being a bot, so rule R2's PR-links step would block it,
+since release-please writes no `Closes #N`. Exempted by its fixed branch
+prefix `release-please--` in the template. Also: the token input falls back
+to `github.token` when the secret is absent; an expired token is not absent
+and fails loudly, which is the right signal to mint a new one. The first
+draft of that comment claimed the fallback covered expiry; review caught it. Sentence and template, not a check: the gate
+runs in the target repo's workflow and the proof is the next release PR.
