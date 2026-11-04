@@ -252,3 +252,38 @@ red on Windows first). And the 0.2.0 templates had the ruff step's two
 lines joined into one, a Python heredoc having eaten the `\`-newline; the
 same bug that bit the 0.2.0 workflow on platform. Templates are files to
 edit with a diff in front of you, not strings to rewrite in a script.
+
+## 2026-11-04 — platform, first token-authored release PR, skill 0.2.4
+
+**Found:** the first real release PR after the token change (0.5.0) ran
+every check and got a clean review, then sat `BLOCKED`: the ruleset
+requires signed commits, and a commit release-please creates through the
+API with a personal token is unsigned. Half of the problem was solved by
+the token (checks run); the other half needs a GitHub App installation
+token, whose API commits GitHub signs. §1b now says App, not PAT. Rule of
+thumb: before choosing a credential for a bot that commits, read every
+rule on the protected branch, not just the status checks.
+
+**Carried forward from review:** a finding tool that crashes prints
+nothing and an empty pipe is indistinguishable from zero findings. Listed
+in §6 until the ratchet steps check exit codes.
+
+## 2026-11-04 — platform, the App-authored release PR, skill 0.2.5
+
+**Found:** the first release PR the App opened had a GitHub-signed commit
+and every deterministic check green, and the review gate refused it: the
+guard allows human actors and `renovate[bot]`, and the App is a bot. The
+allowlist gained `machine-saver-release-bot[bot]` (platform PR 8, an
+owner-bypass PR since the guard is trusted-base). §1b now says so for any
+repo with an actor allowlist: a bot that may open PRs must be on it.
+
+**Found:** release-please does not rewrite an open release PR whose
+content has not changed, so the unsigned PR stayed unsigned after the
+switch to the App; closing it made the next run open a signed one. And
+re-running a failed review job reuses the original event's base SHA, so
+the old guard runs again; `gh pr update-branch` fires a new event against
+the current trusted base, and the merge commit it adds is GitHub-signed.
+
+**Proof:** release PR #175, author `machine-saver-release-bot[bot]`,
+`verification.verified: true`, all checks green, 0 blocking findings,
+merge state CLEAN with no bypass. #167 closed on evidence.
