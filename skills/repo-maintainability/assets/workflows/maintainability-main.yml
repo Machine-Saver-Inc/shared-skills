@@ -49,9 +49,8 @@ jobs:
   refresh:
     needs: powershell
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
+    # No explicit `shell: bash`: GitHub runs an explicit bash with `-o pipefail`,
+    # which would fail every ratchet pipe the moment a tool finds anything.
     steps:
       - uses: actions/checkout@v7
         with:

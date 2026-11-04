@@ -314,3 +314,12 @@ not after.
 both died on cp1252 (`✓`, `·`); `PYTHONUTF8=1` and an explicit UTF-8
 stdout fix it. Runners are fine; the lesson is for whoever proves things
 locally on Windows.
+
+**Found by ai-review on the main-tier PR (2 blocking):** the templates
+set `defaults: run: shell: bash`, and GitHub runs an explicit bash shell
+with `-o pipefail`, so every ratchet pipe would fail the moment a tool
+found anything, while the comment two lines above said never to add
+pipefail. The PR-tier workflow on platform only passed because its copy
+had no explicit shell. Both templates drop it, with the reason inline.
+And: a ruleset bypass for an App is a decision, not a setting; it got its
+own ADR (`assets/adr/NNNN-generated-files-committed-by-the-app.md`).
