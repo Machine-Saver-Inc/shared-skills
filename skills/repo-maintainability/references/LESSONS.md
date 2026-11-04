@@ -241,3 +241,14 @@ with `NO_COLOR=1` so no escape codes reach the baseline, and strip the
 `actions/upload-artifact` skips dot-directories unless
 `include-hidden-files: true`, so the Linux baselines never uploaded. A
 baseline of zero on day one is a finding about the pipeline, not the code.
+
+**Found on the second seed:** ruff's concise output ends with "Found N
+errors." and a fixable-count line; both landed in the baseline and would
+have changed on every run. The pipelines keep only `path:line:col: ` lines.
+The PowerShell baseline came back with CRLF because `write_text` on a
+Windows runner uses the platform newline; `ratchet.py` now writes POSIX
+endings everywhere (`test_ratchet_writes_posix_line_endings_everywhere`,
+red on Windows first). And the 0.2.0 templates had the ruff step's two
+lines joined into one, a Python heredoc having eaten the `\`-newline; the
+same bug that bit the 0.2.0 workflow on platform. Templates are files to
+edit with a diff in front of you, not strings to rewrite in a script.

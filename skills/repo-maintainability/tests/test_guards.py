@@ -251,3 +251,10 @@ def test_ratchet_treats_windows_and_posix_paths_as_the_same_finding(tmp_path: Pa
     out = run(str(SCRIPTS / "ratchet.py"), "check", "--baseline", str(b),
               cwd=tmp_path, stdin=r".\scripts\a.ps1:12: PSAvoidUsingCmdletAliases alias" + "\n")
     assert out.returncode == 0, out.stdout
+
+
+def test_ratchet_writes_posix_line_endings_everywhere(tmp_path: Path) -> None:
+    b = tmp_path / "t.baseline"
+    run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b), "--allow-growth",
+        cwd=tmp_path, stdin="a:1: x\nb:1: y\n")
+    assert b"\r" not in b.read_bytes()

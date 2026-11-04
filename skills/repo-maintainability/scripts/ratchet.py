@@ -72,7 +72,9 @@ def main() -> int:
               "fix them, or pass --allow-growth deliberately")
         return 1
     args.baseline.parent.mkdir(parents=True, exist_ok=True)
-    args.baseline.write_text("\n".join(sorted(current)) + ("\n" if current else ""))
+    # POSIX line endings whichever runner wrote it, so the file is identical
+    # from Linux and Windows and git never sees a whole-file CRLF diff.
+    args.baseline.write_text("\n".join(sorted(current)) + ("\n" if current else ""), newline="\n")
     print(f"ratchet: {args.baseline} now {len(current)} (was {len(old)})")
     return 0
 

@@ -72,7 +72,9 @@ jobs:
       #      its baseline; the main-tier workflow lowers the baselines on main.
       - name: Python lint (rule R6: ERA001 is commented-out code)
         run: |
-          ruff check --config .maintainability/ruff.toml --output-format concise . 2>/dev/null             | python scripts/ci/ratchet.py check --baseline .maintainability/ruff.baseline
+          ruff check --config .maintainability/ruff.toml --output-format concise . 2>/dev/null \
+            | grep -E '^[^ ]+:[0-9]+:[0-9]+: ' \
+            | python scripts/ci/ratchet.py check --baseline .maintainability/ruff.baseline
 
       - name: Dead code (Python)
         run: |
