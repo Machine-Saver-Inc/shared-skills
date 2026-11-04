@@ -4,6 +4,17 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-04 (night) - The release App must be on the review allowlist
+
+### repo-maintainability 0.2.5
+
+- §1b: a repo with an AI review actor allowlist must list the release
+  App's `[bot]` login next to Renovate, or the required review check refuses
+  the signed release PR. To make an open release PR see a changed trusted
+  base, update its branch; a rerun reuses the old event. Proven on
+  platform: the first release PR with a GitHub-signed commit, green checks,
+  a clean review and no bypass.
+
 ## 2026-11-04 (later) - Bots that commit need an App, not a PAT
 
 ### repo-maintainability 0.2.4

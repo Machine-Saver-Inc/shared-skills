@@ -5,7 +5,7 @@ description: "Fit a Machine Saver repository — existing or brand new — with 
 
 # Repo maintainability
 
-**Skill version 0.2.4.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
+**Skill version 0.2.5.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
 First run: `Machine-Saver-Inc/platform`, November 2026.
 
 For any Machine Saver repository that agents develop in, whether it exists
@@ -115,7 +115,11 @@ write) rather than `GITHUB_TOKEN` or a personal token: a PR opened by
 checks; and a commit a personal token creates through the API is unsigned,
 so a `required_signatures` rule blocks it anyway. GitHub signs the commits
 an App creates, so the release PR is an ordinary PR; the PR-links step
-exempts it by branch prefix.
+exempts it by branch prefix. If the repo has an AI review gate with an
+actor allowlist, the App's `<name>[bot]` login goes on it next to Renovate,
+or the required review check refuses the release PR as a bot. And to make
+an open release PR pick up a changed trusted base, update its branch
+(`gh pr update-branch`); a rerun reuses the old event's base SHA.
 
 Two one-time settings per repo, because `GITHUB_TOKEN` cannot touch an
 organisation board: `vars.PROJECT_NUMBER` and `secrets.PROJECT_TOKEN` (a
