@@ -37,8 +37,11 @@ third.
    every third-party tool has run; the only paths it commits are
    `CONTEXT.md`, `STATUS.md` and `.maintainability/*`. Its commits carry
    `[skip ci]`; they contain no source.
-4. The App's private key is a repository secret the owner holds; its
-   installation is reviewed in the organisation's GitHub Apps settings.
+4. The App's private key is a secret of the `maintainability-bot` GitHub
+   Environment, whose deployment branch policy allows `main` only, so a
+   workflow pushed on any other branch cannot mint the token. The owner
+   holds the key; the App's installation is reviewed in the organisation's
+   GitHub Apps settings.
 
 ## What this ADR does not change
 

@@ -341,3 +341,15 @@ installed, token minted there and nowhere else, generated files arriving
 as artifacts, and `commit_via_api.py --allow` refusing any path outside
 the ADR's list (`test_api_commit_refuses_paths_outside_the_allow_list`).
 Hash-pinned installs for the generating job are the next tightening (§6).
+
+**Found by ai-review on the main-tier PR, fifth pass (2 blocking):** a
+repository secret reaches a workflow on any pushed branch, so anyone who
+can push a branch could mint the bypass App's token and commit to `main`.
+The key is now an Environment secret with a `main`-only deployment branch
+policy and the commit job runs in that environment. And `permissions: {}`
+at the workflow level with nothing at job level blocks `actions/checkout`
+on a private repo; each job grants `contents: read`. Both are in the
+template and in the ADR template's point 4. Setting an environment secret
+needs the key value, which only the owner has: creating the environment
+and its branch policy is the agent's, re-setting the secret into it is the
+owner's, and the repository-level copy is deleted after.

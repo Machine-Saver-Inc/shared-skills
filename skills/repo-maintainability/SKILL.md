@@ -200,7 +200,11 @@ reviewability) wants small workflow changes. Order:
    that App alone is a ruleset bypass actor (`actor_type: Integration`,
    `bypass_mode: always`) so the commit lands on `main` without a PR. Not
    the release App: its token also reaches a third-party action, and a
-   bypass-capable token must never leave the one step that commits. A
+   bypass-capable token must never leave the one step that commits. Its
+   key is an Environment secret (`maintainability-bot`, deployment branch
+   policy `main` only), never a repository secret, which any branch's
+   workflow could read. Every job grants `contents: read`; `permissions: {}`
+   at the top alone blocks checkout on a private repo. A
    plain `git push` from a runner fails both the signature rule and the
    PR rule. The ruleset change is a decision: copy
    `assets/adr/NNNN-generated-files-committed-by-the-app.md`, and apply it

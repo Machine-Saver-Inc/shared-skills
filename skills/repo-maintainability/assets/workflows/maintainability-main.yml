@@ -10,7 +10,9 @@
 # Trust boundary: the jobs that run third-party tools never see the App's
 # token. They hand their output over as artifacts; a last job with a fresh
 # checkout and no installs mints the token and commits only the allow-listed
-# paths, with the copy of commit_via_api.py from the trusted commit.
+# paths, with the copy of commit_via_api.py from the trusted commit. The App's
+# key lives in the `maintainability-bot` environment, which only `main` may
+# use, so a workflow on any other branch cannot mint the token at all.
 #
 # No pipefail: the finding tools exit non-zero when they find anything, and
 # the ratchet after the pipe is the verdict. That is why no job sets
@@ -35,6 +37,8 @@ jobs:
   # PowerShell has to run on a Windows runner; it lowers its own baseline.
   powershell:
     runs-on: windows-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
       - name: Lower the PSScriptAnalyzer baseline
@@ -53,6 +57,8 @@ jobs:
   # Generates everything, holds no token.
   refresh:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
         with:
@@ -126,6 +132,9 @@ jobs:
   commit:
     needs: [refresh, powershell]
     runs-on: ubuntu-latest
+    environment: maintainability-bot   # holds the App's key; only main may deploy to it
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v7
 
