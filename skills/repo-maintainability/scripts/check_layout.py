@@ -40,10 +40,18 @@ def top_level_files(directory: str) -> list[str]:
     return sorted(f for f in files if f.count("/") == 1)
 
 
-def write_baseline(policy: dict) -> int:
+def write_baseline(policy: dict, allow_growth: bool) -> int:
     lines: list[str] = []
     for directory in policy:
         lines += top_level_files(directory)
+    old = set(TOLERATED.read_text().split()) if TOLERATED.exists() else set()
+    grown = sorted(set(lines) - old)
+    if old and grown and not allow_growth:
+        # A tolerated list is a record of what was there on day one. A new
+        # top-level file reached HEAD past the gate; it is not tolerated.
+        for path in grown:
+            print(f"{path}: new top-level file; the tolerated list refuses to grow")
+        return 1
     TOLERATED.parent.mkdir(parents=True, exist_ok=True)
     TOLERATED.write_text("\n".join(lines) + "\n")
     print(f"check_layout: tolerating {len(lines)} existing top-level file(s)")
@@ -75,6 +83,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--base")
     ap.add_argument("--baseline", action="store_true")
+    ap.add_argument("--allow-growth", action="store_true",
+                    help="--baseline only: tolerate top-level files added since (first run)")
     args = ap.parse_args()
 
     if not POLICY.exists():
@@ -82,7 +92,7 @@ def main() -> int:
         return 0
     policy = json.loads(POLICY.read_text())
     if args.baseline:
-        return write_baseline(policy)
+        return write_baseline(policy, args.allow_growth)
 
     tolerated = set(TOLERATED.read_text().split()) if TOLERATED.exists() else set()
     added = added_since(args.base) if args.base else []

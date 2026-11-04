@@ -287,3 +287,86 @@ the current trusted base, and the merge commit it adds is GitHub-signed.
 **Proof:** release PR #175, author `machine-saver-release-bot[bot]`,
 `verification.verified: true`, all checks green, 0 blocking findings,
 merge state CLEAN with no bypass. #167 closed on evidence.
+
+## 2026-11-04 — platform, main tier (PR 9), skill 0.3.0
+
+**Found:** a bot cannot `git push` to `platform`'s `main`: the ruleset
+requires a pull request and signed commits, and a runner's push is neither.
+Three ways out were put to the owner (App as bypass actor with API commits;
+refresh PRs through paid review on every merge; artifacts only). He chose
+the first. `commit_via_api.py` sends `createCommitOnBranch`, which GitHub
+signs, with `expectedHeadOid` so a race fails instead of overwriting, and
+only the paths that changed. The App is a bypass actor
+(`actor_type: Integration`, `bypass_mode: always`); the policy test pins it.
+Payload and no-op paths are unit-tested; the live commit is proven by the
+first run on `main`.
+
+**Found:** the template's tool pins were guesses. ctxmap is 0.1.0 on PyPI
+(not 0.3.2) and builds a structural map offline with no LLM, 6 KB for 316
+files; its "Last updated" line is replaced, since a changing line would
+make every run a change. codebase-memory-mcp is 0.12.1 and keeps its index
+per user, driven by MCP calls, so the "committed index" promise in the ADR
+template was not implementable as written; the graph is deferred to its
+own issue and §6 says so. Pin against the registry before writing the ADR,
+not after.
+
+**Found:** on a Windows developer machine ctxmap and `render_status.py`
+both died on cp1252 (`✓`, `·`); `PYTHONUTF8=1` and an explicit UTF-8
+stdout fix it. Runners are fine; the lesson is for whoever proves things
+locally on Windows.
+
+**Found by ai-review on the main-tier PR (2 blocking):** the templates
+set `defaults: run: shell: bash`, and GitHub runs an explicit bash shell
+with `-o pipefail`, so every ratchet pipe would fail the moment a tool
+found anything, while the comment two lines above said never to add
+pipefail. The PR-tier workflow on platform only passed because its copy
+had no explicit shell. Both templates drop it, with the reason inline.
+And: a ruleset bypass for an App is a decision, not a setting; it got its
+own ADR (`assets/adr/NNNN-generated-files-committed-by-the-app.md`).
+
+**Found by ai-review on the main-tier PR, third pass (1 blocking):** the
+ruleset bypass had gone to the release App, whose token the release-please
+action also receives, so a third-party action held a bypass-capable
+token. The owner chose a second App: `Maintainability Bot`, Contents write
+only, token minted in the last step of the one workflow that commits, and
+the only bypass actor. Rule: one App per trust boundary; a bypass-capable
+token never reaches a step that runs someone else's code.
+
+**Found by ai-review on the main-tier PR, fourth pass (1 blocking):** the
+App token was minted in the same job that had just run pip- and
+npm-installed tools, so a compromised package could leave a `.pth` or a
+patched `commit_via_api.py` behind and use the token. The commit now
+happens in a separate job: fresh checkout of the trusted commit, nothing
+installed, token minted there and nowhere else, generated files arriving
+as artifacts, and `commit_via_api.py --allow` refusing any path outside
+the ADR's list (`test_api_commit_refuses_paths_outside_the_allow_list`).
+Hash-pinned installs for the generating job are the next tightening (§6).
+
+**Found by ai-review on the main-tier PR, fifth pass (2 blocking):** a
+repository secret reaches a workflow on any pushed branch, so anyone who
+can push a branch could mint the bypass App's token and commit to `main`.
+The key is now an Environment secret with a `main`-only deployment branch
+policy and the commit job runs in that environment. And `permissions: {}`
+at the workflow level with nothing at job level blocks `actions/checkout`
+on a private repo; each job grants `contents: read`. Both are in the
+template and in the ADR template's point 4. Setting an environment secret
+needs the key value, which only the owner has: creating the environment
+and its branch policy is the agent's, re-setting the secret into it is the
+owner's, and the repository-level copy is deleted after.
+
+**Found by ai-review on the main-tier PR, sixth pass (1 blocking):**
+unpacking the generating job's artifact over the checkout let that job
+ship its own `commit_via_api.py`, which then ran with the token. Artifacts
+now land in `runner.temp`; only the allow-listed files are copied into the
+checkout as plain files, symlinks refused. The pattern, stated once: an
+untrusted job's output is data, never code or layout, until a trusted job
+has chosen each file by name.
+
+**Found by ai-review on the main-tier PR, seventh pass (1 blocking):** the
+environment that scopes the bot's key to `main` existed only because an
+agent had created it by hand. GitHub auto-creates a referenced environment
+with no branch policy, so a fresh bootstrap would have left the key
+reachable from every branch. The environment and its policy are now in
+the repo's bootstrap script, its teardown, and the policy test. The rule
+the repo already had, "everything as code, reproducible from git", applies
+to the settings that protect the code too.

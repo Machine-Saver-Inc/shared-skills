@@ -4,6 +4,21 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-05 - The main tier commits as the App
+
+### repo-maintainability 0.3.0
+
+- **`commit_via_api.py`**: the main-tier bot commits through GitHub's
+  `createCommitOnBranch` as the repo's App, signed by GitHub, only changed
+  paths, refused if `main` moved. The App is a ruleset bypass actor. A
+  runner's `git push` cannot pass a signature rule or a PR rule; this can.
+- **`maintainability-main.yml` rewritten** around it: context map (ctxmap
+  0.1.0, structural, timestamp line stripped), `STATUS.md` from the board, a
+  Windows job that lowers the PowerShell baseline, one API commit.
+- **Code graph deferred** (§6): the chosen tool's index is per user and
+  built through MCP calls. Pin tools against the registry before the ADR.
+- `render_status.py` writes UTF-8 whatever the console. 23 guard tests.
+
 ## 2026-11-04 (night) - The release App must be on the review allowlist
 
 ### repo-maintainability 0.2.5

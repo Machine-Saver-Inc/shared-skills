@@ -4,7 +4,9 @@ A guard nobody has seen fail is decoration (shared-skills README, rule 2).
 """
 from __future__ import annotations
 
+import base64
 import json
+import os
 import re
 import subprocess
 import sys
@@ -17,8 +19,10 @@ SCRIPTS = SKILL / "scripts"
 
 
 def run(*cmd: str, cwd: Path, stdin: str | None = None) -> subprocess.CompletedProcess[str]:
-    return subprocess.run([sys.executable, *cmd], cwd=cwd, input=stdin,
-                          capture_output=True, text=True)
+    # Guards run under UTF-8 as on the Linux runners, whatever the local console.
+    env = {**os.environ, "PYTHONUTF8": "1"}
+    return subprocess.run([sys.executable, *cmd], cwd=cwd, input=stdin, env=env,
+                          capture_output=True, text=True, encoding="utf-8")
 
 
 def git(*args: str, cwd: Path) -> None:
@@ -270,3 +274,53 @@ def test_jscpd_findings_are_order_and_os_independent(tmp_path: Path) -> None:
     out = run(str(SCRIPTS / "jscpd_findings.py"), str(report), cwd=tmp_path)
     assert out.returncode == 0, out.stderr
     assert out.stdout.splitlines() == ["python: scripts/a.py + scripts/b.py"]
+
+
+def test_api_commit_payload_is_a_signed_branch_commit_request(tmp_path: Path) -> None:
+    sys.path.insert(0, str(SCRIPTS))
+    import commit_via_api
+    files = {"STATUS.md": b"# Status\n", "docs/CONTEXT.md": b"ctx"}
+    body = commit_via_api.payload("org/repo", "main", "chore: refresh [skip ci]", "a" * 40, files)
+    inp = body["variables"]["input"]
+    assert inp["branch"] == {"repositoryNameWithOwner": "org/repo", "branchName": "main"}
+    assert inp["expectedHeadOid"] == "a" * 40
+    assert [a["path"] for a in inp["fileChanges"]["additions"]] == ["STATUS.md", "docs/CONTEXT.md"]
+    assert base64.b64decode(inp["fileChanges"]["additions"][0]["contents"]) == b"# Status\n"
+    assert "createCommitOnBranch" in body["query"]
+
+
+def test_api_commit_sends_only_changed_paths(repo: Path) -> None:
+    (repo / "STATUS.md").write_text("new\n")
+    out = run(str(SCRIPTS / "commit_via_api.py"), "--repo", "o/r", "--branch", "main",
+              "--message", "m", "Makefile", cwd=repo)
+    assert out.returncode == 0 and "nothing changed" in out.stdout
+
+
+def test_layout_baseline_refuses_to_grow(repo: Path) -> None:
+    (repo / "scripts/slipped_in.py").write_text("x\n")
+    git("add", "-A", cwd=repo)
+    git("commit", "-qm", "bypass merge", cwd=repo)
+    out = run(str(SCRIPTS / "check_layout.py"), "--baseline", cwd=repo)
+    assert out.returncode == 1 and "scripts/slipped_in.py" in out.stdout
+    tolerated = (repo / ".maintainability/layout-tolerated.txt").read_text()
+    assert "slipped_in" not in tolerated
+    assert run(str(SCRIPTS / "check_layout.py"), "--baseline", "--allow-growth",
+               cwd=repo).returncode == 0
+
+
+def test_api_commit_payload_carries_deletions(tmp_path: Path) -> None:
+    sys.path.insert(0, str(SCRIPTS))
+    import commit_via_api
+    body = commit_via_api.payload("org/repo", "main", "m", "a" * 40,
+                                  {"STATUS.md": b"x"}, deletions=["old.md"])
+    assert body["variables"]["input"]["fileChanges"]["deletions"] == [{"path": "old.md"}]
+
+
+def test_api_commit_refuses_paths_outside_the_allow_list(repo: Path) -> None:
+    (repo / "STATUS.md").write_text("generated\n")
+    (repo / "Makefile").write_text("tampered\n")
+    out = run(str(SCRIPTS / "commit_via_api.py"), "--repo", "o/r", "--branch", "main",
+              "--message", "m", "--allow", "STATUS.md", "--allow", ".maintainability/",
+              "STATUS.md", "Makefile", cwd=repo)
+    assert out.returncode == 2
+    assert "refusing paths outside the allow list: Makefile" in out.stderr

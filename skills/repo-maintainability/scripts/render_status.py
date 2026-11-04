@@ -43,6 +43,7 @@ def line(item: dict) -> str:
 
 
 def main() -> int:
+    sys.stdout.reconfigure(encoding="utf-8")   # the separators are not cp1252-safe
     data = json.load(sys.stdin)
     items = data if isinstance(data, list) else data.get("items", [])
     groups: dict[str, list[dict]] = {}

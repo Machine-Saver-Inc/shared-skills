@@ -22,9 +22,8 @@ permissions:
 jobs:
   gates:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        shell: bash
+    # No explicit `shell: bash`: GitHub runs an explicit bash with `-o pipefail`,
+    # which would fail every ratchet pipe the moment a tool finds anything.
     steps:
       - uses: actions/checkout@v4
         with:
