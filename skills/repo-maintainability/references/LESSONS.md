@@ -323,3 +323,11 @@ pipefail. The PR-tier workflow on platform only passed because its copy
 had no explicit shell. Both templates drop it, with the reason inline.
 And: a ruleset bypass for an App is a decision, not a setting; it got its
 own ADR (`assets/adr/NNNN-generated-files-committed-by-the-app.md`).
+
+**Found by ai-review on the main-tier PR, third pass (1 blocking):** the
+ruleset bypass had gone to the release App, whose token the release-please
+action also receives, so a third-party action held a bypass-capable
+token. The owner chose a second App: `Maintainability Bot`, Contents write
+only, token minted in the last step of the one workflow that commits, and
+the only bypass actor. Rule: one App per trust boundary; a bypass-capable
+token never reaches a step that runs someone else's code.

@@ -1,4 +1,4 @@
-# ADR NNNN — Generated files are committed to main by the repo's App
+# ADR NNNN — Generated files are committed to main by a dedicated App
 
 Date: YYYY-MM-DD
 
@@ -22,18 +22,21 @@ third.
 
 ## Decision
 
-1. The repo's GitHub App (`<name>`, ID `<id>`, installed on this repo only,
-   Contents and Pull requests read/write) is a bypass actor
-   on the `main` ruleset with `bypass_mode: always`. It is the same App that
-   release-please commits as (ADR 0005's review gate already trusts it).
+1. A dedicated GitHub App, `<repo> Maintainability Bot` (ID `<id>`,
+   installed on this repo only, Contents read/write and
+   nothing else), is a bypass actor on the `main` ruleset with
+   `bypass_mode: always`. It is not the release App: the Release Bot keeps
+   its PR-opening role and no bypass, so the third-party release action
+   never holds a bypass-capable token.
 2. The App commits only through `scripts/ci/commit_via_api.py`
    (`createCommitOnBranch`): signed by GitHub, with `expectedHeadOid` so a
    concurrent push makes it fail rather than overwrite, and only the paths
    that changed.
-3. The only workflow that holds the App's write token is
-   `.github/workflows/maintainability-main.yml`, and the only paths it
-   commits are `CONTEXT.md`, `STATUS.md` and `.maintainability/*`. Its
-   commits carry `[skip ci]`; they contain no source.
+3. The only workflow that mints this App's token is
+   `.github/workflows/maintainability-main.yml`, in its last step, after
+   every third-party tool has run; the only paths it commits are
+   `CONTEXT.md`, `STATUS.md` and `.maintainability/*`. Its commits carry
+   `[skip ci]`; they contain no source.
 4. The App's private key is a repository secret the owner holds; its
    installation is reviewed in the organisation's GitHub Apps settings.
 
@@ -56,5 +59,5 @@ third.
   That reach is bounded by the workflow that holds the key and by the
   signed, attributable commits it produces. Widening what the App commits
   needs this ADR amended.
-- Revoking the App's key stops generated-file refreshes and release PRs at
-  once; nothing else.
+- Revoking the App's key stops generated-file refreshes; releases are
+  unaffected, since they use the other App.

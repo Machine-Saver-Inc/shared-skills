@@ -194,10 +194,13 @@ reviewability) wants small workflow changes. Order:
 3. **Context map + status page + baseline lowering.**
    `assets/workflows/maintainability-main.yml`. One line in the root
    `AGENTS.md`: *Read `CONTEXT.md` and `STATUS.md` first.* Never a git
-   hook. The bot commits through GitHub's API as the repo's App
-   (`commit_via_api.py`, `createCommitOnBranch`), which GitHub signs, and
-   the App is a ruleset bypass actor (`actor_type: Integration`,
-   `bypass_mode: always`) so the commit lands on `main` without a PR. A
+   hook. The bot commits through GitHub's API as a **dedicated** App
+   (`<repo> Maintainability Bot`, Contents write and nothing else;
+   `commit_via_api.py`, `createCommitOnBranch`), which GitHub signs, and
+   that App alone is a ruleset bypass actor (`actor_type: Integration`,
+   `bypass_mode: always`) so the commit lands on `main` without a PR. Not
+   the release App: its token also reaches a third-party action, and a
+   bypass-capable token must never leave the one step that commits. A
    plain `git push` from a runner fails both the signature rule and the
    PR rule. The ruleset change is a decision: copy
    `assets/adr/NNNN-generated-files-committed-by-the-app.md`, and apply it
