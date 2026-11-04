@@ -258,3 +258,15 @@ def test_ratchet_writes_posix_line_endings_everywhere(tmp_path: Path) -> None:
     run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b), "--allow-growth",
         cwd=tmp_path, stdin="a:1: x\nb:1: y\n")
     assert b"\r" not in b.read_bytes()
+
+
+def test_jscpd_findings_are_order_and_os_independent(tmp_path: Path) -> None:
+    report = tmp_path / "jscpd-report.json"
+    pair = {"format": "python", "lines": 12, "tokens": 204,
+            "firstFile": {"name": r"scripts\b.py", "start": 1, "end": 12},
+            "secondFile": {"name": "scripts/a.py", "start": 5, "end": 16}}
+    swapped = {**pair, "firstFile": pair["secondFile"], "secondFile": pair["firstFile"]}
+    report.write_text(json.dumps({"statistics": {}, "duplicates": [pair, swapped]}))
+    out = run(str(SCRIPTS / "jscpd_findings.py"), str(report), cwd=tmp_path)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.splitlines() == ["python: scripts/a.py + scripts/b.py"]

@@ -36,9 +36,10 @@ jobs:
             | python3 scripts/ci/ratchet.py update --allow-growth --baseline .maintainability/vulture.baseline
           git ls-files '*.sh' | xargs shellcheck -f gcc -S warning 2>/dev/null \
             | python3 scripts/ci/ratchet.py update --allow-growth --baseline .maintainability/shellcheck.baseline
-          NO_COLOR=1 jscpd --reporters console --format python,bash,powershell,yaml \
-                --min-lines 12 --min-tokens 70 scripts cloud edge 2>/dev/null \
-            | grep -E '^\s*-' | sed -E 's/ \[[0-9:]+ - [0-9:]+\]//g' \
+          jscpd --silent --reporters json --output "$RUNNER_TEMP/jscpd" \
+                --format python,bash,powershell,yaml --min-lines 12 --min-tokens 70 \
+                scripts cloud edge >/dev/null 2>&1 || true
+          python3 scripts/ci/jscpd_findings.py "$RUNNER_TEMP/jscpd/jscpd-report.json" \
             | python3 scripts/ci/ratchet.py update --allow-growth --baseline .maintainability/jscpd.baseline
           wc -l .maintainability/*.baseline
       - uses: actions/upload-artifact@v7
