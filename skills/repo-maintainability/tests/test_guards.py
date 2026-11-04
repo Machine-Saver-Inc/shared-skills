@@ -249,5 +249,5 @@ def test_ratchet_treats_windows_and_posix_paths_as_the_same_finding(tmp_path: Pa
     run(str(SCRIPTS / "ratchet.py"), "update", "--baseline", str(b), "--allow-growth",
         cwd=tmp_path, stdin="scripts/a.ps1:10: PSAvoidUsingCmdletAliases alias\n")
     out = run(str(SCRIPTS / "ratchet.py"), "check", "--baseline", str(b),
-              cwd=tmp_path, stdin=".\scripts\a.ps1:12: PSAvoidUsingCmdletAliases alias\n")
+              cwd=tmp_path, stdin=r".\scripts\a.ps1:12: PSAvoidUsingCmdletAliases alias" + "\n")
     assert out.returncode == 0, out.stdout

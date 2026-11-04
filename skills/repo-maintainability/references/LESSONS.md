@@ -222,3 +222,8 @@ as the same finding, on the baseline side as well as the input side
 **Found:** `$_.ScriptPath` from Invoke-ScriptAnalyzer is the runner's
 absolute path, so a PowerShell baseline would have been tied to the
 runner's checkout directory. The template writes repo-relative paths.
+
+**Found in this run, again:** the commit went out with the new test red,
+because the check was `pytest | grep -E 'passed|failed' && commit`, and
+grep succeeds on "failed" too. Second time a wrong local gate let a red
+suite through. Gate on pytest's exit code, never on its text.
