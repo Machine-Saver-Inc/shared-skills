@@ -232,3 +232,12 @@ suite through. Gate on pytest's exit code, never on its text.
 default branch": a `workflow_dispatch` is only addressable once the file
 exists on `main`. The seed workflow now triggers on push to the seeding
 branch instead; the template carries a placeholder branch name.
+
+**Found on the first seed:** the jscpd baseline came back empty, which
+looked like good news and was a dead gate: `--silent` suppresses the clone
+list, not just the progress bar. The templates now run jscpd without it,
+with `NO_COLOR=1` so no escape codes reach the baseline, and strip the
+`[line:col - line:col]` ranges so a clone that moves is not "new". Also:
+`actions/upload-artifact` skips dot-directories unless
+`include-hidden-files: true`, so the Linux baselines never uploaded. A
+baseline of zero on day one is a finding about the pipeline, not the code.
