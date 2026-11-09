@@ -31,3 +31,43 @@ test('the store link follows the platform', () => {
   const s = { ios: 'https://apps.apple.com/x', android: 'https://play.google.com/x' };
   assert.equal(pickStore(s, 'ios'), s.ios); assert.equal(pickStore(s, 'android'), s.android); assert.equal(pickStore(s, 'web'), null);
 });
+
+// Just enough of a DOM for the banner: elements that hold children and click.
+function fakeDocument() {
+  const make = (tag) => {
+    const listeners = {};
+    const node = {
+      tag, children: [], dataset: {}, attrs: {}, className: '', textContent: '',
+      classList: { add() {}, toggle() {} },
+      setAttribute(k, v) { this.attrs[k] = v; },
+      addEventListener(ev, fn) { (listeners[ev] ||= []).push(fn); },
+      click() { for (const fn of listeners.click || []) fn({ target: node }); },
+      append(...xs) { this.children.push(...xs); },
+      appendChild(x) { this.children.push(x); return x; },
+      replaceChildren(...xs) { this.children = xs; },
+      insertAdjacentHTML() {},
+      remove() {},
+    };
+    return node;
+  };
+  return { createElement: make };
+}
+
+test('Update now pressed twice starts one update, and can be pressed again once it ends', async () => {
+  const saved = { document: globalThis.document, fetch: globalThis.fetch };
+  globalThis.document = fakeDocument();
+  globalThis.fetch = async () => ({ text: async () => '<svg></svg>' });
+  try {
+    const { banner } = await import('../src/kit.js');
+    let calls = 0; let finish;
+    const el = banner({ version: '1.3.0', onUpdate: () => { calls++; return new Promise((r) => { finish = r; }); } });
+    const update = el.children.find((c) => c.textContent === 'Update now');
+    update.click(); update.click();
+    assert.equal(calls, 1, 'a second press while the first is working does nothing');
+    finish(); await new Promise((r) => setTimeout(r, 0));
+    update.click();
+    assert.equal(calls, 2, 'once it has ended, it can be tried again');
+  } finally {
+    globalThis.document = saved.document; globalThis.fetch = saved.fetch;
+  }
+});
