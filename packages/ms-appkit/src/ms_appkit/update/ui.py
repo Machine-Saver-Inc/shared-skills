@@ -65,12 +65,13 @@ class DownloadWorker(QThread):
         try:
             path = download_asset(self.release, progress=report)
             verify_download(path, self.release)
-        except UpdateError as exc:
+        except Exception as exc:  # noqa: BLE001 - surfaced to the user
             if not self._cancelled:
                 self.failed.emit(str(exc))
             return
-        except Exception as exc:  # noqa: BLE001 - surfaced to the user
-            self.failed.emit(str(exc))
+        # Cancel is final: one pressed after the last chunk, while the checksum
+        # was being fetched, must not still run the installer.
+        if self._cancelled:
             return
         self.ready.emit(path)
 
