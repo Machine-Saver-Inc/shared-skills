@@ -107,14 +107,16 @@ export function describeOutcome(r, version) {
 // sentence for the other two. Quiet otherwise: nobody wants "you are current"
 // every time they switch apps.
 export function watchForUpdates({ version, feed, platform = detectPlatform(), every = CHECK_EVERY_MS, key = 'ms-update-checked-at', onResult, win = typeof window !== 'undefined' ? window : null, doc = typeof document !== 'undefined' ? document : null, storage = typeof localStorage !== 'undefined' ? localStorage : null, now = () => Date.now(), fetchFn, delayMs = 1000 } = {}) {
-  let busy = null; const handles = [];
+  // forcedWhileBusy: the button was pressed during an automatic check. That
+  // check's outcome is the answer, delivered as forced so the person hears it.
+  let busy = null; let forcedWhileBusy = false; const handles = [];
   const online = () => !(win && win.navigator && win.navigator.onLine === false);
   const lastAt = () => { try { return Number(storage && storage.getItem(key)) || 0; } catch (e) { return 0; } };
   const stamp = () => { try { storage && storage.setItem(key, String(now())); } catch (e) {} };
   const w = {
     lastChecked: lastAt() || null,
     async check(force = false) {
-      if (busy) return busy;
+      if (busy) { if (force) forcedWhileBusy = true; return busy; }
       if (!force) {
         if (!online()) return { status: 'skipped', reason: 'offline' };
         const last = lastAt(); if (last && now() - last < every) return { status: 'skipped', reason: 'checked within the hour' };
@@ -122,7 +124,8 @@ export function watchForUpdates({ version, feed, platform = detectPlatform(), ev
       busy = (async () => {
         const r = await checkForUpdate({ version, feed, platform, fetchFn });
         if (r.status !== 'unknown') { stamp(); w.lastChecked = now(); }
-        try { onResult && await onResult(r, { forced: force }); } catch (e) {}
+        const forced = force || forcedWhileBusy; forcedWhileBusy = false;
+        try { onResult && await onResult(r, { forced }); } catch (e) {}
         return r;
       })();
       try { return await busy; } finally { busy = null; }
