@@ -316,11 +316,15 @@ class Auth:
         saved = self._saved()
         if saved is None:
             raise SignInError("You are not signed in.")
+        # The same transitions as status(), so ``last`` -- what the footer
+        # says -- never claims a sign-in this computer no longer holds.
         try:
-            self._refresh(saved)
-        except Revoked:
+            email = self._refresh(saved)
+        except (Revoked, WrongAccount) as exc:
             self._forget()
+            self.last = Status("revoked", message=str(exc))
             raise
+        self.last = Status("signed_in", email=email)
         return self._access
 
     def sign_in(self, timeout: float = SIGN_IN_TIMEOUT_S) -> Status:

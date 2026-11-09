@@ -81,6 +81,9 @@ class ReportDialog(QDialog):
         self.report = Report(context=context, trail=TRAIL.lines(), log_tail=read_log_tail())
         self.attachments: list[Attachment] = []
         self._thread: QThread | None = None
+        # While a send is in flight, editing the form must not re-arm Send:
+        # a second press filed the same report twice.
+        self._sending = False
 
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
@@ -207,7 +210,7 @@ class ReportDialog(QDialog):
         return f"{report.title}\n\n{report.body()}"
 
     def _refresh(self) -> None:
-        self.post.setEnabled(bool(self.summary.text().strip()))
+        self.post.setEnabled(bool(self.summary.text().strip()) and not self._sending)
         if self._edited:
             return
         report = self._current()
@@ -292,6 +295,9 @@ class ReportDialog(QDialog):
         QMessageBox.information(self, "Copied", "The whole report is on your clipboard.")
 
     def _post(self) -> None:
+        if self._sending:
+            return
+        self._sending = True
         # On the clipboard first: whatever the network does, nothing is lost.
         QGuiApplication.clipboard().setText(self._text())
         self.post.setEnabled(False)
@@ -318,7 +324,8 @@ class ReportDialog(QDialog):
 
     def _not_sent(self, why: str) -> None:
         self._finish_thread()
-        self.post.setEnabled(True)
+        self._sending = False
+        self._refresh()
         words = self.form["wording"]
         support = app().private.support_email if app().private else "software-support@machinesaver.net"
         self.status.setText(words["failed"].replace("{support_email}", support) + f"\n({why})")

@@ -322,6 +322,8 @@ class AppWindow(QMainWindow):
         )
 
     def download_update(self, release: Release) -> None:
+        if self._closing:
+            return      # an installer is already running, or the window is going
         self._pending_release = release
         reason = self.busy()
         if reason:
