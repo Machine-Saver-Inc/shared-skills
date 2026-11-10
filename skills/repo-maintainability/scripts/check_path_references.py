@@ -13,12 +13,20 @@ Usage:
   check_path_references.py --base <git-ref>              # CI: diff against base
   check_path_references.py --removed a.py --removed b.sh # explicit list
   check_path_references.py --index                       # print the whole index
+  check_path_references.py --docs                        # instruction files name real paths
 
 Exit 1 on any dangling reference, printed as
   <referrer>:<line>: still names <watched file>
+or, for --docs,
+  <instruction file>:<line>: names a path that does not exist: <path>
 
 Watched directories and skip rules come from `.maintainability/layout.json`
 when it exists (its top-level keys), else `scripts/`.
+
+`--docs` is the other direction: the files every agent and every newcomer
+loads first (README.md, AGENTS.md, edge/AGENTS.md, Makefile) may only name
+paths that exist. README.md pointed at a document outside the repository from
+its first commit; nothing noticed because nothing checked.
 """
 from __future__ import annotations
 
@@ -41,6 +49,22 @@ BINARY_SUFFIXES = {".png", ".jpg", ".jpeg", ".gif", ".ico", ".pdf", ".zip",
 MIN_BASENAME_LEN = 8          # shorter basenames match everywhere
 GENERIC_BASENAMES = {"index.js", "main.py", "setup.sh", "test.sh", "README.md",
                      "__init__.py"}
+
+# --docs: the always-loaded instruction files, and what counts as a path in them.
+DOC_FILES = ("README.md", "AGENTS.md", "edge/AGENTS.md", "Makefile")
+DOC_SUFFIXES = (".md", ".py", ".sh", ".ps1", ".yml", ".yaml", ".json", ".toml", ".go",
+                ".tf", ".hcl", ".mjs", ".js", ".txt", ".env", ".service", ".alloy",
+                ".likec4", ".html")
+BACKTICKED = re.compile(r"`([^`\n]+)`")
+LINK_TARGET = re.compile(r"\]\(([^)#\s]+)")
+# Prose outside backticks and fences is not scanned. Inside a fence, and in the
+# Makefile (no backticks), any whitespace-free token ending in a document or
+# script suffix is a path. The suffix set is narrower than DOC_SUFFIXES on
+# purpose: recipes name runtime-only files (`backend.auto.hcl`, `.env`) that
+# are never committed. A name with spaces still ends in a token that fails to
+# resolve, which is the point.
+BARE_PATH = re.compile(r"(?<![\w./-])((?:[\w.-]+/)*[\w.-]+\.(?:md|py|sh|ps1|ya?ml|json|toml))(?![\w-])")
+NOT_A_PATH = set("<>{}*$\\")  # placeholders, brace sets, globs, make variables, Windows paths
 
 
 def git(*args: str, cwd: Path) -> str:
@@ -119,6 +143,63 @@ def find_references(root: Path, targets: list[str]) -> list[tuple[str, int, str]
     return hits
 
 
+def path_like(tok: str) -> bool:
+    return "/" in tok or tok.endswith(DOC_SUFFIXES)
+
+
+def paths_in_span(span: str) -> list[str]:
+    """The paths a backticked span names: a lone path, the path words of a command
+    (`bash scripts/x.sh robustel`), or a file name with spaces (`Some Plan.md`),
+    which is how a dead link to a document outside the repo once hid."""
+    tok = span.strip().strip("(").rstrip(".,:;)").split("#", 1)[0]
+    if not tok or NOT_A_PATH & set(tok) or tok.startswith(("http://", "https://", "-")):
+        return []
+    slash_words = [w for w in tok.split() if "/" in w and not w.startswith("-")]
+    if slash_words:
+        return slash_words
+    return [tok] if tok.endswith(DOC_SUFFIXES) else []
+
+
+def doc_candidates(text: str, backticks: bool) -> list[tuple[int, str]]:
+    """(line, path) for every token in an instruction file that reads as a path."""
+    out: list[tuple[int, str]] = []
+    fenced = False
+    for lineno, line in enumerate(text.splitlines(), 1):
+        if backticks and line.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if backticks and not fenced:
+            spans = BACKTICKED.findall(line) + LINK_TARGET.findall(line)
+            found = [p for span in spans for p in paths_in_span(span)]
+        else:
+            found = [p for p in BARE_PATH.findall(line) if not NOT_A_PATH & set(p)]
+        out.extend((lineno, p) for p in found)
+    return out
+
+
+def resolves(root: Path, referrer: Path, tok: str, basenames: set[str]) -> bool:
+    """Relative to the referrer, then the root; a bare filename anywhere in the tree
+    (a Makefile recipe runs after its own `cd`, so `./x.sh` is a bare name)."""
+    rel = tok.rstrip("/").removeprefix("./")
+    if (referrer.parent / rel).exists() or (root / rel).exists():
+        return True
+    return "/" not in rel and rel in basenames
+
+
+def check_docs(root: Path) -> list[tuple[str, int, str]]:
+    basenames = {os.path.basename(p) for p in git("ls-files", cwd=root).splitlines()}
+    missing: list[tuple[str, int, str]] = []
+    for rel in DOC_FILES:
+        f = root / rel
+        if not f.exists():
+            continue
+        text = f.read_text(encoding="utf-8", errors="ignore")
+        for lineno, tok in doc_candidates(text, backticks=rel != "Makefile"):
+            if not resolves(root, f, tok, basenames):
+                missing.append((rel, lineno, tok))
+    return missing
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--root", default=".")
@@ -127,6 +208,8 @@ def main() -> int:
                     help="a watched path being moved or deleted")
     ap.add_argument("--index", action="store_true",
                     help="print every reference to every watched file")
+    ap.add_argument("--docs", action="store_true",
+                    help="every path named in the instruction files must exist")
     args = ap.parse_args()
     root = Path(args.root).resolve()
     dirs = watch_dirs(root)
@@ -134,6 +217,17 @@ def main() -> int:
     if args.index:
         for referrer, line, target in find_references(root, watched(root, dirs)):
             print(f"{referrer}:{line}: {target}")
+        return 0
+
+    if args.docs:
+        missing = check_docs(root)
+        for referrer, line, tok in missing:
+            print(f"{referrer}:{line}: names a path that does not exist: {tok}")
+        if missing:
+            print(f"\n{len(missing)} dead reference(s) in the instruction files. "
+                  "Fix the path or the prose in this PR.")
+            return 1
+        print("check_path_references --docs: every path named in", ", ".join(DOC_FILES), "exists")
         return 0
 
     targets = list(args.removed)

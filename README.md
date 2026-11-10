@@ -27,7 +27,7 @@ in one place, so that a lesson learned in one of them lands in all of them.
 | [`packages/ms-appkit/`](packages/ms-appkit/) | The Python package that *is* the shared shell. Currently **1.8.0**. |
 | [`skills/ms-mobile-app/`](skills/ms-mobile-app/) | The skill an agent reads before scaffolding or changing a Machine Saver iPhone/Android app. Currently **1.3.0**. |
 | [`packages/ms-mobilekit/`](packages/ms-mobilekit/) | The JavaScript package that *is* the shared mobile shell. Currently **1.3.0**. |
-| [`skills/repo-maintainability/`](skills/repo-maintainability/) | The skill an agent reads before fitting an existing repo with self-updating maintainability gates, project state in issues and a burn-down. Currently **0.3.0**. |
+| [`skills/repo-maintainability/`](skills/repo-maintainability/) | The skill an agent reads before fitting any repo agents develop in, new or existing, with self-updating maintainability gates, project state in issues, AI review roles and a burn-down bot. Currently **0.4.0**. |
 
 ## Why this exists
 
@@ -45,7 +45,9 @@ register in the skill, and the rules that a machine can check are functions in
 Add this repository as a skill source, or point an agent at
 [`skills/ms-desktop-app/SKILL.md`](skills/ms-desktop-app/SKILL.md) for a desktop
 tool or [`skills/ms-mobile-app/SKILL.md`](skills/ms-mobile-app/SKILL.md) for a
-phone app. Start at §0 of either.
+phone app. Start at §0 of either. For the repository around it (gates,
+issues, review roles, burn-down), or for any repository that is not an app,
+use [`skills/repo-maintainability/SKILL.md`](skills/repo-maintainability/SKILL.md).
 
 ## Using the kit
 

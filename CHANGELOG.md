@@ -4,6 +4,28 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-10 - The burn-down bot ships with the skill
+
+### repo-maintainability 0.4.0
+
+- **Burn-down code moved in from platform** (§4 step 5, new
+  `references/burndown.md`): `burndown_pick.py`, `burndown_agent.py`,
+  `burndown_mechanical.py`, `burndown_ratchets.sh`, the real
+  `maintainability-burndown.yml` (the placeholder is gone) and 56 new guard
+  tests. No longer "still to build".
+- **Forbidden paths are per repo:** the shared list keeps workflows, gates,
+  baselines, decisions, house rules and release files; a repo adds its own
+  in `.maintainability/burndown.json`, read from `HEAD`.
+- **`burndown_agent.run_model` + `classify`** are the bounded, tokenless
+  model run on their own, so a second scheduled agent reuses them; the
+  summary records turns and token usage.
+- **`ratchet.py --base`** follows a file's baselined findings when it moves;
+  **`check_path_references.py --docs`** checks that instruction files name
+  only real paths; **`commit_via_api.py`** commits regular files only, with
+  literal pathspecs. All three as they run on platform.
+- **New review role, `state-machines.md`:** a second bug lens, suggestions
+  only. Description and README now name the review roles and the bot.
+
 ## 2026-11-05 - The main tier commits as the App
 
 ### repo-maintainability 0.3.0

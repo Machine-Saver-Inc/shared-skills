@@ -1,11 +1,11 @@
 ---
 name: "repo-maintainability"
-description: "Fit a Machine Saver repository — existing or brand new — with self-updating, free, open-source tooling that keeps it understandable to humans and agents and stops agents from leaving it messier than they found it: a reference index, a layout gate, ratcheted lint/dead-code/duplication baselines, project state in GitHub Issues and the org Project board instead of hand-written trackers, a generated STATUS.md, a bot-maintained context map and code graph, and a serial burn-down scheduler. Use whenever Leo asks to clean up, reorganise or 'fix' a repo for agentic development, to start a new repo under the house rules, to add codebase-understanding or maintainability tooling, to stop a directory or a tracker file sprawling, to move bookkeeping into issues, or to set up a burn-down of technical debt — even if he only says the repo is getting hard to work in. Run it again on the same repo after each phase to record what was learned."
+description: "Fit a Machine Saver repository — existing or brand new — with self-updating, free, open-source tooling that keeps it understandable to humans and agents and stops agents from leaving it messier than they found it: a reference index, a layout gate, ratcheted lint/dead-code/duplication baselines, project state in GitHub Issues and the org Project board instead of hand-written trackers, a generated STATUS.md, a bot-maintained context map, AI review roles (records and comments, implicit state machines), and a serial burn-down bot that removes one finding per Draft PR. Use whenever Leo asks to clean up, reorganise or 'fix' a repo for agentic development, to start a new repo under the house rules, to add codebase-understanding or maintainability tooling, to stop a directory or a tracker file sprawling, to move bookkeeping into issues, to set up a burn-down of technical debt, or to add or tune AI review roles or a scheduled bug-fixing agent — even if he only says the repo is getting hard to work in. Run it again on the same repo after each phase to record what was learned."
 ---
 
 # Repo maintainability
 
-**Skill version 0.3.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
+**Skill version 0.4.0.** Published at `github.com/Machine-Saver-Inc/shared-skills`.
 First run: `Machine-Saver-Inc/platform`, November 2026.
 
 For any Machine Saver repository that agents develop in, whether it exists
@@ -78,6 +78,8 @@ was:
 | Duplication | jscpd | MIT | PR + main tier |
 | Context map | ctxmap 0.1.0, structural only (no LLM) | MIT | main tier, bot commit |
 | Bot commit | `scripts/commit_via_api.py` (this skill), as the repo's GitHub App | MIT | main tier |
+| Burn-down | `scripts/burndown_*.py` (this skill), one model run per target | MIT; the model is the only paid part | every other day |
+| Review roles | `assets/review-roles/` | MIT | the repo's AI review gate |
 | Code graph | codebase-memory-mcp | MIT | deferred (§6): its index is per user and built through MCP calls |
 | Human graph | Understand-Anything | MIT | weekly, committed JSON |
 | Tool versions | Renovate | already present | weekly |
@@ -153,8 +155,9 @@ scripts baked into published images.
 So the graph is for **blast radius** (callers, duplicates, orphans), and
 `check_path_references.py` is for **moves**. It indexes every file of every
 type for every watched filename, by full path and by bounded basename, and
-fails a PR that moves or deletes a file still named anywhere. The burn-down
-agent runs `--index` first and updates every hit, runbooks included.
+fails a PR that moves or deletes a file still named anywhere. Moving a file
+into its family is not a burn-down kind yet: a move has to carry its
+baselined findings and every reference with it (platform issue 181).
 
 For consumers outside the repo, every move leaves a **shim** at the old path
 for two releases — a bash/PowerShell stub that `exec`s the new location with
@@ -215,11 +218,13 @@ reviewability) wants small workflow changes. Order:
    "Last updated" line: the commit is the timestamp.
 4. **This skill's lessons.** Append what the first three PRs taught to
    `references/LESSONS.md` and bump the skill version.
-5. **Burn-down.** `assets/workflows/maintainability-burndown.yml`, plus the
-   repo-specific `burndown_pick.py` and `burndown_agent.py` (on `platform`,
-   built on `scripts/ai_review_sdk.py`'s bridge). Every other day, serial,
-   budget-capped. The PR goes through the repo's own review gate and the
-   owner merges.
+5. **Burn-down.** `assets/workflows/maintainability-burndown.yml` and the
+   four `scripts/burndown_*` files: retire a stale `*_candidate*` file,
+   delete one dead-code finding, or dedupe one jscpd pair, safest first.
+   Every other day, serial, $5 per attempt, as its own App with no bypass.
+   The repo's own forbidden paths go in `.maintainability/burndown.json`.
+   Setup, the App and the trust boundary: `references/burndown.md`. The PR
+   goes through the repo's own review gate and the owner merges.
 
 Each PR is a Draft PR from the agent, per the repo's own rules; the owner
 reviews. That is the whole human cost.
@@ -235,16 +240,19 @@ stripped so a shifted line is not "new". The main-tier workflow runs
 This is why the gates can be switched on in a repo with hundreds of findings
 on day one without blocking anybody.
 
-## 6. Still to build (as of 0.2.4)
+## 6. Still to build (as of 0.4.0)
 
 - A finding tool that crashes or fails to start prints nothing, and an
   empty pipe looks like zero findings. Each ratchet step should capture
   the tool's exit code and accept only its documented "findings" codes
   before the ratchet sees the output (review suggestion on platform PR 5).
 
-- `burndown_pick.py` / `burndown_agent.py` are specified in the burn-down
-  workflow's comments and not yet written; they are repo-specific because
-  they reuse the target repo's agent bridge.
+- The `move` burn-down kind (platform issue 181).
+- The weekly two-lens bug sweep (an ordinary-bug lens and an
+  implicit-state-machine lens, one area a week, a PR only when its new test
+  fails on the base commit and passes with the fix) is piloting on
+  `platform` (issue 199, PR 200). It lands here once its scheduled runs
+  have opened PRs the owner merged.
 - The weekly Understand-Anything job is a placeholder until the target repo
   has an agent runner it can use headless.
 - Hash-pinned installs (`pip install --require-hashes`, `npm ci` with a
@@ -283,8 +291,13 @@ first PR, before any feature code. In this order, all from `assets/`:
    `maintainability-main.yml`. Baselines are empty files, committed. From
    now on `ratchet.py update` refuses the first finding, so no debt is ever
    tolerated; `--allow-growth` is never passed in a new repo.
-5. The review role from `assets/review-roles/` if the repo has an AI
-   review gate; otherwise the same rules are the PR template's checklist.
+5. The review roles from `assets/review-roles/` if the repo has an AI
+   review gate: `records-and-comments.md` (R5, R6) and `state-machines.md`
+   (a second bug lens, suggestions only). Without a gate, the same rules
+   are the PR template's checklist.
+
+An application repository is scaffolded by `ms-desktop-app` or
+`ms-mobile-app` first; this section then fits the repository around it.
 
 The first feature PR then names its issue, lands in a family directory,
 passes an empty baseline, and appears on the board and in `STATUS.md`
