@@ -481,7 +481,7 @@ class AgentOutcomeTests(unittest.TestCase):
                                     ResultMessage=ResultMessage, query=query)
         target = {"kind": "delete", "key": "k", "paths": ["scripts/a.py"]}
         with mock.patch.dict(sys.modules, {"claude_agent_sdk": sdk}), \
-                mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test-only"}), \
+                mock.patch.dict(os.environ, {"ANTHROPIC_API_KEY": "t"}), \
                 tempfile.TemporaryDirectory() as d:
             (Path(d) / "AGENTS.md").write_text("house rules")
             return asyncio.run(burndown_agent.run(target, Path(d), 1.0, 2))
