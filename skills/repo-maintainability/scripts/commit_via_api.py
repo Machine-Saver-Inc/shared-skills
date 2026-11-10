@@ -37,19 +37,33 @@ mutation($input: CreateCommitOnBranchInput!) {
 
 
 def git(*args: str) -> str:
-    return subprocess.run(["git", *args], check=True, capture_output=True, text=True).stdout
+    # Paths are literal: a name like `:(glob)**` or `*` never widens the set.
+    return subprocess.run(["git", "--literal-pathspecs", *args], check=True,
+                          capture_output=True, text=True).stdout
 
 
 def changed(paths: list[str]) -> tuple[list[str], list[str]]:
     """(modified or untracked, deleted) paths relative to HEAD, among `paths`."""
-    status = git("status", "--porcelain", "--untracked-files=all", "--", *paths)
+    status = git("status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames",
+                 "--", *paths)
     modified, deleted = set(), set()
-    for line in status.splitlines():
-        if not line.strip():
+    for entry in status.split("\0"):
+        if not entry.strip():
             continue
-        path = line[3:].strip()
-        (deleted if "D" in line[:2] else modified).add(path)
+        path = entry[3:]
+        (deleted if "D" in entry[:2] else modified).add(path)
     return sorted(modified), sorted(deleted)
+
+
+def regular_file_bytes(path: str) -> bytes:
+    """Only a regular file inside the checkout is committed; a symlink could point
+    at the runner's environment or credentials."""
+    p = Path(path)
+    if p.is_symlink() or not p.is_file():
+        raise ValueError(f"{path} is not a regular file")
+    if not p.resolve().is_relative_to(Path.cwd().resolve()):
+        raise ValueError(f"{path} resolves outside the checkout")
+    return p.read_bytes()
 
 
 def payload(repo: str, branch: str, message: str, head: str, files: dict[str, bytes],
@@ -105,7 +119,11 @@ def main() -> int:
         print("commit_via_api: GH_TOKEN is not set", file=sys.stderr)
         return 2
     head = args.expected_head or git("rev-parse", "HEAD").strip()
-    files = {p: Path(p).read_bytes() for p in modified}
+    try:
+        files = {p: regular_file_bytes(p) for p in modified}
+    except ValueError as err:
+        print(f"commit_via_api: {err}", file=sys.stderr)
+        return 2
     result = post(payload(args.repo, args.branch, args.message, head, files, deleted), token)
     if result.get("errors"):
         print("commit_via_api:", json.dumps(result["errors"]), file=sys.stderr)

@@ -378,3 +378,16 @@ ruff baseline keys findings by path, so at the new path the finding was
 moment to fix what the file carries, not to re-tolerate it. The burn-down
 agent's "move" step must run the finding tools on the moved file and fix
 or justify each finding before opening its PR.
+
+**Found when the burn-down code moved into this skill (0.4.0):** the
+forbidden list was platform's, with `edge/base/` and the review scripts
+written into the code. Shared code keeps only what is forbidden in every
+repo; a repo's own additions are data in `.maintainability/burndown.json`,
+read from `HEAD` so a patch cannot widen its own reach.
+
+**Found by secret-scan on platform PR 200:** gitleaks' generic-api-key rule
+matched a test fixture, `"key": "<area>-<lens>-<date>"`: a key-like name,
+a colon, and a value with enough entropy. Fixture values next to a `key`,
+`token` or `secret` name stay short. A finding in a pushed commit stays in
+history, so the fix is a rewritten branch or a commit-bound
+`.gitleaksignore` fingerprint, not a follow-up commit.

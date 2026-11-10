@@ -16,15 +16,24 @@ baseline by hand.
 Findings are normalised before comparison: line and column numbers are
 stripped, so a finding that merely shifts lines is not "new", and path
 separators are made POSIX, so a Windows runner and a Linux runner agree.
+With `--base <git-ref>`, baselined findings follow the files git sees moved
+since <ref> (three-dot, like the other gates), so a move is not a regression
+and the main-tier `update` accepts the new paths (issue #181). A move that
+leaves a shim at the old path (ADR 0022) is a copy to git, so copies count
+too, and a copy keeps its source's findings tolerated at the source as well
+(a split file never fails falsely); findings the edit itself added are still
+new. `--base baseline` means the commit that last wrote the baseline file.
 """
 from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 LINE_NO = re.compile(r":\d+(:\d+)?(?=[:\s]|$)")
+PAIR = re.compile(r"(\S+): (\S+) \+ (\S+)")
 
 
 def normalise(line: str) -> str:
@@ -36,18 +45,68 @@ def normalise(line: str) -> str:
     return LINE_NO.sub("", line)
 
 
+def moves_since(base: str, baseline: Path) -> tuple[dict[str, str], set[str]]:
+    """Old path -> new path for files git sees moved since `base`, and the old
+    paths that still exist (copies). `base` may be the word "baseline": the
+    commit that last wrote the baseline, so a run that coalesced several
+    merges still sees every move since the bot last looked."""
+    if base == "baseline":
+        base = subprocess.run(["git", "log", "-1", "--format=%H", "--", str(baseline)],
+                              check=False, capture_output=True, text=True).stdout.strip()
+        if not base:
+            return {}, set()
+    # -C: with a shim left at the old path, git reports a copy, not a rename.
+    cmd = ["git", "diff", "--name-status", "-z", "-M", "-C", "--diff-filter=RC", f"{base}...HEAD"]
+    try:
+        out = subprocess.run(cmd, check=True, capture_output=True, text=True).stdout
+    except subprocess.CalledProcessError:
+        # Stricter, never looser: nothing is followed, so a move shows as new.
+        print(f"ratchet: cannot diff against {base}; moves are not followed "
+              "(shallow checkout?)", file=sys.stderr)
+        return {}, set()
+    parts = out.split("\0")        # R<score> or C<score>, old, new, repeated
+    records = [(parts[i][0], normalise(parts[i + 1]), normalise(parts[i + 2]))
+               for i in range(0, len(parts) - 2, 3)]
+    return {old: new for _, old, new in records}, {old for kind, old, _ in records if kind == "C"}
+
+
+def follow(line: str, moved: dict[str, str]) -> str:
+    # A whole path only: at the start or after a space (jscpd's "a + b") and
+    # before ":" or a space, so scripts/a.sh leaves scripts/a.sh.bak alone.
+    if not moved:
+        return line
+    pat = "|".join(re.escape(p) for p in moved)
+    line = re.sub(rf"(?:^|(?<=\s))(?:{pat})(?=[:\s]|$)", lambda m: moved[m.group(0)], line)
+    # jscpd_findings.py prints a pair sorted; a followed member may sort differently.
+    pair = PAIR.fullmatch(line)
+    if pair:
+        line = f"{pair[1]}: {' + '.join(sorted(pair.group(2, 3)))}"
+    return line
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("mode", choices=["check", "update"])
     ap.add_argument("--baseline", required=True, type=Path)
     ap.add_argument("--allow-growth", action="store_true",
                     help="update only: permit findings not already in the baseline (first run)")
+    ap.add_argument("--base", help="git ref, or 'baseline' for the commit that last wrote the "
+                    "baseline; baselined findings follow files moved since it")
     args = ap.parse_args()
+    moved, copied = moves_since(args.base, args.baseline) if args.base else ({}, set())
 
     current = {normalise(l) for l in sys.stdin if l.strip()}
     old: set[str] = set()
     if args.baseline.exists():
-        old = {normalise(l) for l in args.baseline.read_text().splitlines() if l.strip()}
+        for raw in args.baseline.read_text().splitlines():
+            if not raw.strip():
+                continue
+            line = normalise(raw)
+            old.add(follow(line, moved))
+            # A copy's source still exists (a shim, or a file that was split),
+            # so what was tolerated there stays tolerated there.
+            if copied and follow(line, dict.fromkeys(copied, "")) != line:
+                old.add(line)
 
     if args.mode == "check":
         new = sorted(current - old)

@@ -1,36 +1,47 @@
-# Maintainability — burn-down. Every other day, if no burn-down PR is still
-# open, pick ONE target from the baselines and open a Draft PR that removes
-# it. The PR goes through the repo's own review gate (ADR 0005 on platform);
-# the owner merges or closes. The main-tier workflow then lowers the
-# baselines, so cleared debt cannot return.
+# Maintainability burn-down (ADR 0019, ADR 0022). Every other day, if no
+# burn-down PR is open, pick ONE target from the baselines, remove it, and open
+# a Draft PR for it as the Machine Saver Burn-down Bot. The PR goes through
+# every gate and the review like any other; the owner merges or closes it. The
+# main-tier workflow then lowers the baselines, so cleared debt cannot return.
 #
-# Serial on purpose: two open burn-down PRs that both touch scripts/ conflict
-# and waste review budget.
+# Trust boundary:
+#   pick    reads the tree and the baselines; no write token, no model. Its
+#           target.json is the only description of the target anyone trusts.
+#   work    makes the change: mechanically (retire) or by the model (delete,
+#           dedupe) with Read/Glob/Grep/Edit/Write only. No GitHub token. No
+#           repository code runs after the model has written: only the gates in
+#           scripts/ci (which it cannot edit) and the finding tools. The PR's
+#           own CI runs the tests. Output: a patch artifact, treated as hostile.
+#   open    fresh checkout, nothing installed. Copies the trusted scripts out
+#           of the checkout, applies the patch, and refuses it unless every
+#           touched path is one the trusted target allows, nothing is
+#           forbidden, and there is no symlink, mode change or binary. Only
+#           then is the App token minted, in the burndown-bot environment that
+#           only main may use, for one signed API commit and one Draft PR.
+#   record  a target the model declined, or whose change failed the gates or
+#           the patch check, becomes a closed issue so it is never retried.
+#           Any other failure after main passed its ratchets is counted on an
+#           open issue and closed at the third, so nothing retries forever.
+#           A main that fails its own ratchets costs a run nothing and records
+#           nothing: the work job stops before the change.
 #
-# Target order, safest first:
-#   1. retire   — a *_candidate.* file with no inbound graph reference and no
-#                 commit in 90 days
-#   2. delete   — a vulture / shellcheck finding, verified dead in the graph
-#   3. dedupe   — one jscpd cluster (usually an attended .ps1/.sh pair)
-#   4. move     — one file into its family dir, shim left at the old path
-#
-# The agent runs under the repo's existing review SDK key with a per-PR
-# budget cap. Tools are free; this labour is the only paid part, by choice.
+# No pipefail: the finding tools exit non-zero when they find anything, and
+# the ratchet after the pipe is the verdict. No job sets `shell: bash`.
+# The schedule's */2 on day-of-month restarts each month; close enough.
 
 name: maintainability-burndown
 
 on:
   schedule:
-    - cron: "23 7 */2 * *"    # every other day, 07:23 UTC
+    - cron: "23 7 */2 * *"
   workflow_dispatch:
     inputs:
       kind:
-        description: "retire | delete | dedupe | move (blank = next in order)"
+        description: "retire | delete | dedupe (blank = next in order)"
         required: false
+        default: ""
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 concurrency:
   group: maintainability-burndown
@@ -39,58 +50,318 @@ concurrency:
 jobs:
   pick:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
     outputs:
-      skip: ${{ steps.open.outputs.skip }}
+      found: ${{ steps.pick.outputs.found }}
     steps:
-      - name: Only one burn-down PR at a time
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Serial on purpose: two open burn-down PRs that both touch scripts/
+      # conflict and waste review budget. A target with a closed PR is never
+      # picked again: unmerged means rejected, and merged means done, even
+      # before the main tier has lowered the baseline. Nor is one with a closed
+      # `burndown/<key>` issue (reopen it to allow another attempt).
+      - name: One at a time; never retry a finished target
         id: open
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           n=$(gh pr list --repo "$GITHUB_REPOSITORY" --label burn-down --state open --json number --jq 'length')
-          echo "skip=$([ "$n" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "open=$n" >> "$GITHUB_OUTPUT"
+          gh pr list --repo "$GITHUB_REPOSITORY" --label burn-down --state closed --limit 500 \
+              --json headRefName --jq '.[].headRefName | sub("^burndown/"; "")' \
+            > "$RUNNER_TEMP/skip.txt"
+          gh issue list --repo "$GITHUB_REPOSITORY" --label burn-down --state closed --limit 500 \
+              --json title --jq '.[].title | select(startswith("burndown/")) | sub("^burndown/"; "")' \
+            >> "$RUNNER_TEMP/skip.txt"
 
-  burndown:
+      - name: Choose the target
+        id: pick
+        if: steps.open.outputs.open == '0'
+        env:
+          KIND: ${{ github.event.inputs.kind }}
+        run: |
+          set -- pick --skip-file "$RUNNER_TEMP/skip.txt"
+          if [ -n "$KIND" ]; then set -- "$@" --kind "$KIND"; fi
+          python3 scripts/ci/burndown_pick.py "$@" > "$RUNNER_TEMP/target.json"
+          cat "$RUNNER_TEMP/target.json"
+          if [ "$(cat "$RUNNER_TEMP/target.json")" = "{}" ]; then echo "found=false"; else echo "found=true"; fi >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.pick.outputs.found == 'true'
+        with:
+          name: burndown-target
+          path: ${{ runner.temp }}/target.json
+
+  work:
     needs: pick
-    if: needs.pick.outputs.skip == 'false'
+    if: needs.pick.outputs.found == 'true'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      declined: ${{ steps.change.outputs.declined }}
+      # True only when a failure was the target's: the change step marks the
+      # point after which the model or the mechanical change is done, and a
+      # failure from there through the gates is the change's. An upload
+      # failure after the gates passed is not.
+      attributable: ${{ steps.change.outputs.attributable == 'true' && (steps.change.outcome == 'failure' || steps.commit.outcome == 'failure' || steps.gates.outcome == 'failure') && 'true' || '' }}
+      # The untouched tree passed every ratchet. A failure before this, or
+      # with this false, is main's or the runner's, never the target's.
+      base_ok: ${{ steps.base.outcome == 'success' }}
+      # The target's own finding was still there to remove.
+      stale: ${{ steps.base_finding.outputs.stale }}
     env:
       BURNDOWN_BUDGET_USD: "5"
       BURNDOWN_MAX_TURNS: "60"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
-      - uses: actions/setup-python@v5
+      - uses: actions/download-artifact@v7
         with:
-          python-version: "3.12"
+          name: burndown-target
+          path: ${{ runner.temp }}/pick
 
-      - name: Choose the target
-        id: target
+      - name: Tools
         run: |
-          # scripts/ci/burndown_pick.py reads .maintainability/*.baseline and the
-          # code graph, applies the order above, and prints JSON:
-          #   {"kind": "retire", "path": "scripts/x_candidate.py", "evidence": "..."}
-          python scripts/ci/burndown_pick.py \
-            --kind "${{ github.event.inputs.kind }}" > target.json
-          cat target.json
-          echo "kind=$(jq -r .kind target.json)" >> "$GITHUB_OUTPUT"
-          echo "path=$(jq -r .path target.json)" >> "$GITHUB_OUTPUT"
+          pip install --quiet ruff==0.17.3 vulture==2.14
+          pip install --quiet -r .github/review/sdk-requirements.txt
+          sudo apt-get install -y -qq shellcheck >/dev/null
+          npm install --global --silent jscpd@4.0.5
 
-      - name: Open the Draft PR
+      # Before any spend: main must pass every ratchet as it stands, or a gate
+      # failure below would be blamed on the target.
+      - name: Base passes the ratchets
+        id: base
+        run: bash scripts/ci/burndown_ratchets.sh "$RUNNER_TEMP/base"
+
+      # A finding already gone (a merged fix the main tier has not yet
+      # lowered) is not worth a run, and would make `verify` pass vacuously.
+      - name: The target's finding is still there
+        id: base_finding
+        run: |
+          cat "$RUNNER_TEMP"/base/ruff.txt "$RUNNER_TEMP"/base/vulture.txt "$RUNNER_TEMP"/base/jscpd.txt > "$RUNNER_TEMP/base/all.txt"
+          if python3 scripts/ci/burndown_pick.py verify --target "$RUNNER_TEMP/pick/target.json" \
+               --findings "$RUNNER_TEMP/base/all.txt" --expect-present; then
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::the target's finding is already gone; nothing to do"
+          fi
+
+      - name: Make the change
+        id: change
+        if: steps.base_finding.outputs.stale == 'false'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          GH_TOKEN: ${{ github.token }}
         run: |
-          # The agent step. On platform this reuses scripts/ai_review_sdk.py's
-          # bridge with Read/Edit/Bash and a workspace boundary hook. It:
-          #   - makes the change for exactly one target
-          #   - for a move: `git mv`, leaves a shim at the old path, updates
-          #     every reference the index reports (check_path_references.py
-          #     --index), including runbooks
-          #   - runs the PR-tier gates locally and stops if any fail
-          #   - opens a Draft PR labelled burn-down, body = target.json evidence
-          # It never marks the PR ready and never merges.
-          python scripts/ci/burndown_agent.py --target target.json \
-            --budget "$BURNDOWN_BUDGET_USD" --max-turns "$BURNDOWN_MAX_TURNS"
+          t="$RUNNER_TEMP/pick/target.json"
+          kind=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["kind"])' "$t")
+          if [ "$kind" = retire ]; then
+            python3 scripts/ci/burndown_mechanical.py --target "$t"
+          else
+            rc=0
+            python3 scripts/ci/burndown_agent.py --target "$t" \
+              --budget "$BURNDOWN_BUDGET_USD" --max-turns "$BURNDOWN_MAX_TURNS" \
+              --summary "$RUNNER_TEMP/summary.json" || rc=$?
+            if [ "$rc" = 3 ]; then echo "declined=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            # 4: too big for one run, a boundary denial, no structured result.
+            # Anything else (1) is an API, auth or runner failure: not recorded.
+            if [ "$rc" = 4 ]; then echo "attributable=true" >> "$GITHUB_OUTPUT"; exit 1; fi
+            if [ "$rc" != 0 ]; then exit "$rc"; fi
+          fi
+          # From here on every failure is the change's own.
+          echo "attributable=true" >> "$GITHUB_OUTPUT"
+          git add -A
+          if git diff --cached --quiet; then echo "::error::no change was made"; exit 1; fi
+          git diff --cached --binary --no-renames HEAD > "$RUNNER_TEMP/change.patch"
+          # The gates judge the tree the patch describes: an ignored file the
+          # model wrote never reaches the PR, so it must not satisfy a tool here.
+          git clean -ffdqX
+
+      # The model is done and its key is gone from every later step. Nothing
+      # below executes repository code it could have written.
+      - name: Commit the candidate
+        id: commit
+        if: steps.change.outcome == 'success' && steps.change.outputs.declined != 'true'
+        run: git -c user.name=burndown -c user.email=burndown@invalid commit -qm "burn-down candidate"
+
+      - name: Gates and ratchets
+        id: gates
+        if: steps.commit.outcome == 'success'
+        run: |
+          # Against the commit the change was made on; origin/main may have moved.
+          python3 scripts/ci/check_path_references.py --base "$GITHUB_SHA"
+          python3 scripts/ci/check_layout.py --base "$GITHUB_SHA"
+          python3 scripts/ci/check_ledgers.py --base "$GITHUB_SHA"
+          bash scripts/ci/burndown_ratchets.sh "$RUNNER_TEMP/after"
+          cat "$RUNNER_TEMP"/after/ruff.txt "$RUNNER_TEMP"/after/vulture.txt "$RUNNER_TEMP"/after/jscpd.txt > "$RUNNER_TEMP/all.txt"
+          python3 scripts/ci/burndown_pick.py verify --target "$RUNNER_TEMP/pick/target.json" --findings "$RUNNER_TEMP/all.txt"
+
+      - uses: actions/upload-artifact@v7
+        if: steps.gates.outcome == 'success'
+        with:
+          name: burndown-change
+          path: |
+            ${{ runner.temp }}/change.patch
+            ${{ runner.temp }}/summary.json
+          if-no-files-found: warn
+
+  open:
+    needs: [pick, work]
+    if: needs.work.result == 'success' && needs.work.outputs.declined != 'true' && needs.work.outputs.stale == 'false'
+    runs-on: ubuntu-latest
+    environment: burndown-bot   # holds the App's key; only main may deploy to it
+    permissions:
+      contents: read
+    outputs:
+      rejected: ${{ steps.check.outputs.rejected }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # The scripts that judge and commit the patch are copied out before the
+      # patch can touch the checkout, and run isolated (-I) from there.
+      - name: Keep trusted copies of the judging scripts
+        run: cp -r scripts/ci "$RUNNER_TEMP/trusted"
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: burndown-target
+          path: ${{ runner.temp }}/pick
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: burndown-change
+          path: ${{ runner.temp }}/change
+
+      - name: Read the target and write the PR text, before the patch is applied
+        id: meta
+        run: |
+          python3 -I - "$RUNNER_TEMP" <<'PY'
+          import json, os, sys
+          from pathlib import Path
+          tmp = Path(sys.argv[1])
+          t = json.loads((tmp / "pick/target.json").read_text())
+          s = tmp / "change/summary.json"
+          note = str(json.loads(s.read_text()).get("summary", ""))[:1500] if s.exists() else "Mechanical change; no model involved."
+          # The model's words are quoted, never interpreted: no mentions, no
+          # closing keywords, no markdown that escapes the block.
+          note = note.replace("`", "'").replace("@", "@​").replace("#", "#​")
+          (tmp / "body.md").write_text(
+              f"Refs ADR 0019, ADR 0022. Burn-down target `{t['key']}` ({t['kind']}).\n\n"
+              f"**Evidence:** {t['evidence']}\n\n**Change, in the agent's words:**\n\n```text\n{note}\n```\n\n"
+              "The gates and ratchets passed in the burn-down run; this PR's CI runs the tests. "
+              "Close it to reject the target; it will not be proposed again.\n")
+          with open(os.environ["GITHUB_OUTPUT"], "a") as out:
+              out.write(f"key={t['key']}\n")
+          PY
+
+      - name: Apply and check the patch
+        id: check
+        run: |
+          git apply --index "$RUNNER_TEMP/change/change.patch" || { echo "rejected=true" >> "$GITHUB_OUTPUT"; exit 1; }
+          git diff --cached --name-status --no-renames -z > "$RUNNER_TEMP/name-status"
+          if ! python3 -I "$RUNNER_TEMP/trusted/burndown_pick.py" check-patch \
+              --target "$RUNNER_TEMP/pick/target.json" --patch "$RUNNER_TEMP/change/change.patch" \
+              --paths-out "$RUNNER_TEMP/touched" < "$RUNNER_TEMP/name-status"; then
+            echo "rejected=true" >> "$GITHUB_OUTPUT"; exit 1
+          fi
+          git status --short
+
+      - uses: actions/create-github-app-token@v3
+        id: app
+        with:
+          app-id: ${{ vars.BURNDOWN_APP_ID }}
+          private-key: ${{ secrets.BURNDOWN_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Branch, signed commit, Draft PR
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          KEY: ${{ steps.meta.outputs.key }}
+        run: |
+          branch="burndown/$KEY"
+          # A branch left by a failed earlier attempt has no PR (an open PR
+          # would have stopped pick); replace it.
+          gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch" --silent 2>/dev/null || true
+          gh api -X POST "repos/$GITHUB_REPOSITORY/git/refs" -f ref="refs/heads/$branch" -f sha="$GITHUB_SHA" --silent
+          mapfile -d '' paths < "$RUNNER_TEMP/touched"
+          allow=(); for p in "${paths[@]}"; do allow+=(--allow "$p"); done
+          python3 -I "$RUNNER_TEMP/trusted/commit_via_api.py" --repo "$GITHUB_REPOSITORY" --branch "$branch" \
+            --expected-head "$GITHUB_SHA" --message "chore(burn-down): $KEY" "${allow[@]}" -- "${paths[@]}"
+          gh pr create --repo "$GITHUB_REPOSITORY" --draft --base main --head "$branch" \
+            --label burn-down --title "chore(burn-down): $KEY" --body-file "$RUNNER_TEMP/body.md"
+
+      - name: Remove the branch if the PR was not opened
+        if: failure() && steps.app.outputs.token != ''
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          KEY: ${{ steps.meta.outputs.key }}
+        run: gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/burndown/$KEY" --silent || true
+
+  record:
+    needs: [pick, work, open]
+    # reject: the target's own failure, closed at once. infra: anything else
+    # after main passed its ratchets, counted on an open issue and closed at
+    # the third, so no failure mode can retry one target forever.
+    if: >-
+      always() && needs.pick.outputs.found == 'true' && (
+        needs.work.outputs.declined == 'true' ||
+        (needs.work.result == 'failure' && needs.work.outputs.attributable == 'true') ||
+        needs.open.outputs.rejected == 'true' ||
+        (needs.work.result == 'failure' && needs.work.outputs.base_ok == 'true') ||
+        (needs.open.result == 'failure'))
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: burndown-target
+          path: ${{ runner.temp }}/pick
+      - name: Record the outcome
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ (needs.work.outputs.declined == 'true' || (needs.work.result == 'failure' && needs.work.outputs.attributable == 'true') || needs.open.outputs.rejected == 'true') && 'reject' || 'infra' }}
+          OUTCOME: ${{ needs.work.outputs.declined == 'true' && 'was declined by the agent' || 'failed because the agent could not finish it or its change failed the gates or the patch check' }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          MAX_INFRA: "3"
+        run: |
+          key=$(python3 -I -c 'import json,sys; print(json.load(open(sys.argv[1]))["key"])' "$RUNNER_TEMP/pick/target.json")
+          title="burndown/$key"
+          gh issue list --repo "$GITHUB_REPOSITORY" --label burn-down --state open --limit 500 \
+              --json number,title,comments > "$RUNNER_TEMP/open-issues.json"
+          read -r number seen < <(python3 -I -c '
+          import json, sys
+          rows = [i for i in json.load(open(sys.argv[1])) if i["title"] == sys.argv[2]]
+          print(rows[0]["number"], 1 + len(rows[0]["comments"])) if rows else print("none 0")
+          ' "$RUNNER_TEMP/open-issues.json" "$title")
+          if [ "$MODE" = reject ]; then
+            note="Burn-down target $key $OUTCOME: $RUN_URL. Closed so it is not retried (ADR 0022); reopen this issue to allow another attempt."
+          else
+            n=$((seen + 1))
+            note="Burn-down target $key failed outside its own account ($n of $MAX_INFRA): $RUN_URL."
+            if [ "$n" -ge "$MAX_INFRA" ]; then
+              note="$note Closed after $MAX_INFRA such failures (ADR 0022); reopen this issue to allow another attempt."
+            fi
+          fi
+          if [ "$number" = none ]; then
+            number=$(gh issue create --repo "$GITHUB_REPOSITORY" --label burn-down --title "$title" --body "$note" | sed 's#.*/##')
+          else
+            gh issue comment "$number" --repo "$GITHUB_REPOSITORY" --body "$note"
+          fi
+          if [ "$MODE" = reject ] || [ "${n:-0}" -ge "$MAX_INFRA" ]; then
+            gh issue close "$number" --repo "$GITHUB_REPOSITORY" --reason "not planned"
+          fi
