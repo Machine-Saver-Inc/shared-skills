@@ -1,5 +1,11 @@
 # Changelog — ms-mobilekit
 
+## [1.3.2] — 2026-11-23
+
+**Report a problem** no longer sends an empty report. **Send to Machine
+Saver** stays off until you have written something in the one line or in the
+description (airvibe-cellular-mobile-app#43, found on an iPhone in TestFlight).
+
 ## [1.3.1] — 2026-11-23
 
 **Report a problem** now reaches Machine Saver from an iPhone or Android
