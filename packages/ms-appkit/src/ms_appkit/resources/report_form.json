@@ -32,6 +32,7 @@
     "received_private": "Thank you. Report #{number} received.",
     "received_public": "Thank you. Your report is #{number}.",
     "failed": "Machine Saver could not be reached, so nothing was sent. The whole report is on your clipboard; paste it into an email to {support_email}.",
+    "not_accepted": "Machine Saver received the report but did not accept it ({reason}), so nothing was filed. The whole report is on your clipboard; paste it into an email to {support_email}.",
     "refused_prefix": "That file was not added: "
   }
 }

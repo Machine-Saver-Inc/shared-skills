@@ -145,7 +145,15 @@ export async function sendReport({ form, slug, version, kind, title, body, email
   if (status === 400 && json && json.error === 'attachment refused') {
     return { ok: false, refused: json.file, message: `${w.refused_prefix}${json.file || ''}. ${form.attachments.hint}` };
   }
-  if (status !== 200 && status !== 201 && status !== 202) return failed;
+  if (status !== 200 && status !== 201 && status !== 202) {
+    // The intake answered and said no (a missing line, a rule): say so, with its reason, instead of
+    // "could not be reached", which is only true when nothing answered (airvibe-cellular-mobile-app#44).
+    if (status >= 400 && status < 500 && w.not_accepted) {
+      const reason = String((json && (json.error || json.message || json.detail)) || `code ${status}`).slice(0, 160);
+      return { ok: false, status, message: fill(w.not_accepted, { reason, support_email: supportEmail }) };
+    }
+    return failed;
+  }
   const number = json.number; const url = json.url || null;
   const isPublic = visibility ? visibility === 'public' : Boolean(url);
   return { ok: true, number, url, message: fill(isPublic ? w.received_public : w.received_private, { number: number == null ? '' : number }) };
@@ -236,6 +244,7 @@ export async function openReport(opts) {
 
   const actions = q('#ms-report-actions');
   const send = primary({ label: w.send, mark: 'send', onClick: async () => {
+    if (!q('#ms-title').value.trim() && !q('#ms-desc').value.trim()) return;
     const r = compose();
     send.disabled = true; status(w.sending);
     const sent = await sendReport({ form, slug, version: r.version, kind: r.kind, title: r.title, body: r.body, email: r.email || undefined, files, visibility, supportEmail, fetch: opts.fetch });
@@ -249,6 +258,12 @@ export async function openReport(opts) {
     status(sent.message); send.disabled = false;
   } });
   actions.appendChild(send);
+  // Nothing written is nothing to send: Send stays off until the one line or the description has text.
+  // An empty report could be sent before (airvibe-cellular-mobile-app#43).
+  const written = () => Boolean(q('#ms-title').value.trim() || q('#ms-desc').value.trim());
+  const ready = () => { send.disabled = !written(); };
+  q('#ms-title').addEventListener('input', ready); q('#ms-desc').addEventListener('input', ready);
+  ready();
   if (typeof navigator !== 'undefined' && navigator.share) actions.appendChild(button({ label: 'Share', mark: 'share', onClick: () => navigator.share({ title: compose().title, text: asText() }).catch(() => {}) }));
   actions.appendChild(button({ label: w.copy, mark: 'copy', onClick: copy }));
   actions.appendChild(button({ label: w.cancel, mark: 'cancel', onClick: () => dlg.close() }));

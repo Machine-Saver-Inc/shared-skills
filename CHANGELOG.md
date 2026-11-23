@@ -4,6 +4,16 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-23 (later) - An empty report cannot be sent
+
+### ms-mobilekit 1.3.2
+
+- **`src/report.js`**: the Send button of Report a problem is disabled until
+  the one line or the description has text, and the click handler refuses the
+  same case. An empty report could be sent before
+  (airvibe-cellular-mobile-app#43). No new wording: nothing is said, the button
+  is simply off, so `registry/report-form.json` is unchanged.
+
 ## 2026-11-23 - Reports from the phone apps reach the intake
 
 ### ms-mobilekit 1.3.1
