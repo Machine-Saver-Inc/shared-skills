@@ -4,6 +4,18 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-23 - Reports from the phone apps reach the intake
+
+### ms-mobilekit 1.3.1
+
+- **`src/report.js`**: `post()` finds native HTTP with
+  `Capacitor.registerPlugin('CapacitorHttp')` when `Capacitor.Plugins` has no
+  entry for it, which is every family app (no bundler). Until now each report
+  from a phone went out by `fetch` from the web view and the intake, which gives
+  no cross-origin permission, refused it: "Machine Saver could not be reached"
+  on every send (airvibe-cellular-mobile-app#44). If the native request throws,
+  `fetch` is still tried.
+
 ## 2026-11-05 - The main tier commits as the App
 
 ### repo-maintainability 0.3.0
