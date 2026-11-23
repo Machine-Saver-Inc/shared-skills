@@ -145,7 +145,15 @@ export async function sendReport({ form, slug, version, kind, title, body, email
   if (status === 400 && json && json.error === 'attachment refused') {
     return { ok: false, refused: json.file, message: `${w.refused_prefix}${json.file || ''}. ${form.attachments.hint}` };
   }
-  if (status !== 200 && status !== 201 && status !== 202) return failed;
+  if (status !== 200 && status !== 201 && status !== 202) {
+    // The intake answered and said no (a missing line, a rule): say so, with its reason, instead of
+    // "could not be reached", which is only true when nothing answered (airvibe-cellular-mobile-app#44).
+    if (status >= 400 && status < 500 && w.not_accepted) {
+      const reason = String((json && (json.error || json.message || json.detail)) || `code ${status}`).slice(0, 160);
+      return { ok: false, status, message: fill(w.not_accepted, { reason, support_email: supportEmail }) };
+    }
+    return failed;
+  }
   const number = json.number; const url = json.url || null;
   const isPublic = visibility ? visibility === 'public' : Boolean(url);
   return { ok: true, number, url, message: fill(isPublic ? w.received_public : w.received_private, { number: number == null ? '' : number }) };
