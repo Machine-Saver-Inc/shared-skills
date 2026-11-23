@@ -236,6 +236,7 @@ export async function openReport(opts) {
 
   const actions = q('#ms-report-actions');
   const send = primary({ label: w.send, mark: 'send', onClick: async () => {
+    if (!q('#ms-title').value.trim() && !q('#ms-desc').value.trim()) return;
     const r = compose();
     send.disabled = true; status(w.sending);
     const sent = await sendReport({ form, slug, version: r.version, kind: r.kind, title: r.title, body: r.body, email: r.email || undefined, files, visibility, supportEmail, fetch: opts.fetch });
@@ -249,6 +250,12 @@ export async function openReport(opts) {
     status(sent.message); send.disabled = false;
   } });
   actions.appendChild(send);
+  // Nothing written is nothing to send: Send stays off until the one line or the description has text.
+  // An empty report could be sent before (airvibe-cellular-mobile-app#43).
+  const written = () => Boolean(q('#ms-title').value.trim() || q('#ms-desc').value.trim());
+  const ready = () => { send.disabled = !written(); };
+  q('#ms-title').addEventListener('input', ready); q('#ms-desc').addEventListener('input', ready);
+  ready();
   if (typeof navigator !== 'undefined' && navigator.share) actions.appendChild(button({ label: 'Share', mark: 'share', onClick: () => navigator.share({ title: compose().title, text: asText() }).catch(() => {}) }));
   actions.appendChild(button({ label: w.copy, mark: 'copy', onClick: copy }));
   actions.appendChild(button({ label: w.cancel, mark: 'cancel', onClick: () => dlg.close() }));
