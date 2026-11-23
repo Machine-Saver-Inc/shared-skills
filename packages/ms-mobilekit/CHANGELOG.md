@@ -1,5 +1,19 @@
 # Changelog — ms-mobilekit
 
+## [1.3.1] — 2026-11-23
+
+**Report a problem** now reaches Machine Saver from an iPhone or Android
+phone. Until now a report sent from the phone app could fail every time with
+"Machine Saver could not be reached", whatever was written in it
+(airvibe-cellular-mobile-app#44, found on an iPhone 16 in TestFlight).
+
+- The report is sent with the phone's own networking. The kit looked for it in
+  a place that only exists in apps built with a bundler; the family's apps have
+  none, so the report went out through the web view and the report service,
+  which does not answer web pages it does not know, refused it.
+- If the phone's networking cannot be used, the kit still tries the web view
+  before it says the report was not sent.
+
 ## [1.3.0] — 2026-10-26
 
 The app now looks for a newer version by itself: when it opens, whenever you

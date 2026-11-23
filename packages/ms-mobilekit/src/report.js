@@ -102,14 +102,23 @@ export async function encodeAttachments(files) {
 }
 
 // ---------- the post: native HTTP inside Capacitor (no CORS), fetch elsewhere ----------
+// The family's apps have no bundler, so Capacitor.Plugins has no CapacitorHttp entry; the plugin is
+// reached with registerPlugin, as every other plugin is. Looking only in Capacitor.Plugins sent every
+// phone's report through the web view, where the intake refuses it (airvibe-cellular-mobile-app#44).
+export function nativeHttp(cap) {
+  if (!cap || !cap.isNativePlatform || !cap.isNativePlatform()) return null;
+  if (cap.Plugins && cap.Plugins.CapacitorHttp) return cap.Plugins.CapacitorHttp;
+  try { return cap.registerPlugin ? cap.registerPlugin('CapacitorHttp') : null; } catch (e) { return null; }
+}
 async function post(url, payload, { fetch: fetchFn } = {}) {
   const body = JSON.stringify(payload);
   const headers = { 'Content-Type': 'application/json' };
-  const cap = typeof window !== 'undefined' ? window.Capacitor : null;
-  const native = cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.CapacitorHttp;
-  if (native && !fetchFn) {
-    const r = await native.request({ url, method: 'POST', headers, data: payload, connectTimeout: INTAKE_TIMEOUT_MS, readTimeout: INTAKE_TIMEOUT_MS });
-    return { status: r.status, json: typeof r.data === 'string' ? safeJson(r.data) : (r.data || {}) };
+  const native = fetchFn ? null : nativeHttp(typeof window !== 'undefined' ? window.Capacitor : null);
+  if (native) {
+    try {
+      const r = await native.request({ url, method: 'POST', headers, data: payload, connectTimeout: INTAKE_TIMEOUT_MS, readTimeout: INTAKE_TIMEOUT_MS });
+      return { status: r.status, json: typeof r.data === 'string' ? safeJson(r.data) : (r.data || {}) };
+    } catch (e) { /* the phone's networking could not be used; the web view is tried before giving up */ }
   }
   const f = fetchFn || globalThis.fetch;
   const r = await f(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(INTAKE_TIMEOUT_MS) });
