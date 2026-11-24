@@ -65,7 +65,7 @@ def test_the_kit_carries_the_registry_s_form_unchanged():
 
 def test_the_form_says_everything_the_dialog_shows():
     form = report_form.form()
-    assert [k["value"] for k in form["kinds"]] == ["bug", "improvement"]
+    assert [k["value"] for k in form["kinds"]] == ["bug", "improvement", "question"]
     assert form["wording"]["send"] == "Send to Machine Saver"
     assert "png" in form["attachments"]["extensions"]
 
