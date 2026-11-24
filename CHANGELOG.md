@@ -4,6 +4,20 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-24 (later) - A report waits long enough for the service
+
+### ms-mobilekit 1.3.4
+
+- **`src/report.js`**: new `REPORT_SEND_TIMEOUT_MS` (45 seconds), used by
+  `post()` for the read time-out of the native request and for the web-view
+  `fetch`. `INTAKE_TIMEOUT_MS` (10 seconds) stays for connecting and for
+  loading the form. The detail line from 1.3.3 read "native:
+  SocketTimeoutException timeout" on an Android tablet while the report was
+  filed as an issue: the intake needs more than ten seconds when it has been
+  idle. This is the cause of airvibe-cellular-mobile-app#44; an iPhone report
+  from 0.5.6 had arrived the same way.
+- Not changed: the desktop kit's own time-out; check it under #59.
+
 ## 2026-11-24 - A failed report says why, and a report needs a title
 
 ### ms-mobilekit 1.3.3
