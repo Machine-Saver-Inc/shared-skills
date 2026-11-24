@@ -4,6 +4,25 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-24 (night) - Three kinds of report, Done, signed-in email, numbered steps
+
+### ms-mobilekit 1.4.0
+
+- **`registry/report-form.json`** (and both copies): kinds are `bug` (Bug),
+  `improvement` (Improvement or feature request) and `question` (Question);
+  new sentences `done` and `email_signed_in`. `tools/check_report_form.py`
+  and the desktop kit's test expect the three kinds. The intake accepts
+  `question` from ms-report-intake #1; it must be deployed first.
+- **`src/report.js`**: Done after a report is received; `reporterEmail`
+  fills and hides the email box; the steps are numbered in the text with a
+  note on whether the list is complete.
+- **`src/kit.js`**: the trail keeps 40 steps (was 15), records the time of
+  each, counts the dropped ones, and turns "pressed X" followed at once by
+  "opened X" into one step.
+- Desktop: the form file now offers three kinds to the desktop dialog too; it
+  sends them as they are, which the intake accepts. Done and the signed-in
+  email are added to #59.
+
 ## 2026-11-24 (evening) - The email is checked first; Share sends the whole report
 
 ### ms-mobilekit 1.3.5
