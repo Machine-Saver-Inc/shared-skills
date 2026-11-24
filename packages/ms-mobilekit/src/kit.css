@@ -107,3 +107,39 @@ details.ms-fold[open] summary::after { content: "–"; }
 details.ms-fold > div { padding: 0 0 14px; display: flex; flex-direction: column; gap: 10px; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ---- Sign-in buttons (signin.js) ----
+   Light theme = "Unified Brand" stack, dark theme = "Sleek Dark" stack. Each provider sets its
+   own tokens; the button reads them. In dark, Apple stays pure black: Apple allows only a black
+   or white background on a Sign in with Apple button. */
+.ms-sso { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 360px; margin-inline: auto; }
+.ms-sso-btn { width: 100%; min-height: 48px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--sso-line); background: var(--sso-bg); color: var(--sso-ink); box-shadow: var(--sso-shadow);
+  font: inherit; font-weight: 500; font-size: 14.5px; letter-spacing: -0.01em; line-height: 1.2; display: flex; align-items: center; justify-content: center; gap: 12px;
+  cursor: pointer; transition: all 150ms cubic-bezier(.4, 0, .2, 1); -webkit-tap-highlight-color: transparent; }
+.ms-sso-btn:hover { background: var(--sso-bg-hover); border-color: var(--sso-line-hover); box-shadow: var(--sso-shadow-hover); }
+.ms-sso-btn:active { transform: scale(.985); }
+.ms-sso-btn:focus { outline: none; }
+.ms-sso-btn:focus-visible { box-shadow: 0 0 0 2px var(--sso-ring); }
+.ms-sso-btn:disabled { opacity: .55; cursor: default; transform: none; }
+.ms-sso-btn[hidden] { display: none; }
+.ms-sso-btn svg { width: 20px; height: 20px; flex: none; }
+.ms-sso-btn[data-provider="microsoft"] svg { width: 19px; height: 19px; }
+.ms-sso-btn[data-provider="apple"] svg { fill: currentColor; }
+
+/* light: Unified Brand */
+.ms-sso-btn[data-provider="google"] { --sso-bg: #ffffff; --sso-bg-hover: #f9fbff; --sso-ink: #1e293b; --sso-line: #e2e8f0; --sso-line-hover: #93c5fd;
+  --sso-shadow: 0 1px rgb(0 0 0 / .05); --sso-shadow-hover: 0 1px 3px 0 rgb(0 0 0 / .1), 0 1px 2px -1px rgb(0 0 0 / .1); --sso-ring: rgb(59 130 246 / .3); }
+.ms-sso-btn[data-provider="apple"] { --sso-bg: #0a0a0a; --sso-bg-hover: #262626; --sso-ink: #ffffff; --sso-line: #171717; --sso-line-hover: #171717;
+  --sso-shadow: 0 1px 2px 0 rgb(0 0 0 / .05); --sso-shadow-hover: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1); --sso-ring: rgb(23 23 23 / .3); }
+.ms-sso-btn[data-provider="microsoft"] { --sso-bg: #2f2f2f; --sso-bg-hover: #242424; --sso-ink: #ffffff; --sso-line: #2f2f2f; --sso-line-hover: #2f2f2f;
+  --sso-shadow: 0 1px 2px 0 rgb(0 0 0 / .05); --sso-shadow-hover: 0 4px 6px -1px rgb(0 0 0 / .1), 0 2px 4px -2px rgb(0 0 0 / .1); --sso-ring: rgb(64 64 64 / .4); }
+
+/* dark: Sleek Dark (same selectors as the kit's theme tokens) */
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ms-sso-btn {
+  --sso-bg: rgb(39 39 42 / .8); --sso-bg-hover: #27272a; --sso-ink: #f4f4f5; --sso-line: rgb(63 63 70 / .8); --sso-line-hover: #52525b;
+  --sso-shadow: 0 1px 2px 0 rgb(0 0 0 / .05); --sso-shadow-hover: 0 1px 2px 0 rgb(0 0 0 / .05); --sso-ring: rgb(255 255 255 / .25); }
+  :root:not([data-theme="light"]) .ms-sso-btn[data-provider="apple"] { --sso-bg: #000000; --sso-bg-hover: #000000; --sso-ink: #ffffff; } }
+:root[data-theme="dark"] .ms-sso-btn {
+  --sso-bg: rgb(39 39 42 / .8); --sso-bg-hover: #27272a; --sso-ink: #f4f4f5; --sso-line: rgb(63 63 70 / .8); --sso-line-hover: #52525b;
+  --sso-shadow: 0 1px 2px 0 rgb(0 0 0 / .05); --sso-shadow-hover: 0 1px 2px 0 rgb(0 0 0 / .05); --sso-ring: rgb(255 255 255 / .25); }
+:root[data-theme="dark"] .ms-sso-btn[data-provider="apple"] { --sso-bg: #000000; --sso-bg-hover: #000000; --sso-ink: #ffffff; }
