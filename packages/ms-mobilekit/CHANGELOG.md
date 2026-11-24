@@ -1,5 +1,18 @@
 # Changelog — ms-mobilekit
 
+## [1.3.3] — 2026-11-24
+
+**Report a problem**: the one-line field is now labelled **Title**, and a
+report needs one. **Send to Machine Saver** stays off until the title has
+text.
+
+When a report cannot be sent, the message now ends with a short technical
+line, "Detail for support: ...", naming what was tried and why it did not
+work (the phone's own networking, then the web view, or the code the
+service answered with). Until now every failure read the same, so the cause
+of a failed send on an iPhone could not be told from the screen
+(airvibe-cellular-mobile-app#44).
+
 ## [1.3.2] — 2026-11-23
 
 **Report a problem** no longer sends an empty report. **Send to Machine
