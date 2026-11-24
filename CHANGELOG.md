@@ -4,6 +4,27 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-24 (evening) - The email is checked first; Share sends the whole report
+
+### ms-mobilekit 1.3.5
+
+- **`registry/report-form.json`** (and its two packaged copies): three new
+  sentences, `email_invalid`, `share` and `attachments_heading`.
+  `tools/check_report_form.py` knows them.
+- **`src/report.js`**: `emailLooksValid()` applies the intake's rule
+  (empty, or name@domain.tld); the dialog shows `email_invalid` under the box
+  once it is left and keeps Send off while the address is wrong
+  (airvibe-cellular-mobile-app#60).
+- **`src/report.js`**: a 4xx answer's `detail` list is turned into the reason
+  (`field: message`), so `not_accepted` says what was refused.
+- **`src/report.js`**: Share and Copy start with the kind, app and version and
+  email lines (the labels the intake adds to the issue), end with the file
+  names under `attachments_heading`, and Share attaches the files when
+  `navigator.canShare({ files })` allows it. Checked against a report Leo
+  shared by email on 0.5.7, which had none of these.
+- The desktop dialog reads the same new sentences but does not use them yet;
+  added to #59.
+
 ## 2026-11-24 (later) - A report waits long enough for the service
 
 ### ms-mobilekit 1.3.4
