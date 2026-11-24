@@ -92,11 +92,11 @@ test('failure wording names the support address; a 5xx, a network error and a mi
   const expected = fill(form.wording.failed, { support_email: FAMILY_SUPPORT_EMAIL });
   assert.match(expected, /software-support@machinesaver\.net/);
   const down = await sendReport({ form, slug: 's', version: '1', kind: 'bug', title: 't', body: 'b', fetch: fakeFetch(503, {}) });
-  assert.equal(down.ok, false); assert.equal(down.message, expected);
+  assert.equal(down.ok, false); assert.ok(down.message.startsWith(expected)); assert.match(down.message, /HTTP 503/); assert.equal(down.detail, 'HTTP 503');
   const offline = await sendReport({ form, slug: 's', version: '1', kind: 'bug', title: 't', body: 'b', fetch: async () => { throw new TypeError('Failed to fetch'); } });
-  assert.equal(offline.message, expected);
+  assert.ok(offline.message.startsWith(expected)); assert.match(offline.message, /web: Failed to fetch/);
   const noSlug = await sendReport({ form, version: '1', kind: 'bug', title: 't', body: 'b', fetch: async () => { throw new Error('must not be called'); } });
-  assert.equal(noSlug.message, expected);
+  assert.ok(noSlug.message.startsWith(expected)); assert.match(noSlug.message, /no app slug/);
   const other = await sendReport({ form, slug: 's', version: '1', kind: 'bug', title: 't', body: 'b', supportEmail: 'x@y.z', fetch: fakeFetch(404, {}) });
   assert.match(other.message, /x@y\.z/);
 });
