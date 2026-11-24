@@ -1,5 +1,24 @@
 # Changelog — ms-mobilekit
 
+## [1.3.5] — 2026-11-24
+
+**Report a problem**, from the first reports sent on 0.5.7:
+
+- **Your email** is checked in the dialog, by the same rule the service uses.
+  When the box is left with an address that is not complete, a sentence says
+  so under the box and **Send to Machine Saver** stays off until it is fixed
+  or emptied. Before, the report was refused only after Send
+  (airvibe-cellular-mobile-app#60).
+- When the service refuses a report, the message names what it refused, for
+  example "invalid report: email: email does not look like an address",
+  instead of only "invalid report".
+- **Share** and **Copy to clipboard** carry what the filed report carries: the
+  kind, the app and version and the email (which the service turns into
+  labels), the whole report, and the names of the attached files. Share also
+  attaches the files themselves where the phone allows it. Before, a shared
+  report had none of these.
+- The Share button's label comes from the form file like every other word.
+
 ## [1.3.4] — 2026-11-24
 
 **Report a problem** now waits up to 45 seconds for Machine Saver to
