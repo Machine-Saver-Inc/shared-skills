@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { marks, lucide } from '../src/icons.js';
 import { FAMILY_SUPPORT_EMAIL } from '../src/report.js';
 import { MOBILE_RELEASE_STORE } from '../src/update.js';
+import { checkSignIn } from './signin.mjs';
 export { FAMILY_SUPPORT_EMAIL, MOBILE_RELEASE_STORE };
 
 const read = (p) => readFileSync(p, 'utf8');
@@ -309,7 +310,8 @@ export function checkUpdateFeed(root) {
   return errs;
 }
 
-export const CHECKS = { checkVersion, checkChangelog, checkButtons, checkShell, checkIcons, checkNative, checkNetwork, checkCI, checkReadme, checkSimulator, checkManifest, checkSupportEmail, checkTemplateDrift, checkReportForm, checkUpdateFeed };
+export const CHECKS = { checkVersion, checkChangelog, checkButtons, checkShell, checkIcons, checkNative, checkNetwork, checkCI, checkReadme, checkSimulator, checkManifest, checkSupportEmail, checkTemplateDrift, checkReportForm, checkUpdateFeed, checkSignIn };
+export { checkSignIn };
 
 export function runAll(root) {
   const out = [];
