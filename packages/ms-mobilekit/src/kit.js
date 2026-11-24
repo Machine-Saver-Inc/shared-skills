@@ -21,17 +21,23 @@ export async function icon(mark) {
 }
 
 // ---------- the action trail: screens opened and buttons pressed, labels only ----------
-const RING = 15;
+// Numbered and timed in a report, so a reader can follow the order (airvibe-cellular-mobile-app#69).
+// A tab press followed at once by the screen it opens is one step, "opened X", not two.
+const RING = 40;
 const _trail = [];
+let _dropped = 0;
+const clock = (ms) => { try { return new Date(ms).toTimeString().slice(0, 8); } catch (e) { return ''; } };
 export const trail = {
   push(kind, label) {
     const last = _trail[_trail.length - 1];
-    if (last && last.kind === kind && last.label === label) { last.count++; return; }
+    if (last && last.kind === kind && last.label === label) { last.count++; last.at = Date.now(); return; }
+    if (last && kind === 'opened' && last.kind === 'pressed' && last.label === label && last.count === 1 && Date.now() - last.at < 2000) { last.kind = 'opened'; return; }
     _trail.push({ kind, label, count: 1, at: Date.now() });
-    if (_trail.length > RING) _trail.shift();
+    if (_trail.length > RING) { _trail.shift(); _dropped++; }
   },
-  lines() { return _trail.map(e => `${e.kind} ${e.label}${e.count > 1 ? ` ×${e.count}` : ''}`); },
-  clear() { _trail.length = 0; },
+  lines() { return _trail.map(e => `${clock(e.at)} ${e.kind} ${e.label}${e.count > 1 ? ` ×${e.count}` : ''}`.trim()); },
+  get dropped() { return _dropped; },
+  clear() { _trail.length = 0; _dropped = 0; },
 };
 
 // ---------- buttons: one helper, three roles; this is where a press is recorded ----------

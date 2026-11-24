@@ -46,7 +46,12 @@ export function buildReport({ app, version, title = '', description = '', contex
     ...Object.entries(context).filter(([k]) => !['screen', 'settings', 'lastSeen'].includes(k)).map(([k, v]) => [k, String(v)]),
   ];
   const table = '| | |\n|---|---|\n' + rows.map(([k, v]) => `| ${k} | ${String(v).replace(/\n/g, ' ').replace(/\|/g, '\\|')} |`).join('\n');
-  const steps = trail.lines(); const stepsMd = steps.length ? steps.map(s => `1. ${s}`).join('\n') : '_no actions recorded_';
+  // Numbered here, not left to Markdown: a shared or copied report is read as plain text, where every
+  // "1." stays a 1 (airvibe-cellular-mobile-app#69). The note says whether the list is complete.
+  const steps = trail.lines(); const dropped = trail.dropped || 0;
+  const stepsMd = steps.length
+    ? `_${dropped ? `The last ${steps.length} actions, oldest first; ${dropped} earlier ones were not kept.` : `Every action since the app opened (${steps.length}), oldest first.`}_\n\n` + steps.map((s, i) => `${i + 1}. ${s}`).join('\n')
+    : '_no actions recorded_';
   const settings = context.settings ? '```json\n' + JSON.stringify(context.settings, null, 1) + '\n```' : '_none_';
   const lastSeen = context.lastSeen ? '```\n' + String(context.lastSeen).slice(0, 1500) + '\n```' : '_none_';
   const what = form ? form.fields.body_markdown.label : 'What happened';
@@ -212,6 +217,7 @@ export async function openReport(opts) {
     <label class="ms-small ms-muted">${esc(f.email.label)} <span>(${esc(f.email.note)})</span>
       <input id="ms-email" type="email" autocomplete="email" inputmode="email" aria-describedby="ms-email-note" style="${FIELD}"></label>
         <div id="ms-email-note" class="ms-small" role="status" hidden style="color:var(--ms-bad, #b42318);margin-top:-4px">${esc(w.email_invalid)}</div>
+        <div id="ms-email-signed" class="ms-small ms-muted" hidden></div>
     <div class="ms-small ms-muted">${esc(f.files.label)} <span>(${esc(f.files.note)})</span>
       <label id="ms-drop" style="${FIELD};position:relative;display:flex;align-items:center;gap:8px;border-style:dashed;padding:10px;cursor:pointer">
         <span>${esc(f.files.prompt)}</span>
@@ -229,6 +235,15 @@ export async function openReport(opts) {
 
   // The collected details are shown once, editable; what the box says is what is sent.
   q('#ms-details').value = buildReport({ app, version, context: ctx, platform, form }).details;
+
+  // Signed in with Google or Microsoft: the reply address is known, so the box is filled and hidden and a
+  // line says where replies go (airvibe-cellular-mobile-app#68). Not signed in: the box as before.
+  const signedIn = opts.reporterEmail && String(opts.reporterEmail).trim() && emailLooksValid(opts.reporterEmail) ? String(opts.reporterEmail).trim() : '';
+  if (signedIn) {
+    q('#ms-email').value = signedIn;
+    q('#ms-email').closest('label').style.display = 'none';
+    const s = q('#ms-email-signed'); s.textContent = fill(w.email_signed_in, { email: signedIn }); s.hidden = false;
+  }
   const compose = () => {
     const title = q('#ms-title').value.trim(); const description = q('#ms-desc').value.trim();
     const body = `## ${f.body_markdown.label}\n${description || '_(nothing written)_'}\n\n${q('#ms-details').value.trim()}\n`;
@@ -282,7 +297,7 @@ export async function openReport(opts) {
     if (sent.ok) {
       status(sent.message);
       if (sent.url) { const link = document.createElement('a'); link.href = sent.url; link.target = '_blank'; link.rel = 'noopener'; link.textContent = sent.url; q('#ms-report-status').append(' ', link); }
-      actions.replaceChildren(button({ label: w.cancel, mark: 'cancel', onClick: () => dlg.close() }));
+      actions.replaceChildren(button({ label: w.done, mark: 'success', onClick: () => dlg.close() })); // "Done": the report is in (airvibe-cellular-mobile-app#64)
       return;
     }
     await copy();

@@ -22,7 +22,7 @@ KEYS = {"schema", "about", "intake_url", "kinds", "fields", "attachments", "word
 FIELDS = {"kind", "app_version", "title", "body_markdown", "email", "files"}
 WORDING = {"heading", "intro", "details_note", "send", "copy", "cancel", "sending",
            "received_private", "received_public", "failed", "failed_detail", "not_accepted", "refused_prefix",
-           "email_invalid", "share", "attachments_heading"}
+           "email_invalid", "share", "attachments_heading", "done", "email_signed_in"}
 
 
 def faults() -> list[str]:
@@ -36,8 +36,8 @@ def faults() -> list[str]:
     if not form.get("intake_url", "").startswith("https://"):
         found.append("intake_url must be an https address")
     kinds = form.get("kinds") or []
-    if [k.get("value") for k in kinds] != ["bug", "improvement"]:
-        found.append("kinds must be bug then improvement; the intake labels issues by them")
+    if [k.get("value") for k in kinds] != ["bug", "improvement", "question"]:
+        found.append("kinds must be bug, improvement, question; the intake labels issues by them")
     if set(form.get("fields", {})) != FIELDS:
         found.append(f"fields must be {sorted(FIELDS)}")
     limits = form.get("attachments", {})

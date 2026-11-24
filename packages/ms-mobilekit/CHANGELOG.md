@@ -1,5 +1,24 @@
 # Changelog — ms-mobilekit
 
+## [1.4.0] — 2026-11-24
+
+**Report a problem**, from Leo's TestFlight feedback on build 12:
+
+- **Three kinds:** Bug, Improvement or feature request, Question (was:
+  Something is broken, An improvement or question). The report service
+  accepts and labels `question` from ms-report-intake #1 on
+  (airvibe-cellular-mobile-app#65).
+- **Done:** once a report is received, the one button left reads **Done**,
+  not Cancel (airvibe-cellular-mobile-app#64).
+- **Signed-in email:** `openReport({ reporterEmail })` fills the email in,
+  hides the box and says where replies go. Apps pass the address of the
+  Google or Microsoft account the person signed in with
+  (airvibe-cellular-mobile-app#68).
+- **What they did:** numbered in the text itself (a shared or copied report
+  showed every step as 1), each step with its time, up to 40 steps (was 15),
+  a tab press and the screen it opens counted once, and a line that says
+  whether the list is complete (airvibe-cellular-mobile-app#69).
+
 ## [1.3.5] — 2026-11-24
 
 **Report a problem**, from the first reports sent on 0.5.7:
