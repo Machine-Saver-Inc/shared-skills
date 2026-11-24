@@ -112,3 +112,16 @@ test('the kit no longer builds GitHub issue or mailto links', async () => {
   assert.equal(mod.issueUrl, undefined); assert.equal(mod.mailtoUrl, undefined);
   assert.doesNotMatch(readFileSync(new URL('../src/report.js', import.meta.url), 'utf8'), /mailto:|issues\/new/);
 });
+
+test('an email the intake would refuse is caught in the dialog; empty is fine', async () => {
+  const { emailLooksValid } = await import('../src/report.js');
+  for (const ok of ['', '  ', 'leo@machinesaver.net', ' a.b+c@x.co ']) assert.equal(emailLooksValid(ok), true, ok);
+  for (const bad of ['leo at machinesaver', 'leo@machinesaver', 'leo@@x.net', 'leo@']) assert.equal(emailLooksValid(bad), false, bad);
+  assert.ok(form.wording.email_invalid && form.wording.share && form.wording.attachments_heading, 'the new sentences come from the form');
+});
+
+test('a refused report names the field and the reason the intake gave', async () => {
+  const r = await sendReport({ form, slug: 's', version: '1', kind: 'bug', title: 't', body: 'b', fetch: fakeFetch(422, { error: 'invalid report', detail: [{ type: 'value_error', loc: ['email'], msg: 'Value error, email does not look like an address' }] }) });
+  assert.equal(r.ok, false);
+  assert.match(r.message, /invalid report: email: email does not look like an address/);
+});
