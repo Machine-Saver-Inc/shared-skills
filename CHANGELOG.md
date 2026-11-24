@@ -4,6 +4,17 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-25 - Sign-in buttons for every app
+
+### ms-mobilekit 1.5.0
+
+- **`src/signin.js`**: `mountSignIn` draws the family's "Sign in with Google /
+  Apple / Microsoft" stack; `kit.css` styles it in light ("Unified Brand") and
+  dark ("Sleek Dark"), Apple black in both.
+- **`housekeeping/signin.mjs`**: house rule 16 — sign-in buttons come from the
+  kit. Desktop parity is an `ms-appkit` issue.
+- **`skills/ms-mobile-app/SKILL.md`** §8: how an app offers sign-in.
+
 ## 2026-11-24 (night) - Three kinds of report, Done, signed-in email, numbered steps
 
 ### ms-mobilekit 1.4.0
