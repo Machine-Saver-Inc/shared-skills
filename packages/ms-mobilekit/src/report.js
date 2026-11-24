@@ -113,25 +113,36 @@ export function nativeHttp(cap) {
 async function post(url, payload, { fetch: fetchFn } = {}) {
   const body = JSON.stringify(payload);
   const headers = { 'Content-Type': 'application/json' };
-  const native = fetchFn ? null : nativeHttp(typeof window !== 'undefined' ? window.Capacitor : null);
+  const cap = typeof window !== 'undefined' ? window.Capacitor : null;
+  const native = fetchFn ? null : nativeHttp(cap);
+  // What was tried, and why each way did not work, rides on the error so a failed send can say it
+  // instead of only "could not be reached" (airvibe-cellular-mobile-app#44).
+  const tried = [];
+  if (!native && !fetchFn) tried.push(cap && cap.isNativePlatform && cap.isNativePlatform() ? 'native: no CapacitorHttp' : 'native: not a phone app');
   if (native) {
     try {
       const r = await native.request({ url, method: 'POST', headers, data: payload, connectTimeout: INTAKE_TIMEOUT_MS, readTimeout: INTAKE_TIMEOUT_MS });
       return { status: r.status, json: typeof r.data === 'string' ? safeJson(r.data) : (r.data || {}) };
-    } catch (e) { /* the phone's networking could not be used; the web view is tried before giving up */ }
+    } catch (e) { tried.push('native: ' + why(e)); /* the web view is tried before giving up */ }
   }
   const f = fetchFn || globalThis.fetch;
-  const r = await f(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(INTAKE_TIMEOUT_MS) });
-  return { status: r.status, json: safeJson(await r.text()) };
+  try {
+    const r = await f(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(INTAKE_TIMEOUT_MS) });
+    return { status: r.status, json: safeJson(await r.text()) };
+  } catch (e) { tried.push('web: ' + why(e)); throw new Error(tried.join('; ')); }
 }
 const safeJson = (text) => { try { return JSON.parse(text || '{}'); } catch (e) { return {}; } };
+// The short technical reason an attempt failed: the phone's error code and message, or the browser's.
+const why = (e) => String([e && e.code, e && (e.message || e.errorMessage)].filter(Boolean).join(' ') || e).slice(0, 140);
 
 // Posts one report. Resolves to { ok, message, number?, url?, refused? }; the
 // message is already the sentence the dialog shows. Never throws.
 export async function sendReport({ form, slug, version, kind, title, body, email, fingerprint, files = [], visibility, supportEmail = FAMILY_SUPPORT_EMAIL, fetch: fetchFn }) {
   const w = form.wording;
   const failed = { ok: false, message: fill(w.failed, { support_email: supportEmail }) };
-  if (!slug) return failed;
+  // The sentence stays the same; the technical detail follows it, for whoever reads the report of the failure.
+  const withDetail = (res, detail) => ((w.failed_detail && detail) ? { ...res, detail: String(detail), message: res.message + ' ' + fill(w.failed_detail, { detail: String(detail).slice(0, 200) }) } : res);
+  if (!slug) return withDetail(failed, 'no app slug');
   let result;
   try {
     const attachments = await encodeAttachments(files);
@@ -140,7 +151,7 @@ export async function sendReport({ form, slug, version, kind, title, body, email
     if (fingerprint) payload.fingerprint = fingerprint;
     if (attachments.length) payload.attachments = attachments;
     result = await post(`${form.intake_url}/v1/reports`, payload, { fetch: fetchFn });
-  } catch (e) { return failed; }
+  } catch (e) { return withDetail(failed, why(e)); }
   const { status, json } = result;
   if (status === 400 && json && json.error === 'attachment refused') {
     return { ok: false, refused: json.file, message: `${w.refused_prefix}${json.file || ''}. ${form.attachments.hint}` };
@@ -152,7 +163,7 @@ export async function sendReport({ form, slug, version, kind, title, body, email
       const reason = String((json && (json.error || json.message || json.detail)) || `code ${status}`).slice(0, 160);
       return { ok: false, status, message: fill(w.not_accepted, { reason, support_email: supportEmail }) };
     }
-    return failed;
+    return withDetail(failed, 'HTTP ' + status);
   }
   const number = json.number; const url = json.url || null;
   const isPublic = visibility ? visibility === 'public' : Boolean(url);
@@ -244,7 +255,7 @@ export async function openReport(opts) {
 
   const actions = q('#ms-report-actions');
   const send = primary({ label: w.send, mark: 'send', onClick: async () => {
-    if (!q('#ms-title').value.trim() && !q('#ms-desc').value.trim()) return;
+    if (!q('#ms-title').value.trim()) return;
     const r = compose();
     send.disabled = true; status(w.sending);
     const sent = await sendReport({ form, slug, version: r.version, kind: r.kind, title: r.title, body: r.body, email: r.email || undefined, files, visibility, supportEmail, fetch: opts.fetch });
@@ -258,9 +269,9 @@ export async function openReport(opts) {
     status(sent.message); send.disabled = false;
   } });
   actions.appendChild(send);
-  // Nothing written is nothing to send: Send stays off until the one line or the description has text.
+  // A report needs its title: Send stays off until the title has text.
   // An empty report could be sent before (airvibe-cellular-mobile-app#43).
-  const written = () => Boolean(q('#ms-title').value.trim() || q('#ms-desc').value.trim());
+  const written = () => Boolean(q('#ms-title').value.trim());
   const ready = () => { send.disabled = !written(); };
   q('#ms-title').addEventListener('input', ready); q('#ms-desc').addEventListener('input', ready);
   ready();
