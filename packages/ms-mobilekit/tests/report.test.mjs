@@ -125,3 +125,22 @@ test('a refused report names the field and the reason the intake gave', async ()
   assert.equal(r.ok, false);
   assert.match(r.message, /invalid report: email: email does not look like an address/);
 });
+
+test('what they did is numbered and timed, says whether it is complete, and a tab press with its screen is one step', () => {
+  trail.clear();
+  trail.push('pressed', 'More'); trail.push('opened', 'More'); trail.push('pressed', 'Report a problem');
+  let r = buildReport({ app: 'Example', version: '1', form });
+  const steps = r.body.split('## What they did')[1].split('## Last thing seen')[0];
+  assert.match(steps, /Every action since the app opened \(2\), oldest first/);
+  assert.match(steps, /\n1\. \d\d:\d\d:\d\d opened More\n2\. \d\d:\d\d:\d\d pressed Report a problem/);
+  trail.clear();
+  for (let i = 0; i < 45; i++) trail.push('pressed', 'Button ' + i);
+  r = buildReport({ app: 'Example', version: '1', form });
+  assert.match(r.body, /The last 40 actions, oldest first; 5 earlier ones were not kept/);
+  assert.match(r.body, /\n40\. \S+ pressed Button 44/);
+});
+
+test('three kinds, and the words for Done and the signed-in email come from the form', () => {
+  assert.deepEqual(form.kinds.map(k => k.value), ['bug', 'improvement', 'question']);
+  assert.ok(form.wording.done && form.wording.email_signed_in.includes('{email}'));
+});
