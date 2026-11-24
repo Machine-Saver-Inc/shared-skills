@@ -3,8 +3,9 @@
   "about": "The one Report a problem form, read by the desktop kit (ms-appkit), the mobile kit (ms-mobilekit) and the apps catalog. A change here is a change in all three; the kits carry a vendored copy that their tests compare with this file, and the catalog build fetches it with the registry.",
   "intake_url": "https://ms-report-intake-599226657617.us-central1.run.app",
   "kinds": [
-    { "value": "bug", "label": "Something is broken" },
-    { "value": "improvement", "label": "An improvement or question" }
+    { "value": "bug", "label": "Bug" },
+    { "value": "improvement", "label": "Improvement or feature request" },
+    { "value": "question", "label": "Question" }
   ],
   "fields": {
     "kind": { "label": "What is it?" },
@@ -35,6 +36,8 @@
     "failed_detail": "Detail for support: {detail}",
     "email_invalid": "That email address does not look complete, for example name@company.com. Fix it or leave the box empty.",
     "share": "Share",
+    "done": "Done",
+    "email_signed_in": "Replies go to {email}, the account you signed in with.",
     "attachments_heading": "Attachments",
     "not_accepted": "Machine Saver received the report but did not accept it ({reason}), so nothing was filed. The whole report is on your clipboard; paste it into an email to {support_email}.",
     "refused_prefix": "That file was not added: "
