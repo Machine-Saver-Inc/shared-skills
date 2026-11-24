@@ -264,3 +264,41 @@ def test_a_failed_send_keeps_the_report_on_the_clipboard_and_says_so(qt, monkeyp
     assert "could not be reached" in dialog.status.text()
     assert "no route to host" in dialog.status.text()
     assert "[Bug] It stopped" in QGuiApplication.clipboard().text()
+
+
+def test_editing_the_form_while_it_sends_does_not_re_arm_send(qt, monkeypatch):
+    """Sending is a state, not a button colour: typing in the summary while
+    the post is in flight used to enable Send again, and a second press
+    filed the same report twice."""
+    import threading
+
+    from PySide6.QtCore import QEventLoop, QTimer
+
+    from ms_appkit import report_dialog
+
+    release = threading.Event()
+    calls = []
+
+    def slow_send(submission, url=None, opener=None):
+        calls.append(submission)
+        release.wait(5)
+        raise IntakeError("no route to host")
+
+    monkeypatch.setattr(report_form, "send", slow_send)
+    dialog = report_dialog.ReportDialog({"Screen": "Home"})
+    dialog.summary.setText("It stopped")
+    dialog._post()
+    dialog.summary.setText("It stopped again")
+    dialog.description.setPlainText("more detail")
+    assert not dialog.post.isEnabled(), "Send must stay off while sending"
+    dialog._post()
+    release.set()
+    loop = QEventLoop()
+    for _ in range(30):
+        loop.processEvents()
+        if dialog.post.isEnabled():
+            break
+        QTimer.singleShot(100, loop.quit)
+        loop.exec()
+    assert len(calls) == 1, "one press, one report"
+    assert dialog.post.isEnabled(), "a failed send can be tried again"

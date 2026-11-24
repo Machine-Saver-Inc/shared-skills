@@ -112,9 +112,17 @@ export function banner({ version, onWhatsNew, onUpdate, onLater }) {
   const el = document.createElement('div');
   el.className = 'ms-banner on'; el.setAttribute('role', 'status');
   const text = document.createElement('span'); text.textContent = `Version ${version} is available.`;
+  // One update at a time: a second press before the first onStatus arrived
+  // started a second download whose clean-up deleted the first one's file.
+  // Called synchronously, so the press still counts as a user gesture.
+  let updating = null;
+  const update = (e) => {
+    if (updating || !onUpdate) return;
+    updating = Promise.resolve(onUpdate(e, el)).catch(() => {}).finally(() => { updating = null; });
+  };
   el.append(text,
     button({ label: "What's new", mark: 'notes', onClick: onWhatsNew }),
-    primary({ label: 'Update now', mark: 'download', onClick: (e) => onUpdate && onUpdate(e, el) }),
+    primary({ label: 'Update now', mark: 'download', onClick: update }),
     button({ label: 'Later', mark: 'later', onClick: () => { el.remove(); onLater && onLater(); } }));
   // While an update downloads, the banner says where it is instead of offering the buttons again.
   el.say = (sentence) => { const t = document.createElement('span'); t.textContent = sentence; el.replaceChildren(t); };

@@ -65,12 +65,13 @@ class DownloadWorker(QThread):
         try:
             path = download_asset(self.release, progress=report)
             verify_download(path, self.release)
-        except UpdateError as exc:
+        except Exception as exc:  # noqa: BLE001 - surfaced to the user
             if not self._cancelled:
                 self.failed.emit(str(exc))
             return
-        except Exception as exc:  # noqa: BLE001 - surfaced to the user
-            self.failed.emit(str(exc))
+        # Cancel is final: one pressed after the last chunk, while the checksum
+        # was being fetched, must not still run the installer.
+        if self._cancelled:
             return
         self.ready.emit(path)
 
@@ -153,13 +154,13 @@ class UpdateBanner(QFrame):
         layout.addWidget(self.label)
         layout.addStretch(1)
 
-        notes = button("What's new", "notes")
-        notes.clicked.connect(self._show_notes)
-        layout.addWidget(notes)
+        self.notes = button("What's new", "notes")
+        self.notes.clicked.connect(self._show_notes)
+        layout.addWidget(self.notes)
 
-        update = button("Update now", "download", "primary")
-        update.clicked.connect(self._open_release)
-        layout.addWidget(update)
+        self.update_now = button("Update now", "download", "primary")
+        self.update_now.clicked.connect(self._open_release)
+        layout.addWidget(self.update_now)
 
         self.later = button("Later", "later")
         self.later.clicked.connect(self._later)
@@ -168,12 +169,22 @@ class UpdateBanner(QFrame):
     def offer(self, release: Release) -> None:
         self._release = release
         self.label.setText(f"Version {release.version} is available.")
+        self._show_actions(True)
         self.show()
 
     def say(self, sentence: str) -> None:
-        """A sentence in the strip, with no action: what is happening now."""
+        """A sentence in the strip, with no action: what is happening now.
+
+        The buttons go, as on the phone kit's banner: while an installer runs,
+        Update now would start a second download of a release already applied.
+        """
         self.label.setText(sentence)
+        self._show_actions(False)
         self.show()
+
+    def _show_actions(self, visible: bool) -> None:
+        for widget in (self.notes, self.update_now, self.later):
+            widget.setVisible(visible)
 
     def _later(self) -> None:
         self.hide()

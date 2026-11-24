@@ -98,6 +98,26 @@ test('the automatic check: at launch, on foreground, when online; hourly at most
   w.stop();
 });
 
+test('the button pressed during an automatic check still gets its answer', async () => {
+  // The press used to join the in-flight launch check, whose outcome went to
+  // onResult as not forced, so "You have the latest version" was never said.
+  const { doc, win, storage } = page();
+  let finish; const results = [];
+  const fetchFn = () => new Promise((resolve) => { finish = () => resolve({ ok: true, status: 200, json: async () => FEED }); });
+  const w = watchForUpdates({ version: '1.3.0', feed: 'x', win, doc, storage, now: () => 1_000_000, fetchFn, delayMs: 0, onResult: (r, m) => results.push([r.status, m.forced]) });
+  await new Promise(r => setTimeout(r, 5));
+  const pressed = w.check(true);
+  finish();
+  await pressed;
+  assert.deepEqual(results, [['current', true]], 'one request, answered to the person who asked');
+  finish = null;
+  const next = w.check(true);
+  await new Promise(r => setTimeout(r, 5));
+  assert.ok(finish, 'the next press asks again');
+  finish(); await next;
+  assert.deepEqual(results[1], ['current', true]);
+});
+
 test('a failed check does not count as checked, so the next return tries again', async () => {
   const { listeners, doc, win, storage } = page();
   let t = 5_000_000; let calls = 0;

@@ -156,3 +156,52 @@ def test_applying_an_installer_does_not_wait_behind_a_dialog(window, monkeypatch
     assert "installer is running" in window.banner.label.text()
     assert window._updating
     closed.assert_called_once()
+
+
+def test_cancel_pressed_after_the_last_chunk_does_not_install(qt, monkeypatch, tmp_path):
+    """Cancel is a terminal state: pressed while the checksum is being
+    checked, after the download's last progress report, it must still stop
+    the installer from running."""
+    from ms_appkit.update import ui
+
+    path = tmp_path / "installer.exe"
+    worker = ui.DownloadWorker(release())
+    monkeypatch.setattr(ui, "download_asset", lambda release, progress: path)
+    monkeypatch.setattr(ui, "verify_download", lambda p, release: worker.cancel())
+    ready, failed = Mock(), Mock()
+    worker.ready.connect(ready)
+    worker.failed.connect(failed)
+    worker.run()
+    ready.assert_not_called()
+    failed.assert_not_called()
+
+
+def test_once_the_installer_runs_the_banner_offers_nothing_more(window, monkeypatch, tmp_path):
+    """After _apply the banner carries a sentence only. Its Update now used to
+    stay live while the window waited for a worker, and pressing it started a
+    second download of a release whose installer was already running."""
+    from ms_appkit import shell
+    from ms_appkit.update.installer import Applied, ApplyResult
+
+    window.busy = lambda: None
+    window.banner.offer(release())
+    path = tmp_path / "installer.exe"
+    monkeypatch.setattr(shell, "apply_update", lambda p: ApplyResult(
+        Applied.INSTALLER_RUNNING, "The installer is running.", path))
+    monkeypatch.setattr(window, "close", lambda: setattr(window, "_closing", True))
+    window._apply(path)
+    assert not _banner_buttons(window), "only the sentence is left"
+    factory = Mock()
+    monkeypatch.setattr(shell, "DownloadWorker", factory)
+    window.download_update(release())
+    factory.assert_not_called()
+    window._closing = False
+    window.banner.offer(release())
+    assert {"Update now", "Later"} <= _banner_buttons(window), "a new offer brings them back"
+
+
+def _banner_buttons(window):
+    from PySide6.QtWidgets import QPushButton
+
+    return {b.text().strip() for b in window.banner.findChildren(QPushButton)
+            if not b.isHidden()}

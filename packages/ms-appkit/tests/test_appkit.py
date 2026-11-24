@@ -776,6 +776,41 @@ def test_an_account_from_another_domain_is_refused_and_forgotten():
     assert store.get() is None
 
 
+def test_a_refresh_mid_session_moves_the_status_the_footer_shows():
+    """access_token() is the other road to Google. It must make the same
+    transitions as status(): a revocation found mid-session used to leave
+    ``last`` saying "Signed in as ..." over an empty credential store, an
+    account from the wrong domain was not forgotten at all, and a refresh
+    that succeeded after an offline start still said "working offline"."""
+    from ms_appkit.auth import Revoked, SignInError
+
+    google = FakeGoogle("offline")
+    session, store, clock = _session(google, confirmed=T0 - 3 * DAY)
+    assert session.status().kind == "offline"
+    google.mode = "ok"
+    session.access_token()
+    assert session.last.kind == "signed_in", "back online is signed in, not offline"
+
+    session, store, clock = _session(FakeGoogle(), confirmed=T0)
+    assert session.status().kind == "signed_in"
+    clock["now"] += 2 * 3600
+    session.opener = FakeGoogle("revoked")
+    with pytest.raises(Revoked):
+        session.access_token()
+    assert store.get() is None
+    assert session.last.kind == "revoked" and not session.last.may_open
+    assert session.last.footer_text() == "Not signed in"
+
+    session, store, clock = _session(FakeGoogle(), confirmed=T0)
+    session.status()
+    clock["now"] += 2 * 3600
+    session.opener = FakeGoogle(email="someone@gmail.com", hd=None)
+    with pytest.raises(SignInError):
+        session.access_token()
+    assert store.get() is None, "a wrong account is forgotten on every road"
+    assert session.last.kind == "revoked"
+
+
 def _browser_that_signs_in(google, state_override=None, error=None):
     """Plays the person's browser: checks what the kit asked Google for, then
     sends Google's answer back to the kit's loopback address."""
