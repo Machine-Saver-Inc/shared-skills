@@ -33,6 +33,9 @@
     "received_public": "Thank you. Your report is #{number}.",
     "failed": "Machine Saver could not be reached, so nothing was sent. The whole report is on your clipboard; paste it into an email to {support_email}.",
     "failed_detail": "Detail for support: {detail}",
+    "email_invalid": "That email address does not look complete, for example name@company.com. Fix it or leave the box empty.",
+    "share": "Share",
+    "attachments_heading": "Attachments",
     "not_accepted": "Machine Saver received the report but did not accept it ({reason}), so nothing was filed. The whole report is on your clipboard; paste it into an email to {support_email}.",
     "refused_prefix": "That file was not added: "
   }
