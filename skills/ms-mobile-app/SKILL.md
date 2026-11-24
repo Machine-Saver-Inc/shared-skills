@@ -587,6 +587,30 @@ button. For a tag or device read, usually four kinds:
 
 ---
 
+### Sign-in (single sign-on)
+
+An app that needs to know who someone is offers **Sign in with Google, Apple
+and Microsoft**, all three, drawn by the kit — never by hand:
+
+```js
+import { mountSignIn } from '../vendor/ms-mobilekit/index.js';
+const sso = mountSignIn(document.getElementById('signin'), { onPick: (provider) => auth.signIn({ provider }) });
+sso.only(readyProviders);   // from the service's /health; keep all three if it cannot be reached
+```
+
+- **Wording is "Sign in with …"**, not "Continue with …". Light theme is the
+  "Unified Brand" stack, dark theme "Sleek Dark"; the Apple button is black in
+  both (Apple allows only black or white).
+- **Apple is not optional on iPhone**: App Review 4.8 requires it once Google or
+  Microsoft sign-in is offered. Offer it on Android too, so one account works
+  on both phones.
+- **The phone holds no secret.** The system browser runs the OAuth flow against
+  the app's own service, which keeps the client secrets (Apple's is a short
+  ES256 JWT signed with the Sign in with Apple key) and hands back a signed
+  session. Reference: `airvibe-cellular-mobile-app/infra/ingest/auth.mjs`.
+- **Deleting an account must revoke Apple's token** (App Review 5.1.1(v)), so
+  the service keeps Apple's refresh token for that one purpose.
+
 ## 9. Making it simple to use
 
 Everything in `ms-desktop-app` §9 applies. Additions:
@@ -702,6 +726,7 @@ A lesson that applies to both gets a check in both.
 | README has the four header sections and shows screenshots | the family's repos look alike |
 | Status examples ship in the app | every state reachable without hardware |
 | UI gate: no horizontal scroll, no clipping, ≥ 4.5:1 contrast, ≥ 44 px targets, 7 widths × 2 themes | gloves, sunlight, review rejections |
+| Sign-in buttons come from `mountSignIn`; no hand-made "Continue with …" button | AirVibe Cellular drew its own Google/Microsoft buttons and had no Apple |
 
 Still yours: read a CI run to completion, look at the screenshots, tell the
 person Apple will phone.
