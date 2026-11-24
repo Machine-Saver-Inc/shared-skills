@@ -21,7 +21,7 @@ COPIES = (
 KEYS = {"schema", "about", "intake_url", "kinds", "fields", "attachments", "wording"}
 FIELDS = {"kind", "app_version", "title", "body_markdown", "email", "files"}
 WORDING = {"heading", "intro", "details_note", "send", "copy", "cancel", "sending",
-           "received_private", "received_public", "failed", "not_accepted", "refused_prefix"}
+           "received_private", "received_public", "failed", "failed_detail", "not_accepted", "refused_prefix"}
 
 
 def faults() -> list[str]:

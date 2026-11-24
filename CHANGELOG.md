@@ -4,6 +4,25 @@ Both things in this repository carry a version. They move together: a change to
 the shell bumps `ms-appkit`, and bumps `ms-desktop-app` as well when it changes
 what the skill says.
 
+## 2026-11-24 - A failed report says why, and a report needs a title
+
+### ms-mobilekit 1.3.3
+
+- **`registry/report-form.json`** (and its two packaged copies): the one-line
+  field is labelled **Title** instead of "In one line", and there is one new
+  sentence, `failed_detail` ("Detail for support: {detail}").
+  `tools/check_report_form.py` knows the new key.
+- **`src/report.js`**: the Send button is off until the title has text (it was
+  the title or the description), and the click handler refuses the same case.
+- **`src/report.js`**: `post()` keeps what it tried and why each way failed
+  (`native: ...`, then `web: ...`) and `sendReport()` puts that, or the code
+  the service answered with, after the usual sentence using `failed_detail`.
+  The result also carries it as `detail`. Every failure read "Machine Saver
+  could not be reached" before, so a send that fails on an iPhone while the
+  intake is up could not be diagnosed (airvibe-cellular-mobile-app#44).
+- The desktop dialog (`ms-appkit`) reads the new label from the same file but
+  does not yet require a title or show the detail; that is a separate issue.
+
 ## 2026-11-23 (later) - An empty report cannot be sent
 
 ### ms-mobilekit 1.3.2
