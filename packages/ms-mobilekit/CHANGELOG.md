@@ -1,5 +1,15 @@
 # Changelog — ms-mobilekit
 
+## [1.3.4] — 2026-11-24
+
+**Report a problem** now waits up to 45 seconds for Machine Saver to
+answer before it says the report could not be sent. It waited 10 seconds.
+The service needs longer than that when it has been idle, so the app said
+"could not be reached" for reports that had in fact arrived. The detail
+line added in 1.3.3 showed it on an Android tablet: "native:
+SocketTimeoutException timeout", while the report was filed
+(airvibe-cellular-mobile-app#44).
+
 ## [1.3.3] — 2026-11-24
 
 **Report a problem**: the one-line field is now labelled **Title**, and a

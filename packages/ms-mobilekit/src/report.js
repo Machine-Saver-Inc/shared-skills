@@ -16,6 +16,10 @@ import { trail, button, primary, screens, appConfig } from './kit.js';
 
 export const FAMILY_SUPPORT_EMAIL = 'software-support@machinesaver.net';
 export const INTAKE_TIMEOUT_MS = 10000;
+// Sending a report waits longer than anything else: the service has to wake up and file the report,
+// which took more than ten seconds on a tablet while the report itself arrived. The app said
+// "could not be reached" for a report that had been received (airvibe-cellular-mobile-app#44).
+export const REPORT_SEND_TIMEOUT_MS = 45000;
 const FORM_URL = new URL('report_form.json', import.meta.url);
 
 // ---------- the form definition ----------
@@ -121,13 +125,13 @@ async function post(url, payload, { fetch: fetchFn } = {}) {
   if (!native && !fetchFn) tried.push(cap && cap.isNativePlatform && cap.isNativePlatform() ? 'native: no CapacitorHttp' : 'native: not a phone app');
   if (native) {
     try {
-      const r = await native.request({ url, method: 'POST', headers, data: payload, connectTimeout: INTAKE_TIMEOUT_MS, readTimeout: INTAKE_TIMEOUT_MS });
+      const r = await native.request({ url, method: 'POST', headers, data: payload, connectTimeout: INTAKE_TIMEOUT_MS, readTimeout: REPORT_SEND_TIMEOUT_MS });
       return { status: r.status, json: typeof r.data === 'string' ? safeJson(r.data) : (r.data || {}) };
     } catch (e) { tried.push('native: ' + why(e)); /* the web view is tried before giving up */ }
   }
   const f = fetchFn || globalThis.fetch;
   try {
-    const r = await f(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(INTAKE_TIMEOUT_MS) });
+    const r = await f(url, { method: 'POST', headers, body, signal: AbortSignal.timeout(REPORT_SEND_TIMEOUT_MS) });
     return { status: r.status, json: safeJson(await r.text()) };
   } catch (e) { tried.push('web: ' + why(e)); throw new Error(tried.join('; ')); }
 }
