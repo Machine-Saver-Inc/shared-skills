@@ -1,5 +1,19 @@
 # Changelog — ms-mobilekit
 
+## [1.5.0] — 2026-11-25
+
+**Sign-in buttons**, for every app that offers single sign-on (airvibe-cellular-mobile-app#19):
+
+- **`mountSignIn(el, { onPick })`** (`src/signin.js`) draws one stack: **Sign in with
+  Google**, **Sign in with Apple**, **Sign in with Microsoft**, each with the
+  provider's own logo. Light theme is the "Unified Brand" stack, dark theme
+  "Sleek Dark" (`.ms-sso` in `kit.css`); in dark the Apple button stays pure
+  black, as Apple allows only black or white. `only([...])` hides providers a
+  service has not set up; `busy(true)` disables the stack while one opens.
+- **House rule 16, `checkSignIn`**: an app that starts a sign-in
+  (`/auth/start`) draws the buttons with `mountSignIn`, and no page carries a
+  hand-made "Continue with …" or "Sign in with …" button.
+
 ## [1.4.0] — 2026-11-24
 
 **Report a problem**, from Leo's TestFlight feedback on build 12:
