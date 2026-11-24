@@ -136,6 +136,10 @@ async function post(url, payload, { fetch: fetchFn } = {}) {
   } catch (e) { tried.push('web: ' + why(e)); throw new Error(tried.join('; ')); }
 }
 const safeJson = (text) => { try { return JSON.parse(text || '{}'); } catch (e) { return {}; } };
+
+// The same test the intake makes: empty is fine (the email is optional), otherwise name@domain.tld.
+// Checked in the dialog so a report is not refused for it after Send (airvibe-cellular-mobile-app#60).
+export function emailLooksValid(value) { const v = String(value || '').trim(); return !v || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 // The short technical reason an attempt failed: the phone's error code and message, or the browser's.
 const why = (e) => String([e && e.code, e && (e.message || e.errorMessage)].filter(Boolean).join(' ') || e).slice(0, 140);
 
@@ -164,7 +168,9 @@ export async function sendReport({ form, slug, version, kind, title, body, email
     // The intake answered and said no (a missing line, a rule): say so, with its reason, instead of
     // "could not be reached", which is only true when nothing answered (airvibe-cellular-mobile-app#44).
     if (status >= 400 && status < 500 && w.not_accepted) {
-      const reason = String((json && (json.error || json.message || json.detail)) || `code ${status}`).slice(0, 160);
+      // The intake lists what it refused (field and reason); say that, not only "invalid report" (airvibe-cellular-mobile-app#60).
+      const listed = json && Array.isArray(json.detail) ? json.detail.map(x => (x && typeof x === 'object') ? [Array.isArray(x.loc) ? x.loc[x.loc.length - 1] : '', String(x.msg || x.message || '').replace(/^Value error, /, '')].filter(Boolean).join(': ') : String(x)).join('; ') : (json && typeof json.detail === 'string' ? json.detail : '');
+      const reason = String((json && [json.error || json.message, listed].filter(Boolean).join(': ')) || `code ${status}`).slice(0, 200);
       return { ok: false, status, message: fill(w.not_accepted, { reason, support_email: supportEmail }) };
     }
     return withDetail(failed, 'HTTP ' + status);
@@ -204,7 +210,8 @@ export async function openReport(opts) {
     <label class="ms-small ms-muted">${esc(f.body_markdown.label)}
       <textarea id="ms-desc" rows="4" placeholder="${esc(f.body_markdown.placeholder || '')}" style="${AREA}"></textarea></label>
     <label class="ms-small ms-muted">${esc(f.email.label)} <span>(${esc(f.email.note)})</span>
-      <input id="ms-email" type="email" autocomplete="email" style="${FIELD}"></label>
+      <input id="ms-email" type="email" autocomplete="email" inputmode="email" aria-describedby="ms-email-note" style="${FIELD}"></label>
+        <div id="ms-email-note" class="ms-small" role="status" hidden style="color:var(--ms-bad, #b42318);margin-top:-4px">${esc(w.email_invalid)}</div>
     <div class="ms-small ms-muted">${esc(f.files.label)} <span>(${esc(f.files.note)})</span>
       <label id="ms-drop" style="${FIELD};position:relative;display:flex;align-items:center;gap:8px;border-style:dashed;padding:10px;cursor:pointer">
         <span>${esc(f.files.prompt)}</span>
@@ -227,7 +234,16 @@ export async function openReport(opts) {
     const body = `## ${f.body_markdown.label}\n${description || '_(nothing written)_'}\n\n${q('#ms-details').value.trim()}\n`;
     return { title, body, kind: q('#ms-kind').value, version: q('#ms-version').value.trim() || version, email: q('#ms-email').value.trim() };
   };
-  const asText = () => { const r = compose(); return `${r.title}\n\n${r.body}`; };
+  // Share and Copy carry what the filed report carries: the kind, the version and the email that the
+  // intake turns into labels, the body, and the names of the files (Share also attaches the files).
+  const asText = () => {
+    const r = compose();
+    const kindLabel = (form.kinds.find(k => k.value === r.kind) || {}).label || r.kind;
+    const head = [`**${f.kind.label}:** ${kindLabel}`, `**${f.app_version.label}:** ${app} ${r.version}`];
+    if (r.email) head.push(`**${f.email.label}:** ${r.email}`);
+    const att = files.length ? `\n### ${w.attachments_heading}\n\n${files.map(x => `- ${x.name} (${formatSize(x.size)})`).join('\n')}\n` : '';
+    return `${r.title}\n\n${head.join('\n')}\n\n${r.body}${att}`;
+  };
   const copy = async () => { try { await navigator.clipboard.writeText(asText()); } catch (e) {} };
 
   // Files: chosen, dropped or pasted; each shown with a thumbnail, its size and a way off the list.
@@ -259,7 +275,7 @@ export async function openReport(opts) {
 
   const actions = q('#ms-report-actions');
   const send = primary({ label: w.send, mark: 'send', onClick: async () => {
-    if (!q('#ms-title').value.trim()) return;
+    if (!q('#ms-title').value.trim() || !emailLooksValid(q('#ms-email').value)) { emailTouched = true; ready(); return; }
     const r = compose();
     send.disabled = true; status(w.sending);
     const sent = await sendReport({ form, slug, version: r.version, kind: r.kind, title: r.title, body: r.body, email: r.email || undefined, files, visibility, supportEmail, fetch: opts.fetch });
@@ -276,10 +292,23 @@ export async function openReport(opts) {
   // A report needs its title: Send stays off until the title has text.
   // An empty report could be sent before (airvibe-cellular-mobile-app#43).
   const written = () => Boolean(q('#ms-title').value.trim());
-  const ready = () => { send.disabled = !written(); };
+  // The email is checked when the box is left (not on every key), and Send stays off while it is wrong.
+  let emailTouched = false;
+  const ready = () => {
+    const ok = emailLooksValid(q('#ms-email').value);
+    q('#ms-email-note').hidden = ok || !emailTouched;
+    q('#ms-email').setAttribute('aria-invalid', ok ? 'false' : 'true');
+    send.disabled = !written() || !ok;
+  };
+  q('#ms-email').addEventListener('input', ready);
+  q('#ms-email').addEventListener('blur', () => { emailTouched = true; ready(); });
   q('#ms-title').addEventListener('input', ready); q('#ms-desc').addEventListener('input', ready);
   ready();
-  if (typeof navigator !== 'undefined' && navigator.share) actions.appendChild(button({ label: 'Share', mark: 'share', onClick: () => navigator.share({ title: compose().title, text: asText() }).catch(() => {}) }));
+  if (typeof navigator !== 'undefined' && navigator.share) actions.appendChild(button({ label: w.share, mark: 'share', onClick: () => {
+    const data = { title: `${app}: ${compose().title}`, text: asText() };
+    try { if (files.length && navigator.canShare && navigator.canShare({ files })) data.files = files; } catch (e) {}
+    navigator.share(data).catch(() => {});
+  } }));
   actions.appendChild(button({ label: w.copy, mark: 'copy', onClick: copy }));
   actions.appendChild(button({ label: w.cancel, mark: 'cancel', onClick: () => dlg.close() }));
   document.body.appendChild(dlg);
